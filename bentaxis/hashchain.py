@@ -18,9 +18,11 @@ class HashChain:
         return self.links[-1] if self.links else self.seed
 
     def append_event(self, event: Event) -> HashChain:
-        event_id = Identity.calculate({"kind": event.kind, "payload": event.payload, "metadata": event.metadata}).digest
+        event_identity = Identity.calculate(
+            {"kind": event.kind, "payload": event.payload, "metadata": event.metadata}
+        )
         next_head = hashlib.sha256(
-            to_canonical_bytes({"prev": self.head, "event": event_id})
+            to_canonical_bytes({"prev": self.head, "event": event_identity.digest})
         ).hexdigest()
         return HashChain(seed=self.seed, links=self.links + (next_head,))
 
