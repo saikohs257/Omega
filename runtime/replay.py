@@ -17,13 +17,6 @@ class ReplayResult:
 
 @dataclass(slots=True)
 class ReplayEngine:
-    """Kernel replay engine.
-
-    This is intentionally minimal: it validates and dispatches constitutional
-    records through registered replay operators, producing a reconstructed
-    StateVector.
-    """
-
     registry: ReplayRegistry = field(default_factory=ReplayRegistry)
 
     def replay(self, records: tuple[ConstitutionalRecord, ...]) -> ReplayResult:
