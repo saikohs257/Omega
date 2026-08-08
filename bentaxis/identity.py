@@ -66,8 +66,15 @@ def to_canonical_bytes(obj: Any) -> bytes:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Identity:
+    """Immutable content identity.
+
+    Deliberately avoids ``slots=True`` so illegal assignment of an unknown
+    attribute follows dataclasses' normal FrozenInstanceError contract rather
+    than the CPython slots/frozen TypeError edge case.
+    """
+
     digest: str
     canonical_payload: Any | None = None
 
