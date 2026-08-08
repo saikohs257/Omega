@@ -42,3 +42,8 @@ def test_holdout_rejects_non_real_fractions() -> None:
 def test_holdout_preserves_explicit_zero_fraction() -> None:
     split = HoldoutExperiment(train_fraction=0.999, validation_fraction=0.001, test_fraction=0.0).split_rows(ROWS)
     assert split.sizes == {"train": 5, "validation": 1, "test": 0}
+
+def test_holdout_rejects_boolean_telemetry_values() -> None:
+    rows = [{**ROWS[0], "B": True}]
+    with pytest.raises(TypeError, match="B must be a real number"):
+        HoldoutExperiment().normalize_rows(rows)
