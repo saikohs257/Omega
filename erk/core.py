@@ -274,8 +274,15 @@ class Transition:
     @staticmethod
     def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None, branch_bound: int = 16) -> EpistemicState:
         state = state.normalized()
+        if state.terminal is not None:
+            raise ValueError("terminal branch cannot transition")
         branch_bound = _positive_int(branch_bound, "branch_bound")
         evidence = tuple(evidence)
+        grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
+        if len(set(grant_ids)) != len(grant_ids):
+            raise ValueError("duplicate authority grant id in transition")
+        if any(grant_id in state.used_authority_grants for grant_id in grant_ids):
+            raise ValueError("authority grant replay detected")
         next_authority = state.authority
         if action == Action.ESCALATE:
             if authorized_authority is None:
@@ -292,8 +299,7 @@ class Transition:
             if state.active_branches >= branch_bound:
                 raise ValueError("branch bound exceeded")
             next_branches += 1
-        next_grants = tuple(state.used_authority_grants) + tuple(record.authority_grant_id for record in evidence if record.authority_grant_id)
-        return replace(state, authority=next_authority, active_branches=next_branches, evidence_count=state.evidence_count + len(evidence), used_authority_grants=next_grants, terminal=action.value if action in {Action.REJECT, Action.QUARANTINE, Action.ARCHIVE} else state.terminal)
+        return replace(state, authority=next_authority, active_branches=next_branches, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids, terminal=action.value if action in {Action.REJECT, Action.QUARANTINE, Action.ARCHIVE} else state.terminal).normalized()
 
 
 def state_hash(state: EpistemicState) -> str:
