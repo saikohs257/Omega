@@ -1,5 +1,4 @@
 """Non-authoritative constants for the TIAMAT identification laboratory."""
-from __future__ import annotations
 HAZARD_BANDS: tuple[float, float, float] = (0.343, 0.599, 0.794)
 DORMANCY_REFRACTORY_THRESHOLD: float = 0.95
 RETIRED_FIXED_CHOKE_HOURS: None = None
