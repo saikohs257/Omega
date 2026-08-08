@@ -28,9 +28,24 @@ def test_valid_permit_reaches_final_firewall_once() -> None:
     firewall = ActuatorFirewall(kernel(), SOURCE)
     state = executable_state()
     permit = firewall.issue(state)
-    firewall.execute(state, permit)
+    effects: list[str] = []
+    firewall.execute(state, permit, effects.append)
+    assert effects == [permit.effect_id]
     with pytest.raises(ConstitutionalViolation, match="replay"):
-        firewall.execute(state, permit)
+        firewall.execute(state, permit, effects.append)
+    assert effects == [permit.effect_id]
+
+
+def test_commit_rechecks_current_state_after_prepare() -> None:
+    firewall = ActuatorFirewall(kernel(), SOURCE)
+    state = executable_state()
+    permit = firewall.issue(state)
+    firewall.prepare(state, permit)
+    changed = EpistemicState(authority=Authority.SIMULATE)
+    effects: list[str] = []
+    with pytest.raises(ConstitutionalViolation, match="EXECUTE"):
+        firewall.commit(changed, permit, effects.append)
+    assert effects == []
 
 
 def test_permit_cannot_cross_state_boundary() -> None:
@@ -38,7 +53,7 @@ def test_permit_cannot_cross_state_boundary() -> None:
     permit = firewall.issue(executable_state())
     changed = EpistemicState(authority=Authority.EXECUTE, policy_version="different")
     with pytest.raises(ConstitutionalViolation, match="policy mismatch"):
-        firewall.execute(changed, permit)
+        firewall.execute(changed, permit, lambda _: None)
 
 
 def test_permit_cannot_cross_key_boundary() -> None:
@@ -46,7 +61,7 @@ def test_permit_cannot_cross_key_boundary() -> None:
     permit = issuing.issue(executable_state())
     other = ActuatorFirewall(kernel(), "other")
     with pytest.raises(ConstitutionalViolation, match="key mismatch"):
-        other.execute(executable_state(), permit)
+        other.execute(executable_state(), permit, lambda _: None)
 
 
 def test_execution_transition_consumes_authority_after_permit() -> None:
@@ -54,6 +69,6 @@ def test_execution_transition_consumes_authority_after_permit() -> None:
     state = executable_state()
     firewall = ActuatorFirewall(k, SOURCE)
     permit = firewall.issue(state)
-    firewall.execute(state, permit)
+    firewall.execute(state, permit, lambda _: None)
     after = k.step(state, Action.ENABLE_EXECUTION)
     assert after.authority == Authority.SIMULATE
