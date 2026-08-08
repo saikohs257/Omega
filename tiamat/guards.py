@@ -38,7 +38,7 @@ class ExcitationDurationExpiredGuard(Guard):
 
     def evaluate(self, state: TiamatState, evidence: Mapping[str, Any]) -> bool:
         limit = int(evidence.get("excitation_duration", 0))
-        age = int(state.timers.get("excitation_age", 0))
+        age = int(state.excitation_age_h)
         return limit > 0 and age >= limit
 
 
