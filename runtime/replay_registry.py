@@ -34,8 +34,11 @@ class ReplayRegistry:
             self._operators["*"] = RecordReplayOperator()
 
     def register(self, record_type: str, operator: ReplayOperator) -> None:
-        if not record_type:
-            raise ValueError("record_type must not be empty")
+        if not isinstance(record_type, str) or not record_type:
+            raise TypeError("record_type must be a non-empty string")
+        reconstruct = getattr(operator, "reconstruct", None)
+        if not callable(reconstruct):
+            raise TypeError("operator must provide a callable reconstruct method")
         self._operators[record_type] = operator
 
     def resolve(self, record_type: str) -> ReplayOperator:
