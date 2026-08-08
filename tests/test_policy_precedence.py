@@ -57,3 +57,14 @@ def test_compute_strain_rejects_non_finite_lambda() -> None:
         compute_strain({"h1": 1.0}, {}, {}, lam=math.inf)
     with pytest.raises(ValueError, match="lam must be finite and non-negative"):
         compute_strain({"h1": 1.0}, {}, {}, lam=-1.0)
+
+
+def test_compute_strain_rejects_invalid_observability_and_relevance() -> None:
+    with pytest.raises(ValueError, match="observability\[signal\] must be finite"):
+        compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": math.nan})
+    with pytest.raises(ValueError, match="observability\[signal\] must be finite"):
+        compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": math.inf})
+    with pytest.raises(ValueError, match="relevance\[signal\] must be finite"):
+        compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": 1.0}, {"signal": math.inf})
+    with pytest.raises(ValueError, match="relevance\[signal\] must be non-negative"):
+        compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": 1.0}, {"signal": -1.0})
