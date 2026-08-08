@@ -230,9 +230,7 @@ class EpistemicState:
     used_authority_grants: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        for name in (
-            "observability", "hypotheses", "predictions", "relevance", "critical_load",
-        ):
+        for name in ("observability", "hypotheses", "predictions", "relevance", "critical_load"):
             object.__setattr__(self, name, _freeze(getattr(self, name)))
         object.__setattr__(self, "used_authority_grants", tuple(self.used_authority_grants))
 
@@ -271,6 +269,12 @@ class PolicyConfig:
 
 
 class Supervisor:
+    """Deterministic constitutional policy layer.
+
+    Safety/liveness/boundedness gates are evaluated before optimization.
+    Cost weights may select only among actions surviving those gates.
+    """
+
     def __init__(self, config: PolicyConfig | None = None) -> None:
         self.config = config or PolicyConfig()
 
@@ -280,6 +284,15 @@ class Supervisor:
             return ()
         if state.cycles:
             return (Action.REJECT, Action.QUARANTINE, Action.ESCALATE)
+        if state.strain >= self.config.u_crit:
+            return (Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
+        if state.calibration_error >= self.config.calibration_crit:
+            return (Action.ESCALATE, Action.QUARANTINE)
+        if state.unsupported_depth >= self.config.depth_bound:
+            return (Action.ESCALATE, Action.QUARANTINE)
+        if state.active_branches > self.config.branch_bound:
+            return (Action.ESCALATE, Action.QUARANTINE)
+
         actions = [
             Action.BLOCK,
             Action.BRANCH,
@@ -288,20 +301,36 @@ class Supervisor:
             Action.ESCALATE,
             Action.ARCHIVE,
         ]
-        if (
-            state.authority == Authority.EXECUTE
-            and state.strain < self.config.u_crit
-            and state.unsupported_depth < self.config.depth_bound
-            and state.calibration_error < self.config.calibration_crit
-            and state.active_branches <= self.config.branch_bound
-        ):
+        if state.authority == Authority.EXECUTE:
             actions.append(Action.ENABLE_EXECUTION)
         return tuple(actions)
 
     def supervise(self, state: EpistemicState) -> Action:
+        state = state.normalized()
         actions = self.safe_actions(state)
         if not actions:
             return Action.ESCALATE
+
+        # Constitutional precedence is resolved before cost optimization.
+        if state.cycles:
+            return Action.REJECT
+        if state.strain >= self.config.u_crit:
+            return Action.QUARANTINE
+        if state.calibration_error >= self.config.calibration_crit:
+            return Action.ESCALATE
+        if state.unsupported_depth >= self.config.depth_bound:
+            return Action.ESCALATE
+        if state.active_branches > self.config.branch_bound:
+            return Action.ESCALATE
+        if state.authority == Authority.EXECUTE:
+            return Action.ENABLE_EXECUTION
+
+        # Normal operation: minimal intervention first, then configured cost.
+        preferred = (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
+        admissible = set(actions)
+        for action in preferred:
+            if action in admissible:
+                return action
         return min(actions, key=lambda action: (self.config.cost_weights.get(action, 1.0), action.value))
 
 
