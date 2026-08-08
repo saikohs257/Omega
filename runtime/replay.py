@@ -24,8 +24,12 @@ class ReplayEngine:
         records: Sequence[ConstitutionalRecord],
         initial_state: StateVector | None = None,
     ) -> ReplayResult:
-        state = initial_state or StateVector()
+        if initial_state is not None and not isinstance(initial_state, StateVector):
+            raise TypeError("initial_state must be a StateVector or None")
         normalized_records = tuple(records)
+        if any(not isinstance(record, ConstitutionalRecord) for record in normalized_records):
+            raise TypeError("records must contain only ConstitutionalRecord instances")
+        state = initial_state if initial_state is not None else StateVector()
         for record in normalized_records:
             operator = self.registry.resolve(record.record_type)
             state = operator.reconstruct(record, state)
