@@ -42,6 +42,8 @@ class ReplayRegistry:
         self._operators[record_type] = operator
 
     def resolve(self, record_type: str) -> ReplayOperator:
+        if not isinstance(record_type, str) or not record_type:
+            raise TypeError("record_type must be a non-empty string")
         try:
             return self._operators[record_type]
         except KeyError:
