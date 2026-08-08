@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from tiamat import IdentificationRunner, TelemetryAdapter, TelemetryRow, TiamatMode
+from tiamat import (
+    IDENTIFICATION_RUNNER_VERSION,
+    IdentificationRunner,
+    TelemetryAdapter,
+    TelemetryRow,
+    TiamatMode,
+)
+
+
+def test_identification_runner_version_is_explicit_and_exported() -> None:
+    assert IDENTIFICATION_RUNNER_VERSION == "v1"
 
 
 def test_telemetry_row_projects_and_round_trips() -> None:
