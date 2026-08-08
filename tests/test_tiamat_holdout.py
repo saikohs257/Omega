@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from tiamat import HoldoutExperiment, IdentificationRunner, STATE_SPACE, TemporalCausalGate, TournamentConfig
+from tiamat import HoldoutExperiment, IdentificationRunner, STATE_SPACE, TemporalCausalGate, TournamentConfig, TargetProvenance
+from tiamat.experiment_manifest import corpus_fingerprint
 
 ROWS = [
     {"timestamp":"2026-08-08T10:03:00Z","B":0.2,"V":0.1,"D":0.0,"tau_D":0.0,"tau_mode":0.0,"mode":"Q"},
@@ -15,6 +16,11 @@ ROWS = [
 def uniform_predictor(_row):
     p=1.0/len(STATE_SPACE); return {state:p for state in STATE_SPACE}
 
+def _label_provenance() -> TargetProvenance:
+    split=HoldoutExperiment().split_rows(ROWS)
+    corpus_hash=corpus_fingerprint([r.to_mapping() for r in (*split.train,*split.validation,*split.test)])
+    return TargetProvenance("observed","mode-v1","observed controller mode",1.0,("mode",),corpus_hash,0,False)
+
 def test_holdout_split_orders_temporally_and_uses_all_rows() -> None:
     split=HoldoutExperiment().split_rows(ROWS)
     assert split.sizes=={"train":4,"validation":1,"test":1}
@@ -24,26 +30,31 @@ def test_holdout_split_orders_temporally_and_uses_all_rows() -> None:
 
 def test_holdout_evaluation_includes_frozen_experiment_identity_and_probability_preflight() -> None:
     implementation_hash="0"*64
-    evaluation=IdentificationRunner().evaluate_holdout(ROWS,model_ids=("M0","M3","M7"),implementation_hash=implementation_hash,probability_predictor=uniform_predictor)
+    evaluation=IdentificationRunner().holdout_experiment(label_provenance=_label_provenance()).evaluate(ROWS,model_ids=("M0","M3","M7"),implementation_hash=implementation_hash,probability_predictor=uniform_predictor)
     payload=evaluation.to_dict()
     assert payload["version"]=="holdout-v3.1"
-    assert payload["config"]["config_version"]=="tournament-config-v3"
+    assert payload["config"]["config_version"]=="tournament-config-v3.1"
     assert len(payload["config"]["config_hash"])==64
     assert len(payload["experiment_id"])==64
     assert payload["manifest"]["implementation_hash"]==implementation_hash
     assert payload["manifest"]["probability_contract_hash"]
     assert payload["probability_contract"]["violation_policy"]=="reject"
+    assert payload["config"]["deferred_metrics"]==["transition_error","complexity","stability"]
     assert evaluation.selected_model_id in {"M0","M3","M7"}
     assert evaluation.locked_model_id==evaluation.selected_model_id
     assert evaluation.test_selected is not None
 
 def test_holdout_requires_implementation_identity() -> None:
     with pytest.raises(ValueError,match="implementation_hash"):
-        IdentificationRunner().evaluate_holdout(ROWS,model_ids=("M0",),probability_predictor=uniform_predictor)
+        IdentificationRunner().holdout_experiment(label_provenance=_label_provenance()).evaluate(ROWS,model_ids=("M0",),probability_predictor=uniform_predictor)
 
 def test_holdout_requires_probability_predictor() -> None:
     with pytest.raises(ValueError,match="probability_predictor"):
-        IdentificationRunner().evaluate_holdout(ROWS,model_ids=("M0",),implementation_hash="0"*64)
+        IdentificationRunner().holdout_experiment(label_provenance=_label_provenance()).evaluate(ROWS,model_ids=("M0",),implementation_hash="0"*64)
+
+def test_holdout_requires_label_provenance() -> None:
+    with pytest.raises(ValueError,match="label_provenance"):
+        IdentificationRunner().evaluate_holdout(ROWS,model_ids=("M0",),implementation_hash="0"*64,probability_predictor=uniform_predictor)
 
 def test_causal_gate_rejects_future_contamination() -> None:
     gate=TemporalCausalGate(max_lookback=10)
