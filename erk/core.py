@@ -200,7 +200,7 @@ class Supervisor:
         if state.strain >= self.config.u_crit: return (Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
         if state.calibration_error >= self.config.calibration_crit: return (Action.ESCALATE, Action.QUARANTINE)
         if state.unsupported_depth >= self.config.depth_bound: return (Action.ESCALATE, Action.QUARANTINE)
-        if state.active_branches >= self.config.branch_bound: return (Action.ESCALATE, Action.QUARANTINE)
+        if state.active_branches >= self.config.branch_bound: return (Action.BLOCK, Action.ESCALATE, Action.QUARANTINE)
         actions = [Action.BLOCK, Action.BRANCH, Action.REJECT, Action.QUARANTINE, Action.ESCALATE, Action.ARCHIVE]
         if state.authority == Authority.EXECUTE: actions.append(Action.ENABLE_EXECUTION)
         return tuple(actions)
@@ -211,7 +211,7 @@ class Supervisor:
         if state.strain >= self.config.u_crit: return Action.QUARANTINE
         if state.calibration_error >= self.config.calibration_crit: return Action.ESCALATE
         if state.unsupported_depth >= self.config.depth_bound: return Action.ESCALATE
-        if state.active_branches >= self.config.branch_bound: return Action.ESCALATE
+        if state.active_branches >= self.config.branch_bound: return Action.BLOCK
         if state.authority == Authority.EXECUTE: return Action.ENABLE_EXECUTION
         preferred = (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
         admissible = set(actions)
