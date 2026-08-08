@@ -21,3 +21,4 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest tests -q
+      - run: python -c "print('OMEGA CI WORKFLOW REACHED TEST EXECUTION')"
