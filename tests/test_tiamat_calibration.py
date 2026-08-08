@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tiamat import CalibrationReport, CandidateDiagnostic, ControlMetricSet, HoldoutExperiment, LabelProvenance, MetricContract, ProbabilityContract, STATE_SPACE
+from tiamat import CalibrationReport, CandidateDiagnostic, ControlMetricSet, HoldoutExperiment, LabelProvenance, corpus_fingerprint
 
 
 HASH = "a" * 64
@@ -44,9 +44,10 @@ def test_holdout_calibration_report_requires_label_provenance() -> None:
         {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
         {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
     ]
+    corpus_hash = corpus_fingerprint(rows)
     controls = {"uniform": {"nll": 1.0, "brier": 1.0, "ece": 1.0}}
     candidates = {"M3": {"nll": 0.5, "brier": 0.4, "ece": 0.3, "rows": 2}}
-    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), HASH))
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), corpus_hash))
     report = experiment.calibration_report(rows, controls=controls, candidates=candidates, inference_purity=True, ece_reliability_behavior="balanced")
     assert report.decision == "PROCEED"
     assert report.corpus_manifest_hash
@@ -54,7 +55,13 @@ def test_holdout_calibration_report_requires_label_provenance() -> None:
     assert report.metric_contract_hash
 
 
-def test_holdout_calibration_report_rejects_unbound_label_provenance() -> None:
-    experiment = HoldoutExperiment()
-    with pytest.raises(ValueError, match="label_provenance"):
-        experiment.calibration_report([], controls={}, candidates={}, inference_purity=True, ece_reliability_behavior="unknown")
+def test_holdout_calibration_report_rejects_label_corpus_mismatch() -> None:
+    rows = [
+        {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
+        {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
+    ]
+    controls = {"uniform": {"nll": 1.0, "brier": 1.0, "ece": 1.0}}
+    candidates = {"M3": {"nll": 0.5, "brier": 0.4, "ece": 0.3, "rows": 2}}
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), HASH))
+    with pytest.raises(ValueError, match="label_provenance label_corpus_hash does not match holdout corpus"):
+        experiment.calibration_report(rows, controls=controls, candidates=candidates, inference_purity=True, ece_reliability_behavior="unknown")
