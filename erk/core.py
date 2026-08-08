@@ -59,32 +59,39 @@ class EvidenceRecord:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "payload", _freeze(self.payload))
-        canonical = self._canonical_content()
-        digest = hashlib.sha256(canonical).hexdigest()
+        digest = hashlib.sha256(self._canonical_content()).hexdigest()
         if self.provenance_hash and self.provenance_hash != digest:
             raise ValueError("provenance_hash does not match immutable evidence")
         object.__setattr__(self, "provenance_hash", digest)
 
     def _canonical_content(self) -> bytes:
-        obj = {
-            "evidence_id": self.evidence_id,
-            "source": self.source,
-            "timestamp": self.timestamp,
-            "payload": _canonical(self.payload),
-            "authority_grant": self.authority_grant,
-            "authority_signature": self.authority_signature,
-        }
+        obj = {"evidence_id": self.evidence_id, "source": self.source, "timestamp": self.timestamp, "payload": _canonical(self.payload), "authority_grant": self.authority_grant, "authority_signature": self.authority_signature}
         return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode()
 
-    def authority_message(self) -> bytes:
-        obj = {
-            "evidence_id": self.evidence_id,
-            "source": self.source,
-            "timestamp": self.timestamp,
-            "payload": _canonical(self.payload),
-            "authority_grant": self.authority_grant,
-        }
+
+@dataclass(frozen=True, slots=True)
+class AuthorityGrant:
+    prior: Authority
+    target: Authority
+    evidence_hash: str
+    state_hash: str
+    policy_hash: str
+    grant_id: str
+    kernel_signature: str
+
+    def message(self) -> bytes:
+        obj = {"prior": int(self.prior), "target": int(self.target), "evidence_hash": self.evidence_hash, "state_hash": self.state_hash, "policy_hash": self.policy_hash, "grant_id": self.grant_id}
         return json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
+
+
+def verify_authority_grant(grant: AuthorityGrant, state: "EpistemicState", evidence: Sequence[EvidenceRecord], kernel_secret: bytes) -> bool:
+    if grant.prior != state.authority or grant.target != Authority(int(grant.prior) + 1):
+        return False
+    evidence_hash = hashlib.sha256(b"".join(e._canonical_content() for e in evidence)).hexdigest()
+    if evidence_hash != grant.evidence_hash or grant.state_hash != state_hash(state) or grant.policy_hash != state.policy_version:
+        return False
+    expected = hashlib.sha256(kernel_secret + grant.message()).hexdigest()
+    return grant.kernel_signature == expected
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,77 +124,45 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
     cycles: list[tuple[str, ...]] = []
     color: dict[str, int] = {n: 0 for n in ids}
     stack: list[str] = []
-
-    def dfs_cycle(node: str) -> None:
-        color[node] = 1
-        stack.append(node)
+    def dfs(node: str) -> None:
+        color[node] = 1; stack.append(node)
         for nxt in adjacency[node]:
-            if color[nxt] == 0:
-                dfs_cycle(nxt)
-            elif color[nxt] == 1 and nxt in stack:
-                i = stack.index(nxt)
-                cycles.append(tuple(stack[i:] + [nxt]))
-        stack.pop()
-        color[node] = 2
-
+            if color[nxt] == 0: dfs(nxt)
+            elif color[nxt] == 1 and nxt in stack: cycles.append(tuple(stack[stack.index(nxt):] + [nxt]))
+        stack.pop(); color[node] = 2
     for node in sorted(ids):
-        if color[node] == 0:
-            dfs_cycle(node)
-    memo_depth: dict[str, int] = {}
-
+        if color[node] == 0: dfs(node)
+    memo: dict[str, int] = {}
     def depth(node: str, visiting: set[str]) -> int:
-        if node in memo_depth:
-            return memo_depth[node]
-        if node in visiting:
-            return 0
-        visiting.add(node)
-        value = max((1 + depth(nxt, visiting) for nxt in adjacency[node]), default=0)
-        visiting.remove(node)
-        memo_depth[node] = value
-        return value
-
+        if node in memo: return memo[node]
+        if node in visiting: return 0
+        visiting.add(node); value = max((1 + depth(nxt, visiting) for nxt in adjacency[node]), default=0); visiting.remove(node); memo[node] = value; return value
     unsupported = {n.node_id for n in nodes if not n.supported}
-    unsupported_depth = max((depth(n, set()) for n in unsupported), default=0)
-    critical_load: dict[str, int] = {}
+    critical: dict[str, int] = {}
     for node in sorted(ids):
-        seen: set[str] = set()
-        todo = list(adjacency[node])
+        seen: set[str] = set(); todo = list(adjacency[node])
         while todo:
             nxt = todo.pop()
-            if nxt in seen:
-                continue
-            seen.add(nxt)
-            todo.extend(adjacency[nxt])
-        critical_load[node] = len(seen)
-    return GraphMetrics(unsupported_depth, MappingProxyType(critical_load), tuple(cycles))
+            if nxt in seen: continue
+            seen.add(nxt); todo.extend(adjacency[nxt])
+        critical[node] = len(seen)
+    return GraphMetrics(max((depth(n, set()) for n in unsupported), default=0), MappingProxyType(critical), tuple(cycles))
 
 
 def _prediction_distance(a: Any, b: Any) -> float:
-    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-        return min(1.0, abs(float(a) - float(b)))
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)): return min(1.0, abs(float(a) - float(b)))
     return 0.0 if a == b else 1.0
 
 
 def compute_strain(hypotheses: Mapping[str, float], predictions: Mapping[str, Mapping[str, Any]], observability: Mapping[str, float], relevance: Mapping[str, float] | None = None, lam: float = 1.0) -> float:
-    if not hypotheses or lam < 0:
-        return 0.0
-    total_prob = sum(max(0.0, float(p)) for p in hypotheses.values())
-    if total_prob <= 0:
-        return 0.0
-    probs = {h: max(0.0, float(p)) / total_prob for h, p in hypotheses.items()}
-    relevance = relevance or {}
-    conflict = 0.0
-    names = list(probs)
+    if not hypotheses or lam < 0: return 0.0
+    total = sum(max(0.0, float(p)) for p in hypotheses.values())
+    if total <= 0: return 0.0
+    probs = {h: max(0.0, float(p)) / total for h, p in hypotheses.items()}; relevance = relevance or {}; conflict = 0.0; names = list(probs)
     for i, h1 in enumerate(names):
-        for h2 in names[i + 1 :]:
-            pair_weight = probs[h1] * probs[h2]
-            disagreement = 0.0
-            for variable, obs in observability.items():
-                if obs <= 0:
-                    continue
-                w = max(0.0, float(relevance.get(variable, 1.0)))
-                disagreement += w * float(obs) * _prediction_distance(predictions.get(h1, {}).get(variable), predictions.get(h2, {}).get(variable))
-            conflict += pair_weight * disagreement
+        for h2 in names[i + 1:]:
+            disagreement = sum(max(0.0, float(relevance.get(v, 1.0))) * float(obs) * _prediction_distance(predictions.get(h1, {}).get(v), predictions.get(h2, {}).get(v)) for v, obs in observability.items() if obs > 0)
+            conflict += probs[h1] * probs[h2] * disagreement
     return 1.0 - math.exp(-max(0.0, lam) * conflict)
 
 
@@ -206,17 +181,14 @@ class EpistemicState:
     active_branches: int = 1
     evidence_count: int = 0
     policy_version: str = "erk-v2.2"
+    terminal: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "observability", _freeze(self.observability))
-        object.__setattr__(self, "hypotheses", _freeze(self.hypotheses))
-        object.__setattr__(self, "predictions", _freeze(self.predictions))
-        object.__setattr__(self, "relevance", _freeze(self.relevance))
-        object.__setattr__(self, "critical_load", _freeze(self.critical_load))
+        for name in ("observability", "hypotheses", "predictions", "relevance", "critical_load"):
+            object.__setattr__(self, name, _freeze(getattr(self, name)))
 
-    def normalized(self) -> EpistemicState:
-        obs = {k: min(1.0, max(0.0, float(v))) for k, v in self.observability.items()}
-        return replace(self, observability=obs, strain=min(1.0, max(0.0, float(self.strain))), calibration_error=min(1.0, max(0.0, float(self.calibration_error))), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)))
+    def normalized(self) -> "EpistemicState":
+        return replace(self, observability={k: min(1.0, max(0.0, float(v))) for k, v in self.observability.items()}, strain=min(1.0, max(0.0, float(self.strain))), calibration_error=min(1.0, max(0.0, float(self.calibration_error))), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,77 +197,40 @@ class PolicyConfig:
     depth_bound: int = 8
     calibration_crit: float = 0.25
     branch_bound: int = 16
-    cost_weights: Mapping[Action, float] = field(default_factory=lambda: {
-        Action.BLOCK: 0.20,
-        Action.BRANCH: 0.40,
-        Action.ARCHIVE: 0.60,
-        Action.QUARANTINE: 0.80,
-        Action.REJECT: 1.00,
-        Action.ESCALATE: 0.90,
-        Action.ENABLE_EXECUTION: 0.00,
-    })
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "cost_weights", _freeze(self.cost_weights))
+    cost_weights: Mapping[Action, float] = field(default_factory=lambda: {Action.BLOCK: .20, Action.BRANCH: .40, Action.ARCHIVE: .60, Action.QUARANTINE: .80, Action.REJECT: 1.0, Action.ESCALATE: .90, Action.ENABLE_EXECUTION: 0.0})
+    def __post_init__(self) -> None: object.__setattr__(self, "cost_weights", _freeze(self.cost_weights))
 
 
 class Supervisor:
-    """Pure policy selector. Safety gates are evaluated before policy costs."""
-
-    def __init__(self, config: PolicyConfig | None = None) -> None:
-        self.config = config or PolicyConfig()
-
-    def safety_status(self, state: EpistemicState) -> tuple[bool, str | None]:
-        s = state.normalized()
-        if s.cycles:
-            return False, "STRUCTURAL_CYCLE"
-        if s.strain >= self.config.u_crit:
-            return False, "STRAIN_LIMIT"
-        if s.unsupported_depth >= self.config.depth_bound:
-            return False, "DEPTH_LIMIT"
-        if s.calibration_error >= self.config.calibration_crit:
-            return False, "CALIBRATION_LIMIT"
-        if s.active_branches > self.config.branch_bound:
-            return False, "BRANCH_LIMIT"
-        return True, None
-
+    def __init__(self, config: PolicyConfig | None = None) -> None: self.config = config or PolicyConfig()
     def safe_actions(self, state: EpistemicState) -> tuple[Action, ...]:
         s = state.normalized()
-        if s.cycles:
-            return (Action.REJECT, Action.QUARANTINE, Action.ESCALATE)
+        if s.terminal is not None: return ()
+        if s.cycles: return (Action.REJECT, Action.QUARANTINE, Action.ESCALATE)
         safe = [Action.BLOCK, Action.BRANCH, Action.REJECT, Action.QUARANTINE, Action.ESCALATE, Action.ARCHIVE]
-        execution_allowed = (
-            s.authority == Authority.EXECUTE
-            and s.strain < self.config.u_crit
-            and s.unsupported_depth < self.config.depth_bound
-            and s.calibration_error < self.config.calibration_crit
-            and s.active_branches <= self.config.branch_bound
-        )
-        if execution_allowed:
-            safe.append(Action.ENABLE_EXECUTION)
+        if s.authority == Authority.EXECUTE and s.strain < self.config.u_crit and s.unsupported_depth < self.config.depth_bound and s.calibration_error < self.config.calibration_crit and s.active_branches <= self.config.branch_bound: safe.append(Action.ENABLE_EXECUTION)
         return tuple(safe)
-
     def supervise(self, state: EpistemicState) -> Action:
         actions = self.safe_actions(state)
         return Action.ESCALATE if not actions else min(actions, key=lambda a: (self.config.cost_weights.get(a, 1.0), a.value))
 
 
 class Transition:
-    """Sole state transition function. Evidence claims cannot grant authority."""
+    """Only applies kernel-verified grants. Callers cannot self-authorize escalation."""
     @staticmethod
-    def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None) -> EpistemicState:
-        s = state.normalized()
-        evidence = tuple(evidence)
-        next_authority = s.authority
+    def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), grant: AuthorityGrant | None = None, kernel_secret: bytes | None = None) -> EpistemicState:
+        s = state.normalized(); evidence = tuple(evidence)
+        if s.terminal is not None: raise ValueError("terminal branch cannot transition")
         if action == Action.ENABLE_EXECUTION:
-            next_authority = Authority.SIMULATE
-        if authorized_authority is not None and authorized_authority > next_authority:
-            if authorized_authority != Authority(int(next_authority) + 1):
-                raise ValueError("authority transition must be one level")
-            next_authority = authorized_authority
+            if s.authority != Authority.EXECUTE: raise ValueError("execution requires authority=EXECUTE")
+            return replace(s, authority=Authority.SIMULATE)
+        next_authority = s.authority
+        if grant is not None:
+            if kernel_secret is None or not verify_authority_grant(grant, s, evidence, kernel_secret): raise ValueError("invalid kernel authority grant")
+            next_authority = grant.target
         return replace(s, authority=next_authority, evidence_count=s.evidence_count + len(evidence)).normalized()
 
 
 def state_hash(state: EpistemicState) -> str:
-    obj = {"observability": dict(sorted(state.observability.items())), "hypotheses": dict(sorted(state.hypotheses.items())), "predictions": {k: dict(sorted(v.items())) for k, v in sorted(state.predictions.items())}, "relevance": dict(sorted(state.relevance.items())), "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": dict(sorted(state.critical_load.items())), "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version}
+    obj = {"observability": dict(sorted(state.observability.items())), "hypotheses": dict(sorted(state.hypotheses.items())), "predictions": {k: dict(sorted(v.items())) for k, v in sorted(state.predictions.items())}, "relevance": dict(sorted(state.relevance.items())), "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": dict(sorted(state.critical_load.items())), "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version, "terminal": state.terminal}
     return hashlib.sha256(json.dumps(_canonical(obj), sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
