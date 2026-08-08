@@ -82,9 +82,10 @@ class HoldoutExperiment:
         raw = [total * fraction for fraction in fractions]; counts = [math.floor(value) for value in raw]; remainder = total - sum(counts)
         order = sorted(range(3), key=lambda index: (raw[index] - counts[index], -index), reverse=True)
         for index in order[:remainder]: counts[index] += 1
-        if total >= 3:
-            for index in range(3):
-                if counts[index] == 0:
-                    donor = max(range(3), key=lambda j: counts[j])
-                    if counts[donor] > 1: counts[donor] -= 1; counts[index] += 1
+        for index, fraction in enumerate(fractions):
+            if fraction > 0.0 and counts[index] == 0 and total >= 3:
+                donor = max((j for j in range(3) if j != index and counts[j] > 1), key=lambda j: counts[j], default=None)
+                if donor is not None:
+                    counts[donor] -= 1
+                    counts[index] += 1
         return counts[0], counts[1], counts[2]
