@@ -71,11 +71,7 @@ class CalibrationReport:
         if self.decision not in {"PROCEED", "HOLD"}:
             raise ValueError("decision must be PROCEED or HOLD")
 
-    @property
-    def calibration_hash(self) -> str:
-        return canonical_hash(self.to_dict())
-
-    def to_dict(self) -> dict[str, Any]:
+    def canonical_payload(self) -> dict[str, Any]:
         return {
             "report_version": self.report_version,
             "corpus_manifest_hash": self.corpus_manifest_hash,
@@ -89,8 +85,14 @@ class CalibrationReport:
             "inference_purity": self.inference_purity,
             "decision": self.decision,
             "decision_rationale": self.decision_rationale,
-            "calibration_hash": self.calibration_hash,
         }
+
+    @property
+    def calibration_hash(self) -> str:
+        return canonical_hash(self.canonical_payload())
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.canonical_payload() | {"calibration_hash": self.calibration_hash}
 
 
 @dataclass(frozen=True, slots=True)
