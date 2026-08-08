@@ -38,3 +38,7 @@ def test_holdout_rejects_non_real_fractions() -> None:
         HoldoutExperiment(train_fraction="0.6", validation_fraction=0.2, test_fraction=0.2)
     with pytest.raises(TypeError, match="train_fraction"):
         HoldoutExperiment(train_fraction=0.6 + 0.0j, validation_fraction=0.2, test_fraction=0.2)
+
+def test_holdout_preserves_explicit_zero_fraction() -> None:
+    split = HoldoutExperiment(train_fraction=0.999, validation_fraction=0.001, test_fraction=0.0).split_rows(ROWS)
+    assert split.sizes == {"train": 5, "validation": 1, "test": 0}
