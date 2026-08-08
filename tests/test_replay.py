@@ -53,6 +53,19 @@ def test_registered_operator_controls_reconstruction() -> None:
     assert result.state_vector.get("record_count") is None
 
 
+def test_replay_registry_rejects_invalid_operator_registration() -> None:
+    engine = ReplayEngine()
+
+    with pytest.raises(TypeError, match="record_type"):
+        engine.registry.register("", object())
+
+    with pytest.raises(TypeError, match="record_type"):
+        engine.registry.register(123, object())
+
+    with pytest.raises(TypeError, match="operator"):
+        engine.registry.register("broken", object())
+
+
 def test_replay_preserves_explicit_initial_state() -> None:
     record = ConstitutionalRecord(record_type="alpha", payload={"i": 1}, timestamp="1")
     initial = StateVector({"seed": "base"})
