@@ -14,6 +14,7 @@ CALIBRATION_REPORT_VERSION = "calibration-report-v1"
 @dataclass(frozen=True, slots=True)
 class ControlMetricSet:
     """Frozen control metrics for a calibration pass."""
+
     nll: float
     brier: float
     ece: float
@@ -95,6 +96,7 @@ class CalibrationReport:
 @dataclass(frozen=True, slots=True)
 class CalibrationDiagnostic:
     """Inference-only diagnostic stage before selector activation."""
+
     metric_contract: MetricContract
     probability_contract: ProbabilityContract
     adapter: TelemetryAdapter
@@ -106,9 +108,7 @@ class CalibrationDiagnostic:
         scored: list[tuple[Mapping[str, float], str]] = []
         for row in normalized:
             probs = validate_probability_output(row, probability_predictor, self.probability_contract)
-            target = str(getattr(row, "mode").name if hasattr(getattr(row, "mode", None), "name") else getattr(row, "mode", "Q"))
-            if target == "TiamatMode.QUIESCENT":
-                target = "Q"
+            target = row.mode.value if hasattr(row.mode, "value") else str(row.mode)
             scored.append((probs, target))
         return self.metric_contract.score(scored), len(normalized)
 
