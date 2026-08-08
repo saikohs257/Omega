@@ -194,11 +194,7 @@ def compute_strain(hypotheses: Mapping[str, float], predictions: Mapping[str, Ma
     conflict = 0.0
     for index, first in enumerate(names):
         for second in names[index + 1:]:
-            disagreement = sum(
-                validated_relevance.get(variable, 1.0) * observed * _prediction_distance(predictions.get(first, {}).get(variable), predictions.get(second, {}).get(variable))
-                for variable, observed in validated_observability.items()
-                if observed > 0
-            )
+            disagreement = sum(validated_relevance.get(variable, 1.0) * observed * _prediction_distance(predictions.get(first, {}).get(variable), predictions.get(second, {}).get(variable)) for variable, observed in validated_observability.items() if observed > 0)
             conflict += probabilities[first] * probabilities[second] * disagreement
     return 1.0 - math.exp(-lam * max(0.0, conflict))
 
@@ -224,18 +220,7 @@ class EpistemicState:
         for name in ("observability", "hypotheses", "predictions", "relevance", "critical_load"): object.__setattr__(self, name, _freeze(getattr(self, name)))
         object.__setattr__(self, "used_authority_grants", tuple(self.used_authority_grants))
     def normalized(self) -> EpistemicState:
-        return replace(
-            self,
-            observability={key: _unit_interval(value, f"observability[{key}]") for key, value in self.observability.items()},
-            hypotheses={key: _finite_nonnegative(value, f"hypotheses[{key}]") for key, value in self.hypotheses.items()},
-            relevance={key: _finite_nonnegative(value, f"relevance[{key}]") for key, value in self.relevance.items()},
-            strain=_unit_interval(self.strain, "strain"),
-            unsupported_depth=_nonnegative_int(self.unsupported_depth, "unsupported_depth"),
-            calibration_error=_unit_interval(self.calibration_error, "calibration_error"),
-            active_branches=_nonnegative_int(self.active_branches, "active_branches"),
-            evidence_count=_nonnegative_int(self.evidence_count, "evidence_count"),
-            used_authority_grants=tuple(self.used_authority_grants),
-        )
+        return replace(self, observability={key: _unit_interval(value, f"observability[{key}]") for key, value in self.observability.items()}, hypotheses={key: _finite_nonnegative(value, f"hypotheses[{key}]") for key, value in self.hypotheses.items()}, relevance={key: _finite_nonnegative(value, f"relevance[{key}]") for key, value in self.relevance.items()}, strain=_unit_interval(self.strain, "strain"), unsupported_depth=_nonnegative_int(self.unsupported_depth, "unsupported_depth"), calibration_error=_unit_interval(self.calibration_error, "calibration_error"), active_branches=_nonnegative_int(self.active_branches, "active_branches"), evidence_count=_nonnegative_int(self.evidence_count, "evidence_count"), used_authority_grants=tuple(self.used_authority_grants))
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,13 +231,7 @@ class PolicyConfig:
     branch_bound: int = 16
     cost_weights: Mapping[Action, float] = field(default_factory=lambda: {Action.BLOCK: 0.20, Action.BRANCH: 0.40, Action.ARCHIVE: 0.60, Action.QUARANTINE: 0.80, Action.REJECT: 1.00, Action.ESCALATE: 0.90, Action.ENABLE_EXECUTION: 0.00})
     def __post_init__(self) -> None:
-        object.__setattr__(self, "u_crit", _unit_interval(self.u_crit, "u_crit"))
-        object.__setattr__(self, "calibration_crit", _unit_interval(self.calibration_crit, "calibration_crit"))
-        depth_bound = _positive_int(self.depth_bound, "depth_bound")
-        branch_bound = _positive_int(self.branch_bound, "branch_bound")
-        object.__setattr__(self, "depth_bound", depth_bound)
-        object.__setattr__(self, "branch_bound", branch_bound)
-        object.__setattr__(self, "cost_weights", _freeze({action: _finite_nonnegative(weight, f"cost_weights[{action}]") for action, weight in self.cost_weights.items()}))
+        object.__setattr__(self, "u_crit", _unit_interval(self.u_crit, "u_crit")); object.__setattr__(self, "calibration_crit", _unit_interval(self.calibration_crit, "calibration_crit")); depth_bound = _positive_int(self.depth_bound, "depth_bound"); branch_bound = _positive_int(self.branch_bound, "branch_bound"); object.__setattr__(self, "depth_bound", depth_bound); object.__setattr__(self, "branch_bound", branch_bound); object.__setattr__(self, "cost_weights", _freeze({action: _finite_nonnegative(weight, f"cost_weights[{action}]") for action, weight in self.cost_weights.items()}))
 
 
 class Supervisor:
@@ -267,6 +246,15 @@ class Supervisor:
         if state.unsupported_depth >= self.config.depth_bound: return (Action.ESCALATE, Action.QUARANTINE)
         if state.active_branches >= self.config.branch_bound: return (Action.BLOCK, Action.ESCALATE, Action.QUARANTINE)
         return (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE, Action.ENABLE_EXECUTION)
+    def supervise(self, state: EpistemicState) -> Action:
+        state = state.normalized()
+        if state.cycles: return Action.REJECT
+        if state.strain >= self.config.u_crit: return Action.QUARANTINE
+        if state.calibration_error >= self.config.calibration_crit: return Action.ESCALATE
+        if state.unsupported_depth >= self.config.depth_bound: return Action.ESCALATE
+        if state.active_branches >= self.config.branch_bound: return Action.BLOCK
+        if state.authority == Authority.EXECUTE: return Action.ENABLE_EXECUTION
+        return Action.BLOCK
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,30 +262,25 @@ class Transition:
     @staticmethod
     def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None, branch_bound: int = 16) -> EpistemicState:
         state = state.normalized()
-        if state.terminal is not None:
-            raise ValueError("terminal branch cannot transition")
+        if state.terminal is not None: raise ValueError("terminal branch cannot transition")
         branch_bound = _positive_int(branch_bound, "branch_bound")
         evidence = tuple(evidence)
         grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
-        if len(set(grant_ids)) != len(grant_ids):
-            raise ValueError("duplicate authority grant id in transition")
-        if any(grant_id in state.used_authority_grants for grant_id in grant_ids):
-            raise ValueError("authority grant replay detected")
+        if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id in transition")
+        if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay detected")
+        if authorized_authority is not None and action != Action.ESCALATE and not evidence:
+            raise ValueError("authority escalation requires kernel authorization")
         next_authority = state.authority
         if action == Action.ESCALATE:
-            if authorized_authority is None:
-                raise ValueError("authority escalation requires kernel authorization")
-            if authorized_authority <= state.authority or authorized_authority != Authority(int(state.authority) + 1):
-                raise ValueError("authority escalation must be exactly one level")
+            if authorized_authority is None: raise ValueError("authority escalation requires kernel authorization")
+            if authorized_authority <= state.authority or authorized_authority != Authority(int(state.authority) + 1): raise ValueError("authority escalation must be exactly one level")
             next_authority = authorized_authority
         if action == Action.ENABLE_EXECUTION:
-            if state.authority < Authority.EXECUTE:
-                raise ValueError("execution requires EXECUTE authority")
+            if state.authority < Authority.EXECUTE: raise ValueError("execution requires EXECUTE authority")
             next_authority = Authority.SIMULATE
         next_branches = state.active_branches
         if action == Action.BRANCH:
-            if state.active_branches >= branch_bound:
-                raise ValueError("branch bound exceeded")
+            if state.active_branches >= branch_bound: raise ValueError("branch bound exceeded")
             next_branches += 1
         return replace(state, authority=next_authority, active_branches=next_branches, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids, terminal=action.value if action in {Action.REJECT, Action.QUARANTINE, Action.ARCHIVE} else state.terminal).normalized()
 
