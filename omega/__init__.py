@@ -4,7 +4,21 @@ from colony.scheduler import ColonyRoundResult, ColonyScheduler
 from court.engine import Court, Verdict
 from hypergraph.engine import Hyperedge, Hypergraph
 from oracle.engine import Amendment, Oracle
-from runtime import AnnotateOperator, Event, IdentityOperator, Operator, ReplayEngine, ReplayResult, Trajectory, Worker, WorkerTrace
+from runtime import (
+    AnnotateOperator,
+    ConstitutionalRecord,
+    Event,
+    IdentityOperator,
+    Operator,
+    ReplayEngine,
+    ReplayOperator,
+    ReplayRegistry,
+    ReplayResult,
+    StateVector,
+    Trajectory,
+    Worker,
+    WorkerTrace,
+)
 from sheaf.compat import LocalSection, Sheaf
 from simplicial.complex import Simplex, SimplicialComplex
 from tiamat.engine import Decision, TiamatEngine
@@ -16,6 +30,7 @@ __all__ = [
     "BentAxisStore",
     "ColonyRoundResult",
     "ColonyScheduler",
+    "ConstitutionalRecord",
     "Court",
     "Decision",
     "Event",
@@ -31,10 +46,13 @@ __all__ = [
     "ProvenanceEdge",
     "ProvenanceGraph",
     "ReplayEngine",
+    "ReplayOperator",
+    "ReplayRegistry",
     "ReplayResult",
     "Sheaf",
     "Simplex",
     "SimplicialComplex",
+    "StateVector",
     "StoredEvent",
     "TiamatEngine",
     "Trajectory",
