@@ -20,5 +20,5 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python -m pip wheel . --no-deps -w /tmp/omega-dist
-      - run: python -m pip install -e ".[test]"
-      - run: python -m pytest tests -q
+      - run: python -m pip install /tmp/omega-dist/*.whl "pytest>=8,<9"
+      - run: cd /tmp && python -m pytest "$GITHUB_WORKSPACE/tests" -q
