@@ -42,31 +42,31 @@ def test_execute_authority_has_execution_precedence_when_all_safety_gates_pass()
 def test_non_finite_state_values_are_rejected() -> None:
     with pytest.raises(ValueError, match="strain must be finite"):
         EpistemicState(strain=math.nan).normalized()
-    with pytest.raises(ValueError, match="observability\[signal\] must be finite"):
+    with pytest.raises(ValueError, match="observability\\[signal\\] must be finite"):
         EpistemicState(observability={"signal": math.inf}).normalized()
-    with pytest.raises(ValueError, match="hypotheses\[h1\] must be finite"):
+    with pytest.raises(ValueError, match="hypotheses\\[h1\\] must be finite"):
         EpistemicState(hypotheses={"h1": math.inf}).normalized()
-    with pytest.raises(ValueError, match="relevance\[signal\] must be non-negative"):
+    with pytest.raises(ValueError, match="relevance\\[signal\\] must be non-negative"):
         EpistemicState(relevance={"signal": -1.0}).normalized()
 
 
 def test_compute_strain_rejects_non_finite_lambda() -> None:
-    with pytest.raises(ValueError, match="lam must be finite and non-negative"):
+    with pytest.raises(ValueError, match="lam must be finite"):
         compute_strain({"h1": 1.0}, {}, {}, lam=math.nan)
-    with pytest.raises(ValueError, match="lam must be finite and non-negative"):
+    with pytest.raises(ValueError, match="lam must be finite"):
         compute_strain({"h1": 1.0}, {}, {}, lam=math.inf)
-    with pytest.raises(ValueError, match="lam must be finite and non-negative"):
+    with pytest.raises(ValueError, match="lam must be non-negative"):
         compute_strain({"h1": 1.0}, {}, {}, lam=-1.0)
 
 
 def test_compute_strain_rejects_invalid_observability_and_relevance() -> None:
-    with pytest.raises(ValueError, match="observability\[signal\] must be finite"):
+    with pytest.raises(ValueError, match="observability\\[signal\\] must be finite"):
         compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": math.nan})
-    with pytest.raises(ValueError, match="observability\[signal\] must be finite"):
+    with pytest.raises(ValueError, match="observability\\[signal\\] must be finite"):
         compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": math.inf})
-    with pytest.raises(ValueError, match="relevance\[signal\] must be finite"):
+    with pytest.raises(ValueError, match="relevance\\[signal\\] must be finite"):
         compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": 1.0}, {"signal": math.inf})
-    with pytest.raises(ValueError, match="relevance\[signal\] must be non-negative"):
+    with pytest.raises(ValueError, match="relevance\\[signal\\] must be non-negative"):
         compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": 1.0, "h2": 1.0}, {"signal": 1.0}, {"signal": -1.0})
 
 
@@ -94,7 +94,7 @@ def test_policy_config_rejects_invalid_thresholds_and_bounds() -> None:
 
 
 def test_policy_config_rejects_invalid_cost_weights() -> None:
-    with pytest.raises(ValueError, match="cost_weights\[BLOCK\] must be finite"):
+    with pytest.raises(ValueError, match="cost_weights\\[BLOCK\\] must be finite"):
         PolicyConfig(cost_weights={Action.BLOCK: math.inf})
-    with pytest.raises(ValueError, match="cost_weights\[BLOCK\] must be non-negative"):
+    with pytest.raises(ValueError, match="cost_weights\\[BLOCK\\] must be non-negative"):
         PolicyConfig(cost_weights={Action.BLOCK: -1.0})
