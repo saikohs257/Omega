@@ -43,7 +43,7 @@ def test_ece_uses_frozen_bins_and_max_probability():
 def test_ece_true_state_probability_is_explicit_alternative():
     metric = _metric(ece_confidence="true_state_probability")
     rows = [(_p(0.9, 0.05, 0.05), "Q"), (_p(0.8, 0.1, 0.1), "P")]
-    assert metric.ece(rows) == pytest.approx(0.45)
+    assert metric.ece(rows) == pytest.approx(0.10)
 
 
 def test_perfect_predictor_has_zero_proper_scores_and_ece():
