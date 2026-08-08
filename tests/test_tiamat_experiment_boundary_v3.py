@@ -7,7 +7,8 @@ from tiamat import IdentificationRunner, STATE_SPACE
 
 
 def _h(value: str) -> str:
-    return (value * 64)[:64]
+    hex_value = {"l": "a", "p": "b"}.get(value, value)
+    return (hex_value * 64)[:64]
 
 
 def _manifest_kwargs():
