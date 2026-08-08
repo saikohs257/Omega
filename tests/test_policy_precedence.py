@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import math
+
+import pytest
+
 from erk.core import Action, Authority, EpistemicState, PolicyConfig, Supervisor
 
 
@@ -25,7 +29,7 @@ def test_depth_bound_escalates_before_branching() -> None:
     assert Supervisor().supervise(state) == Action.ESCALATE
 
 
-def test_branch_bound_escalates_when_capacity_is_exhausted() -> None:
+def test_branch_bound_blocks_when_capacity_is_exhausted() -> None:
     state = EpistemicState(active_branches=16)
     assert Supervisor().supervise(state) == Action.BLOCK
 
@@ -33,3 +37,10 @@ def test_branch_bound_escalates_when_capacity_is_exhausted() -> None:
 def test_execute_authority_has_execution_precedence_when_all_safety_gates_pass() -> None:
     state = EpistemicState(authority=Authority.EXECUTE)
     assert Supervisor().supervise(state) == Action.ENABLE_EXECUTION
+
+
+def test_non_finite_state_values_are_rejected() -> None:
+    with pytest.raises(ValueError, match="strain must be finite"):
+        EpistemicState(strain=math.nan).normalized()
+    with pytest.raises(ValueError, match="observability\[signal\] must be finite"):
+        EpistemicState(observability={"signal": math.inf}).normalized()
