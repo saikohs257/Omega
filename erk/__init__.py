@@ -18,9 +18,6 @@ from .core import (
 from .kernel import ConstitutionalKernel, ConstitutionalViolation, KernelConfig
 from .runtime import ConstitutionalRuntime, RuntimeStep
 
-# Load the isolated compatibility boundary after all core/kernel classes exist.
-from . import compat as _compat  # noqa: F401,E402
-
 __all__ = [
     "Action",
     "Authority",
