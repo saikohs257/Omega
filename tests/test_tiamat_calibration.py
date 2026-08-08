@@ -44,13 +44,14 @@ def test_holdout_calibration_report_requires_label_provenance() -> None:
         {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
         {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
     ]
-    corpus_hash = corpus_fingerprint(rows)
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), HASH))
+    split = experiment.split_rows(rows)
+    corpus_hash = corpus_fingerprint([r.to_mapping() for r in (*split.train, *split.validation, *split.test)])
     controls = {"uniform": {"nll": 1.0, "brier": 1.0, "ece": 1.0}}
     candidates = {"M3": {"nll": 0.5, "brier": 0.4, "ece": 0.3, "rows": 2}}
-    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), corpus_hash))
     report = experiment.calibration_report(rows, controls=controls, candidates=candidates, inference_purity=True, ece_reliability_behavior="balanced")
     assert report.decision == "PROCEED"
-    assert report.corpus_manifest_hash
+    assert report.corpus_manifest_hash == corpus_hash
     assert report.label_provenance_hash
     assert report.metric_contract_hash
 
