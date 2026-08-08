@@ -37,6 +37,16 @@ def _freeze(value: Any) -> Any:
     return value
 
 
+def _canonical(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(k): _canonical(v) for k, v in sorted(value.items(), key=lambda item: str(item[0]))}
+    if isinstance(value, (list, tuple)):
+        return [_canonical(v) for v in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted((_canonical(v) for v in value), key=lambda v: repr(v))
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceRecord:
     """Immutable evidence; the digest is derived from canonical content."""
@@ -61,7 +71,7 @@ class EvidenceRecord:
             "evidence_id": self.evidence_id,
             "source": self.source,
             "timestamp": self.timestamp,
-            "payload": self.payload,
+            "payload": _canonical(self.payload),
             "authority_grant": self.authority_grant,
         }
         return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode()
@@ -143,7 +153,7 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
             todo.extend(adjacency[nxt])
         critical_load[node] = len(seen)
 
-    return GraphMetrics(unsupported_depth, critical_load, tuple(cycles))
+    return GraphMetrics(unsupported_depth, MappingProxyType(critical_load), tuple(cycles))
 
 
 def _prediction_distance(a: Any, b: Any) -> float:
@@ -201,9 +211,23 @@ class EpistemicState:
     evidence_count: int = 0
     policy_version: str = "erk-v2.2"
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "observability", _freeze(self.observability))
+        object.__setattr__(self, "hypotheses", _freeze(self.hypotheses))
+        object.__setattr__(self, "predictions", _freeze(self.predictions))
+        object.__setattr__(self, "relevance", _freeze(self.relevance))
+        object.__setattr__(self, "critical_load", _freeze(self.critical_load))
+
     def normalized(self) -> EpistemicState:
         obs = {k: min(1.0, max(0.0, float(v))) for k, v in self.observability.items()}
-        return replace(self, observability=obs, strain=min(1.0, max(0.0, float(self.strain))), calibration_error=min(1.0, max(0.0, float(self.calibration_error))), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)))
+        return replace(
+            self,
+            observability=obs,
+            strain=min(1.0, max(0.0, float(self.strain))),
+            calibration_error=min(1.0, max(0.0, float(self.calibration_error))),
+            active_branches=max(0, int(self.active_branches)),
+            evidence_count=max(0, int(self.evidence_count)),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,7 +236,20 @@ class PolicyConfig:
     depth_bound: int = 8
     calibration_crit: float = 0.25
     branch_bound: int = 16
-    cost_weights: Mapping[Action, float] = field(default_factory=lambda: {Action.BLOCK: 0.20, Action.BRANCH: 0.40, Action.ARCHIVE: 0.60, Action.QUARANTINE: 0.80, Action.REJECT: 1.00, Action.ESCALATE: 0.90, Action.ENABLE_EXECUTION: 0.00})
+    cost_weights: Mapping[Action, float] = field(
+        default_factory=lambda: {
+            Action.BLOCK: 0.20,
+            Action.BRANCH: 0.40,
+            Action.ARCHIVE: 0.60,
+            Action.QUARANTINE: 0.80,
+            Action.REJECT: 1.00,
+            Action.ESCALATE: 0.90,
+            Action.ENABLE_EXECUTION: 0.00,
+        }
+    )
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "cost_weights", _freeze(self.cost_weights))
 
 
 class Supervisor:
@@ -226,7 +263,13 @@ class Supervisor:
         if s.cycles:
             return (Action.REJECT, Action.QUARANTINE, Action.ESCALATE)
         safe = [Action.BLOCK, Action.BRANCH, Action.REJECT, Action.QUARANTINE, Action.ESCALATE, Action.ARCHIVE]
-        execution_allowed = s.authority == Authority.EXECUTE and s.strain < self.config.u_crit and s.unsupported_depth < self.config.depth_bound and s.calibration_error < self.config.calibration_crit and s.active_branches <= self.config.branch_bound
+        execution_allowed = (
+            s.authority == Authority.EXECUTE
+            and s.strain < self.config.u_crit
+            and s.unsupported_depth < self.config.depth_bound
+            and s.calibration_error < self.config.calibration_crit
+            and s.active_branches <= self.config.branch_bound
+        )
         if execution_allowed:
             safe.append(Action.ENABLE_EXECUTION)
         return tuple(safe)
@@ -255,5 +298,19 @@ class Transition:
 
 
 def state_hash(state: EpistemicState) -> str:
-    obj = {"observability": dict(sorted(state.observability.items())), "hypotheses": dict(sorted(state.hypotheses.items())), "predictions": {k: dict(sorted(v.items())) for k, v in sorted(state.predictions.items())}, "relevance": dict(sorted(state.relevance.items())), "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": dict(sorted(state.critical_load.items())), "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version}
-    return hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
+    obj = {
+        "observability": dict(sorted(state.observability.items())),
+        "hypotheses": dict(sorted(state.hypotheses.items())),
+        "predictions": {k: dict(sorted(v.items())) for k, v in sorted(state.predictions.items())},
+        "relevance": dict(sorted(state.relevance.items())),
+        "strain": state.strain,
+        "unsupported_depth": state.unsupported_depth,
+        "critical_load": dict(sorted(state.critical_load.items())),
+        "cycles": state.cycles,
+        "authority": int(state.authority),
+        "calibration_error": state.calibration_error,
+        "active_branches": state.active_branches,
+        "evidence_count": state.evidence_count,
+        "policy_version": state.policy_version,
+    }
+    return hashlib.sha256(json.dumps(_canonical(obj), sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
