@@ -104,14 +104,34 @@ class EvidenceRecord:
         object.__setattr__(self, "provenance_hash", digest)
 
     def _content(self, include_signature: bool = True) -> dict[str, Any]:
-        return {"evidence_id": self.evidence_id, "source": self.source, "timestamp": self.timestamp, "payload": _canonical(self.payload), "authority_grant": self.authority_grant, "authority_grant_id": self.authority_grant_id, "authority_signature": self.authority_signature if include_signature else ""}
+        return {
+            "evidence_id": self.evidence_id,
+            "source": self.source,
+            "timestamp": self.timestamp,
+            "payload": _canonical(self.payload),
+            "authority_grant": self.authority_grant,
+            "authority_grant_id": self.authority_grant_id,
+            "authority_signature": self.authority_signature if include_signature else "",
+        }
 
     def _canonical_content(self) -> bytes:
-        return json.dumps(self._content(), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        # Provenance identifies the immutable evidence envelope, not its
+        # authentication signature. This makes signing stable: adding the
+        # signature cannot recursively change the bytes being authenticated.
+        return json.dumps(self._content(False), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
 
     def authority_message(self, state: EpistemicState) -> bytes:
-        binding = {"base_authority": int(state.authority), "evidence_count": state.evidence_count, "policy_version": state.policy_version, "state_hash": state_hash(state)}
-        return json.dumps({"evidence": self._content(False), "binding": _canonical(binding)}, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        binding = {
+            "base_authority": int(state.authority),
+            "evidence_count": state.evidence_count,
+            "policy_version": state.policy_version,
+            "state_hash": state_hash(state),
+        }
+        return json.dumps(
+            {"evidence": self._content(False), "binding": _canonical(binding)},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,10 +279,10 @@ class Transition:
         state = state.normalized(); evidence = tuple(evidence)
         if state.terminal is not None: raise ValueError("terminal branch cannot transition")
         if branch_bound < 1: raise ValueError("branch bound must be positive")
-        if authorized_authority is not None and not _kernel_authorized: raise ValueError("authority escalation requires kernel authorization")
         grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
-        if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id in transition")
-        if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay detected")
+        if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id")
+        if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay")
+        if authorized_authority is not None and not _kernel_authorized: raise ValueError("authority escalation requires kernel authorization")
         if action == Action.BRANCH:
             if state.active_branches >= branch_bound: raise ValueError("branch bound exceeded")
             return replace(state, active_branches=state.active_branches + 1, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
