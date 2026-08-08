@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import IntEnum, StrEnum
 import hashlib
-import hmac
 import json
 import math
 from types import MappingProxyType
@@ -50,8 +49,6 @@ def _canonical(value: Any) -> Any:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceRecord:
-    """Immutable evidence. Authority claims are inert until kernel-authenticated."""
-
     evidence_id: str
     source: str
     timestamp: str
@@ -87,17 +84,7 @@ class EvidenceRecord:
             "payload": _canonical(self.payload),
             "authority_grant": self.authority_grant,
         }
-        return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode()
-
-    @staticmethod
-    def make_authority_signature(record: "EvidenceRecord", secret: bytes) -> str:
-        return hmac.new(secret, record.authority_message(), hashlib.sha256).hexdigest()
-
-    def has_valid_authority_signature(self, secret: bytes) -> bool:
-        if self.authority_grant is None or not self.authority_signature:
-            return False
-        expected = self.make_authority_signature(self, secret)
-        return hmac.compare_digest(expected, self.authority_signature)
+        return json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +114,6 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
     for edge in edges:
         if edge.kind == "DEPENDS_ON" and edge.source in ids and edge.target in ids:
             adjacency[edge.source].append(edge.target)
-
     cycles: list[tuple[str, ...]] = []
     color: dict[str, int] = {n: 0 for n in ids}
     stack: list[str] = []
@@ -147,7 +133,6 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
     for node in sorted(ids):
         if color[node] == 0:
             dfs_cycle(node)
-
     memo_depth: dict[str, int] = {}
 
     def depth(node: str, visiting: set[str]) -> int:
@@ -163,7 +148,6 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
 
     unsupported = {n.node_id for n in nodes if not n.supported}
     unsupported_depth = max((depth(n, set()) for n in unsupported), default=0)
-
     critical_load: dict[str, int] = {}
     for node in sorted(ids):
         seen: set[str] = set()
@@ -175,7 +159,6 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
             seen.add(nxt)
             todo.extend(adjacency[nxt])
         critical_load[node] = len(seen)
-
     return GraphMetrics(unsupported_depth, MappingProxyType(critical_load), tuple(cycles))
 
 
@@ -185,14 +168,7 @@ def _prediction_distance(a: Any, b: Any) -> float:
     return 0.0 if a == b else 1.0
 
 
-def compute_strain(
-    hypotheses: Mapping[str, float],
-    predictions: Mapping[str, Mapping[str, Any]],
-    observability: Mapping[str, float],
-    relevance: Mapping[str, float] | None = None,
-    lam: float = 1.0,
-) -> float:
-    """Decision-relevant weighted disagreement; graph topology does not define strain."""
+def compute_strain(hypotheses: Mapping[str, float], predictions: Mapping[str, Mapping[str, Any]], observability: Mapping[str, float], relevance: Mapping[str, float] | None = None, lam: float = 1.0) -> float:
     if not hypotheses or lam < 0:
         return 0.0
     total_prob = sum(max(0.0, float(p)) for p in hypotheses.values())
@@ -210,10 +186,7 @@ def compute_strain(
                 if obs <= 0:
                     continue
                 w = max(0.0, float(relevance.get(variable, 1.0)))
-                disagreement += w * float(obs) * _prediction_distance(
-                    predictions.get(h1, {}).get(variable),
-                    predictions.get(h2, {}).get(variable),
-                )
+                disagreement += w * float(obs) * _prediction_distance(predictions.get(h1, {}).get(variable), predictions.get(h2, {}).get(variable))
             conflict += pair_weight * disagreement
     return 1.0 - math.exp(-max(0.0, lam) * conflict)
 
@@ -241,16 +214,9 @@ class EpistemicState:
         object.__setattr__(self, "relevance", _freeze(self.relevance))
         object.__setattr__(self, "critical_load", _freeze(self.critical_load))
 
-    def normalized(self) -> "EpistemicState":
+    def normalized(self) -> EpistemicState:
         obs = {k: min(1.0, max(0.0, float(v))) for k, v in self.observability.items()}
-        return replace(
-            self,
-            observability=obs,
-            strain=min(1.0, max(0.0, float(self.strain))),
-            calibration_error=min(1.0, max(0.0, float(self.calibration_error))),
-            active_branches=max(0, int(self.active_branches)),
-            evidence_count=max(0, int(self.evidence_count)),
-        )
+        return replace(self, observability=obs, strain=min(1.0, max(0.0, float(self.strain))), calibration_error=min(1.0, max(0.0, float(self.calibration_error))), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,27 +225,39 @@ class PolicyConfig:
     depth_bound: int = 8
     calibration_crit: float = 0.25
     branch_bound: int = 16
-    cost_weights: Mapping[Action, float] = field(
-        default_factory=lambda: {
-            Action.BLOCK: 0.20,
-            Action.BRANCH: 0.40,
-            Action.ARCHIVE: 0.60,
-            Action.QUARANTINE: 0.80,
-            Action.REJECT: 1.00,
-            Action.ESCALATE: 0.90,
-            Action.ENABLE_EXECUTION: 0.00,
-        }
-    )
+    cost_weights: Mapping[Action, float] = field(default_factory=lambda: {
+        Action.BLOCK: 0.20,
+        Action.BRANCH: 0.40,
+        Action.ARCHIVE: 0.60,
+        Action.QUARANTINE: 0.80,
+        Action.REJECT: 1.00,
+        Action.ESCALATE: 0.90,
+        Action.ENABLE_EXECUTION: 0.00,
+    })
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "cost_weights", _freeze(self.cost_weights))
 
 
 class Supervisor:
-    """Pure policy selector. It never mutates state or grants authority."""
+    """Pure policy selector. Safety gates are evaluated before policy costs."""
 
     def __init__(self, config: PolicyConfig | None = None) -> None:
         self.config = config or PolicyConfig()
+
+    def safety_status(self, state: EpistemicState) -> tuple[bool, str | None]:
+        s = state.normalized()
+        if s.cycles:
+            return False, "STRUCTURAL_CYCLE"
+        if s.strain >= self.config.u_crit:
+            return False, "STRAIN_LIMIT"
+        if s.unsupported_depth >= self.config.depth_bound:
+            return False, "DEPTH_LIMIT"
+        if s.calibration_error >= self.config.calibration_crit:
+            return False, "CALIBRATION_LIMIT"
+        if s.active_branches > self.config.branch_bound:
+            return False, "BRANCH_LIMIT"
+        return True, None
 
     def safe_actions(self, state: EpistemicState) -> tuple[Action, ...]:
         s = state.normalized()
@@ -304,40 +282,20 @@ class Supervisor:
 
 class Transition:
     """Sole state transition function. Evidence claims cannot grant authority."""
-
     @staticmethod
-    def apply(
-        state: EpistemicState,
-        action: Action,
-        evidence: Sequence[EvidenceRecord] = (),
-        authorized_authority: Authority | None = None,
-    ) -> EpistemicState:
+    def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None) -> EpistemicState:
         s = state.normalized()
         evidence = tuple(evidence)
         next_authority = s.authority
         if action == Action.ENABLE_EXECUTION:
             next_authority = Authority.SIMULATE
         if authorized_authority is not None and authorized_authority > next_authority:
-            if int(authorized_authority) != int(next_authority) + 1:
-                raise ValueError("authority transition must increase by exactly one level")
+            if authorized_authority != Authority(int(next_authority) + 1):
+                raise ValueError("authority transition must be one level")
             next_authority = authorized_authority
         return replace(s, authority=next_authority, evidence_count=s.evidence_count + len(evidence)).normalized()
 
 
 def state_hash(state: EpistemicState) -> str:
-    obj = {
-        "observability": dict(sorted(state.observability.items())),
-        "hypotheses": dict(sorted(state.hypotheses.items())),
-        "predictions": {k: dict(sorted(v.items())) for k, v in sorted(state.predictions.items())},
-        "relevance": dict(sorted(state.relevance.items())),
-        "strain": state.strain,
-        "unsupported_depth": state.unsupported_depth,
-        "critical_load": dict(sorted(state.critical_load.items())),
-        "cycles": state.cycles,
-        "authority": int(state.authority),
-        "calibration_error": state.calibration_error,
-        "active_branches": state.active_branches,
-        "evidence_count": state.evidence_count,
-        "policy_version": state.policy_version,
-    }
+    obj = {"observability": dict(sorted(state.observability.items())), "hypotheses": dict(sorted(state.hypotheses.items())), "predictions": {k: dict(sorted(v.items())) for k, v in sorted(state.predictions.items())}, "relevance": dict(sorted(state.relevance.items())), "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": dict(sorted(state.critical_load.items())), "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version}
     return hashlib.sha256(json.dumps(_canonical(obj), sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
