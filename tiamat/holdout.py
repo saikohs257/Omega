@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
+from numbers import Real
 from typing import Any, Mapping, Sequence
 
 from .identification_runner import IdentificationRunner, TournamentReport
@@ -55,7 +56,7 @@ class HoldoutExperiment:
     def __post_init__(self) -> None:
         fractions = (("train_fraction", self.train_fraction), ("validation_fraction", self.validation_fraction), ("test_fraction", self.test_fraction))
         for name, value in fractions:
-            if isinstance(value, bool): raise TypeError(f"{name} must be numeric, not bool")
+            if isinstance(value, bool) or not isinstance(value, Real): raise TypeError(f"{name} must be a real number, not {type(value).__name__}")
             numeric = float(value)
             if not math.isfinite(numeric) or numeric < 0.0: raise ValueError(f"{name} must be finite and non-negative")
         total = sum(float(value) for _, value in fractions)
