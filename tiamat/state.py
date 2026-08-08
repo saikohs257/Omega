@@ -1,10 +1,7 @@
-from __future__
-
 from dataclasses import dataclass
 from enum import Enum
 import math
 from typing import Mapping
-
 
 class TiamatMode(str, Enum):
     IDLE = "IDLE"
@@ -12,7 +9,6 @@ class TiamatMode(str, Enum):
     RELAXING = "RELAXING"
     HAZARD = "HAZARD"
     QUARANTINED = "QUARANTINED"
-
 
 @dataclass(frozen=True, slots=True)
 class TiamatState:
