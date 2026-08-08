@@ -1,3 +1,4 @@
+import hashlib
 import math
 import pytest
 from tiamat import IdentificationRunner, LockedModelEvaluator, STATE_SPACE
@@ -7,7 +8,7 @@ from tiamat.metric_contract import ProbabilityContract, TargetProvenance
 
 
 def _h(value: str) -> str:
-    return (value * 64)[:64]
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def test_config_rejects_markov_lag_above_hard_boundary():
@@ -21,7 +22,7 @@ def test_causal_gate_rejects_lookback_above_hard_boundary():
 
 
 def test_manifest_requires_real_sha256_components():
-    kwargs = dict(config_hash=_h("a"), corpus_hash=_h("b"), feature_provenance_hash=_h("c"), label_provenance_hash=_h("d"), model_registry_hash=_h("e"), probability_contract_hash=_h("f"), implementation_hash=_h("0"))
+    kwargs = dict(config_hash=_h("a"), corpus_hash=_h("b"), feature_provenance_hash=_h("c"), label_provenance_hash=_h("d"), model_registry_hash=_h("e"), probability_contract_hash=_h("f"), metric_contract_hash=_h("metric"), implementation_hash=_h("0"))
     assert len(ExperimentManifest(**kwargs).experiment_id) == 64
     with pytest.raises(ValueError, match="SHA-256"):
         ExperimentManifest(**{**kwargs, "implementation_hash": "hello"})
