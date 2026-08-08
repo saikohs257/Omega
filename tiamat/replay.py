@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import Mapping, Sequence
 from .state import TiamatState
 from .transition import transition
