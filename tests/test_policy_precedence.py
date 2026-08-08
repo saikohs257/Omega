@@ -67,4 +67,16 @@ def test_compute_strain_rejects_invalid_observability_and_relevance() -> None:
     with pytest.raises(ValueError, match="relevance\[signal\] must be finite"):
         compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": 1.0}, {"signal": math.inf})
     with pytest.raises(ValueError, match="relevance\[signal\] must be non-negative"):
-        compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": {}, "h2": {}}, {"signal": 1.0}, {"signal": -1.0})
+        compute_strain({"h1": 1.0, "h2": 1.0}, {"h1": 1.0, "h2": 1.0}, {"signal": 1.0}, {"signal": -1.0})
+
+
+def test_compute_strain_rejects_non_finite_numeric_predictions() -> None:
+    with pytest.raises(ValueError, match="numeric predictions must be finite"):
+        compute_strain({"h1": 0.5, "h2": 0.5}, {"h1": {"signal": math.nan}, "h2": {"signal": 1.0}}, {"signal": 1.0})
+    with pytest.raises(ValueError, match="numeric predictions must be finite"):
+        compute_strain({"h1": 0.5, "h2": 0.5}, {"h1": {"signal": 0.0}, "h2": {"signal": math.inf}}, {"signal": 1.0})
+
+
+def test_compute_strain_rejects_non_finite_hypothesis_total() -> None:
+    with pytest.raises(ValueError, match="hypotheses total must be finite"):
+        compute_strain({"h1": 1e308, "h2": 1e308}, {}, {})
