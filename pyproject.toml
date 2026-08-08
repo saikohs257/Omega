@@ -17,6 +17,7 @@ include = [
   "bentaxis*",
   "colony*",
   "court*",
+  "erk*",
   "hypergraph*",
   "omega*",
   "oracle*",
