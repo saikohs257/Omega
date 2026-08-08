@@ -9,6 +9,7 @@ from erk.core import (
     EpistemicState,
     GraphEdge,
     GraphNode,
+    PolicyConfig,
     Supervisor,
     Transition,
     compute_strain,
@@ -42,6 +43,22 @@ def test_nested_evidence_payload_is_immutable() -> None:
     evidence = EvidenceRecord("e1", "source", "t1", payload)
     payload["nested"]["values"].append(3)
     assert list(evidence.payload["nested"]["values"]) == [1, 2]
+    with pytest.raises(TypeError):
+        evidence.payload["nested"]["values"] = (9,)
+
+
+def test_epistemic_state_mappings_are_immutable() -> None:
+    state = EpistemicState(observability={"x": 1.0}, hypotheses={"h": 1.0})
+    with pytest.raises(TypeError):
+        state.observability["x"] = 0.0
+    with pytest.raises(TypeError):
+        state.hypotheses["h"] = 0.0
+
+
+def test_policy_config_is_immutable() -> None:
+    config = PolicyConfig()
+    with pytest.raises(TypeError):
+        config.cost_weights[Action.BLOCK] = 999.0
 
 
 def test_cycle_forces_non_execution_actions() -> None:
@@ -95,14 +112,6 @@ def test_strain_is_bounded() -> None:
         lam=100.0,
     )
     assert 0.0 <= value <= 1.0
-
-
-def test_policy_config_mutation_cannot_change_existing_state_hash() -> None:
-    state = EpistemicState(authority=Authority.EXECUTE, strain=0.1)
-    before = state_hash(state)
-    config = {Action.ENABLE_EXECUTION: 0.0}
-    config[Action.ENABLE_EXECUTION] = 999.0
-    assert state_hash(state) == before
 
 
 def test_replay_like_transition_is_deterministic() -> None:
