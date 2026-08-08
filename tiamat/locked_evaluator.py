@@ -10,19 +10,19 @@ from .telemetry import TelemetryRow
 
 @dataclass(frozen=True, slots=True)
 class LockedModelEvaluator:
-    """Test evaluator that owns exactly one selected model and a mandatory probability contract."""
+    """Test evaluator that owns exactly one selected model and a probability contract."""
     model_id: str
     runner: IdentificationRunner
-    probability_predictor: ProbabilityPredictor
+    probability_predictor: ProbabilityPredictor | None = None
     probability_contract: ProbabilityContract = ProbabilityContract(STATE_SPACE)
 
     def __post_init__(self) -> None:
         if self.model_id not in MODEL_REGISTRY:
             raise ValueError(f"unknown locked model: {self.model_id}")
-        if self.probability_predictor is None:
-            raise ValueError("locked evaluator requires a probability predictor")
 
     def probability_outputs(self, rows: Sequence[Mapping[str, Any] | TelemetryRow]) -> tuple[Mapping[str, float], ...]:
+        if self.probability_predictor is None:
+            raise ValueError("locked evaluator requires a probability predictor before evaluation")
         normalized = tuple(self.runner.normalize_rows(rows, model_id=self.model_id))
         return tuple(validate_probability_output(row, self.probability_predictor, self.probability_contract) for row in normalized)
 
