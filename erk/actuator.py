@@ -15,14 +15,16 @@ class ExecutionPermit:
     state_hash: str
     policy_version: str
     authority: Authority
+    key_id: str
     signature: str
 
 
 class ActuatorFirewall:
     """Final effect boundary: accepts only kernel-issued, one-use permits."""
 
-    def __init__(self, kernel: ConstitutionalKernel) -> None:
+    def __init__(self, kernel: ConstitutionalKernel, key_id: str) -> None:
         self.kernel = kernel
+        self.key_id = key_id
         self._consumed: set[str] = set()
 
     def issue(self, state: EpistemicState) -> ExecutionPermit:
@@ -30,19 +32,15 @@ class ActuatorFirewall:
             raise ConstitutionalViolation("execution is not constitutionally admissible")
         if state.authority != Authority.EXECUTE:
             raise ConstitutionalViolation("execution permit requires EXECUTE authority")
+        key = self.kernel.config.authority_keys.get(self.key_id)
+        if key is None:
+            raise ConstitutionalViolation("execution permit key unavailable")
 
         permit_id = secrets.token_hex(16)
         state_digest = self.kernel.replay_hash((state,))
-        message = f"{permit_id}|{state_digest}|{state.policy_version}|{int(state.authority)}".encode()
-        key = self._permit_key()
+        message = self._message(permit_id, state_digest, state.policy_version, Authority.EXECUTE, self.key_id)
         signature = hmac.new(key, message, hashlib.sha256).hexdigest()
-        return ExecutionPermit(
-            permit_id=permit_id,
-            state_hash=state_digest,
-            policy_version=state.policy_version,
-            authority=state.authority,
-            signature=signature,
-        )
+        return ExecutionPermit(permit_id, state_digest, state.policy_version, Authority.EXECUTE, self.key_id, signature)
 
     def execute(self, state: EpistemicState, permit: ExecutionPermit) -> None:
         if permit.permit_id in self._consumed:
@@ -51,20 +49,26 @@ class ActuatorFirewall:
             raise ConstitutionalViolation("execution requires EXECUTE authority")
         if permit.authority != Authority.EXECUTE:
             raise ConstitutionalViolation("invalid execution permit authority")
+        if permit.key_id != self.key_id:
+            raise ConstitutionalViolation("execution permit key mismatch")
         if permit.policy_version != state.policy_version:
             raise ConstitutionalViolation("execution permit policy mismatch")
         if permit.state_hash != self.kernel.replay_hash((state,)):
             raise ConstitutionalViolation("execution permit state mismatch")
 
-        message = f"{permit.permit_id}|{permit.state_hash}|{permit.policy_version}|{int(permit.authority)}".encode()
-        expected = hmac.new(self._permit_key(), message, hashlib.sha256).hexdigest()
+        key = self.kernel.config.authority_keys.get(self.key_id)
+        if key is None:
+            raise ConstitutionalViolation("execution permit key unavailable")
+        expected = hmac.new(
+            key,
+            self._message(permit.permit_id, permit.state_hash, permit.policy_version, permit.authority, permit.key_id),
+            hashlib.sha256,
+        ).hexdigest()
         if not hmac.compare_digest(expected, permit.signature):
             raise ConstitutionalViolation("invalid execution permit signature")
 
         self._consumed.add(permit.permit_id)
 
-    def _permit_key(self) -> bytes:
-        keys = self.kernel.config.authority_keys
-        if not keys:
-            raise ConstitutionalViolation("execution permit key unavailable")
-        return next(iter(keys.values()))
+    @staticmethod
+    def _message(permit_id: str, state_hash: str, policy_version: str, authority: Authority, key_id: str) -> bytes:
+        return f"{permit_id}|{state_hash}|{policy_version}|{int(authority)}|{key_id}".encode("utf-8")
