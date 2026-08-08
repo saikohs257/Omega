@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import hashlib
 import hmac
 import json
+import math
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
@@ -74,9 +75,15 @@ class ConstitutionalKernel:
             if record.authority_grant_id in state.used_authority_grants:
                 raise ConstitutionalViolation("authority grant replay detected")
             seen_grant_ids.add(record.authority_grant_id)
+            raw_grant = record.authority_grant
+            if isinstance(raw_grant, bool):
+                raise ConstitutionalViolation("authority grant outside constitutional domain")
+            numeric_grant = float(raw_grant)
+            if not math.isfinite(numeric_grant) or numeric_grant != int(numeric_grant):
+                raise ConstitutionalViolation("authority grant outside constitutional domain")
             try:
-                grant = Authority(int(record.authority_grant))
-            except (ValueError, TypeError) as exc:
+                grant = Authority(int(numeric_grant))
+            except (ValueError, TypeError, OverflowError) as exc:
                 raise ConstitutionalViolation(
                     "authority grant outside constitutional domain"
                 ) from exc
