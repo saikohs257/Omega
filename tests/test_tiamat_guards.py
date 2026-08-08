@@ -36,6 +36,23 @@ def test_guard_evidence_must_be_mapping():
         evaluate_guards(TiamatState(), [])
 
 
+def test_boolean_numeric_guard_evidence_is_ignored():
+    state = TiamatState(D=.9, V=.2, tau_mode=4, mode=TiamatMode.RELAXATION)
+    results = evaluate_guards(
+        state,
+        {
+            "damage_threshold": False,
+            "residual_threshold": False,
+            "excitation_duration": True,
+            "precursor_threshold": False,
+            "promotion_threshold": True,
+            "promotion_count": True,
+        },
+    )
+
+    assert all(not result.triggered for result in results)
+
+
 def test_valid_integer_promotion_evidence_still_triggers():
     state = TiamatState(mode=TiamatMode.COUPLED_TRANSFER)
     results = evaluate_guards(
