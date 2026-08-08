@@ -154,10 +154,15 @@ def _prediction_distance(first: Any, second: Any) -> float:
 
 
 def compute_strain(hypotheses: Mapping[str, float], predictions: Mapping[str, Mapping[str, Any]], observability: Mapping[str, float], relevance: Mapping[str, float] | None = None, lam: float = 1.0) -> float:
-    if not hypotheses or lam < 0: return 0.0
-    total = sum(max(0.0, float(probability)) for probability in hypotheses.values())
+    if not math.isfinite(float(lam)) or lam < 0.0:
+        raise ValueError("lam must be finite and non-negative")
+    if not hypotheses: return 0.0
+    total = 0.0
+    for name, probability in hypotheses.items():
+        value = _finite_nonnegative(probability, f"hypotheses[{name}]")
+        total += value
     if total <= 0: return 0.0
-    probabilities = {name: max(0.0, float(probability)) / total for name, probability in hypotheses.items()}; relevance = relevance or {}; names = list(probabilities); conflict = 0.0
+    probabilities = {name: _finite_nonnegative(probability, f"hypotheses[{name}]") / total for name, probability in hypotheses.items()}; relevance = relevance or {}; names = list(probabilities); conflict = 0.0
     for index, first in enumerate(names):
         for second in names[index + 1:]:
             disagreement = sum(max(0.0, float(relevance.get(variable, 1.0))) * float(observed) * _prediction_distance(predictions.get(first, {}).get(variable), predictions.get(second, {}).get(variable)) for variable, observed in observability.items() if observed > 0)
