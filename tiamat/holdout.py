@@ -53,10 +53,13 @@ class HoldoutExperiment:
     test_fraction: float = 0.2
     adapter: TelemetryAdapter = field(default_factory=TelemetryAdapter)
     def __post_init__(self) -> None:
-        total = float(self.train_fraction) + float(self.validation_fraction) + float(self.test_fraction)
+        fractions = (("train_fraction", self.train_fraction), ("validation_fraction", self.validation_fraction), ("test_fraction", self.test_fraction))
+        for name, value in fractions:
+            if isinstance(value, bool): raise TypeError(f"{name} must be numeric, not bool")
+            numeric = float(value)
+            if not math.isfinite(numeric) or numeric < 0.0: raise ValueError(f"{name} must be finite and non-negative")
+        total = sum(float(value) for _, value in fractions)
         if not math.isclose(total, 1.0, rel_tol=1e-9, abs_tol=1e-9): raise ValueError("holdout fractions must sum to 1.0")
-        for name, value in (("train_fraction", self.train_fraction), ("validation_fraction", self.validation_fraction), ("test_fraction", self.test_fraction)):
-            if not math.isfinite(float(value)) or float(value) < 0.0: raise ValueError(f"{name} must be finite and non-negative")
     def normalize_rows(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], *, model_id: str = "M3") -> tuple[TelemetryRow, ...]: return tuple(self.adapter.normalize(row, model_id=model_id) for row in rows)
     def split_rows(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], *, model_id: str = "M3") -> HoldoutSplit:
         normalized = self.normalize_rows(rows, model_id=model_id)
