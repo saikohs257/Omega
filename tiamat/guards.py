@@ -1,8 +1,7 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any, Mapping
-from .state import TiamatState
+from .state import TiamatMode, TiamatState
 
 @dataclass(frozen=True, slots=True)
 class GuardResult:
@@ -36,7 +35,6 @@ class CoupledTransferHazardPromotionGuard(Guard):
     name = "COUPLED_TRANSFER_HAZARD_PROMOTION"
     def evaluate(self, state, evidence): return state.promotion_count >= int(evidence.get("promotion_threshold", 1))
 
-from .state import TiamatMode
 DEFAULT_GUARDS = (DurationDamageHazardGuard(), RelaxationResidualDamageGuard(), ExcitationDurationExpiredGuard(), LatentHazardPrecursorGuard(), CoupledTransferHazardPromotionGuard())
 
 def evaluate_guards(state: TiamatState, evidence: Mapping[str, Any], guards=DEFAULT_GUARDS):
