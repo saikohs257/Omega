@@ -13,7 +13,7 @@ from .metric_contract import (
 )
 from .telemetry import TelemetryAdapter, TelemetryRow
 
-CALIBRATION_REPORT_VERSION = "calibration-report-v1.1"
+CALIBRATION_REPORT_VERSION = "calibration-report-v1.2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +64,7 @@ class CalibrationReport:
     inference_purity: bool
     decision: str
     decision_rationale: str
+    reliability_bins: tuple[dict[str, Any], ...] = ()
     report_version: str = CALIBRATION_REPORT_VERSION
 
     def __post_init__(self) -> None:
@@ -76,6 +77,8 @@ class CalibrationReport:
                 raise ValueError(f"{name} must be a 64-character identity hash")
         if self.decision not in {"PROCEED", "HOLD"}:
             raise ValueError("decision must be PROCEED or HOLD")
+        if not self.report_version:
+            raise ValueError("report_version is required")
 
     def canonical_payload(self) -> dict[str, Any]:
         return {
@@ -91,6 +94,7 @@ class CalibrationReport:
             "inference_purity": self.inference_purity,
             "decision": self.decision,
             "decision_rationale": self.decision_rationale,
+            "reliability_bins": [dict(bucket) for bucket in self.reliability_bins],
         }
 
     @property
@@ -121,14 +125,50 @@ class CalibrationDiagnostic:
         *,
         probability_predictor: ProbabilityPredictor,
         model_id: str,
-    ) -> tuple[dict[str, float], int]:
+    ) -> tuple[dict[str, float], int, tuple[dict[str, Any], ...]]:
         normalized = tuple(self.adapter.normalize(row, model_id=model_id) for row in rows)
         scored: list[tuple[Mapping[str, float], str]] = []
         for row in normalized:
             probs = validate_probability_output(row, probability_predictor, self.probability_contract)
             target = row.mode.value if hasattr(row.mode, "value") else str(row.mode)
             scored.append((probs, target))
-        return self.metric_contract.score(scored), len(normalized)
+        metrics = self.metric_contract.score(scored)
+        bins = self._reliability_bins(scored)
+        return metrics, len(normalized), bins
+
+    def _reliability_bins(self, scored: Sequence[tuple[Mapping[str, float], str]]) -> tuple[dict[str, Any], ...]:
+        n_bins = self.metric_contract.ece_bins
+        buckets: list[list[tuple[float, bool]]] = [[] for _ in range(n_bins)]
+        states = self.probability_contract.state_space
+        for probabilities, target in scored:
+            if self.metric_contract.ece_confidence == "true_state_probability":
+                confidence = float(probabilities[target])
+            else:
+                confidence = max(float(probabilities[state]) for state in states)
+            prediction = max(states, key=lambda state: float(probabilities[state]))
+            index = min(n_bins - 1, int(confidence * n_bins))
+            buckets[index].append((confidence, prediction == target))
+        result: list[dict[str, Any]] = []
+        for index, bucket in enumerate(buckets):
+            lower = index / n_bins
+            upper = (index + 1) / n_bins
+            center = (lower + upper) / 2.0
+            if bucket:
+                mean_confidence = sum(c for c, _ in bucket) / len(bucket)
+                empirical_accuracy = sum(1.0 if correct else 0.0 for _, correct in bucket) / len(bucket)
+            else:
+                mean_confidence = None
+                empirical_accuracy = None
+            result.append({
+                "index": index,
+                "lower": lower,
+                "upper": upper,
+                "center": center,
+                "mean_confidence": mean_confidence,
+                "empirical_accuracy": empirical_accuracy,
+                "count": len(bucket),
+            })
+        return tuple(result)
 
     def create_report(
         self,
@@ -142,27 +182,24 @@ class CalibrationDiagnostic:
         inference_purity: bool,
         ece_reliability_behavior: str,
     ) -> CalibrationReport:
-        """Score every evaluand through the same MetricContract path.
-
-        Predictors are accepted rather than pre-computed metric bundles, so the
-        calibration boundary cannot be populated by bypassing the scorer.
-        """
         if not controls and not candidates:
             raise ValueError("at least one control or candidate predictor is required")
         if not isinstance(ece_reliability_behavior, str) or not ece_reliability_behavior.strip():
             raise ValueError("ece_reliability_behavior must be a non-empty assessment")
 
         control_sets: list[ControlMetricSet] = []
+        reliability_by_control: dict[str, tuple[dict[str, Any], ...]] = {}
         for name, predictor in sorted(controls.items()):
-            metrics, _ = self.evaluate_rows(rows, probability_predictor=predictor, model_id=name)
-            control_sets.append(
-                ControlMetricSet(label=name, nll=metrics["nll"], brier=metrics["brier"], ece=metrics["ece"])
-            )
+            metrics, _, bins = self.evaluate_rows(rows, probability_predictor=predictor, model_id=name)
+            control_sets.append(ControlMetricSet(label=name, nll=metrics["nll"], brier=metrics["brier"], ece=metrics["ece"]))
+            reliability_by_control[name] = bins
 
         candidate_sets: list[CandidateDiagnostic] = []
+        candidate_bins: dict[str, tuple[dict[str, Any], ...]] = {}
         for model_id, predictor in sorted(candidates.items()):
-            metrics, count = self.evaluate_rows(rows, probability_predictor=predictor, model_id=model_id)
+            metrics, count, bins = self.evaluate_rows(rows, probability_predictor=predictor, model_id=model_id)
             candidate_sets.append(CandidateDiagnostic(model_id=model_id, metrics=metrics, rows=count))
+            candidate_bins[model_id] = bins
 
         candidates_tuple = tuple(candidate_sets)
         state_count = len(self.probability_contract.state_space)
@@ -178,6 +215,7 @@ class CalibrationDiagnostic:
         }
         spread_pass = len(candidates_tuple) >= 2 and all(spread[m] >= self.spread_threshold for m in spread)
         proceed = null_floor_check and spread_pass
+        representative_bins = candidate_bins.get(candidates_tuple[0].model_id, ()) if candidates_tuple else ()
         return CalibrationReport(
             corpus_manifest_hash=corpus_manifest_hash,
             label_provenance_hash=label_provenance_hash,
@@ -200,4 +238,5 @@ class CalibrationDiagnostic:
                 if proceed and inference_purity
                 else "Calibration diagnostics failed the null-floor, spread, or inference-purity gate"
             ),
+            reliability_bins=representative_bins,
         )
