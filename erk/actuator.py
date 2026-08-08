@@ -47,7 +47,7 @@ class ActuatorFirewall:
         if not self.kernel.admissible(state, Action.ENABLE_EXECUTION):
             raise ConstitutionalViolation("execution is not constitutionally admissible")
         if state.authority != Authority.EXECUTE:
-            raise ConstitutionalViolation("execution permit requires EXECUTE authority")
+            raise ConstitutionalViolation("execution is not admissible without EXECUTE authority")
         key = self.kernel.config.authority_keys.get(self.key_id)
         if key is None:
             raise ConstitutionalViolation("execution permit key unavailable")
