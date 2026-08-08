@@ -76,22 +76,26 @@ class ConstitutionalKernel:
         return hashlib.sha256(json.dumps(_canonical(payload), sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
     @staticmethod
-    def _grant_metadata(record: EvidenceRecord) -> tuple[str, str, str]:
+    def _grant_metadata(record: EvidenceRecord) -> tuple[str, str, str, str, str, str]:
         payload = dict(record.payload)
-        key_id = str(payload.get("authority_key_id", record.source))
-        nonce = str(payload.get("authority_nonce", record.authority_grant_id or ""))
-        expires_at = str(payload.get("authority_expires_at", ""))
-        return key_id, nonce, expires_at
+        return (
+            str(payload.get("authority_key_id", record.source)),
+            str(payload.get("authority_nonce", record.authority_grant_id or "")),
+            str(payload.get("authority_expires_at", "")),
+            str(payload.get("authority_state_hash", "")),
+            str(payload.get("authority_policy_hash", "")),
+            str(payload.get("authority_branch_id", "")),
+        )
 
     def _authority_binding(self, record: EvidenceRecord, state: EpistemicState) -> bytes:
-        key_id, nonce, expires_at = self._grant_metadata(record)
+        key_id, nonce, expires_at, signed_state_hash, signed_policy_hash, signed_branch_id = self._grant_metadata(record)
         binding = {
             "prior_authority": int(state.authority),
             "target_authority": int(record.authority_grant) if record.authority_grant is not None else None,
             "evidence_hash": record.provenance_hash,
-            "state_hash": state_hash(state),
-            "policy_hash": self._policy_hash(),
-            "branch_id": self.config.branch_id,
+            "state_hash": signed_state_hash or state_hash(state),
+            "policy_hash": signed_policy_hash or self._policy_hash(),
+            "branch_id": signed_branch_id or self.config.branch_id,
             "grant_id": record.authority_grant_id,
             "nonce": nonce,
             "key_id": key_id,
@@ -103,23 +107,29 @@ class ConstitutionalKernel:
         requested: Authority | None = None
         seen_grant_ids: set[str] = set()
         seen_nonces: set[str] = set()
+        current_state_hash = state_hash(state)
+        current_policy_hash = self._policy_hash()
         for record in evidence:
             if record.authority_grant is None:
                 continue
             if not record.authority_grant_id:
                 raise ConstitutionalViolation("GRANT_ID_MISSING")
-            if record.authority_grant_id in seen_grant_ids:
-                raise ConstitutionalViolation("GRANT_REPLAY")
-            if record.authority_grant_id in state.used_authority_grants:
+            if record.authority_grant_id in seen_grant_ids or record.authority_grant_id in state.used_authority_grants:
                 raise ConstitutionalViolation("GRANT_REPLAY")
             seen_grant_ids.add(record.authority_grant_id)
 
-            key_id, nonce, expires_at = self._grant_metadata(record)
+            key_id, nonce, expires_at, signed_state_hash, signed_policy_hash, signed_branch_id = self._grant_metadata(record)
             if not nonce or nonce != record.authority_grant_id:
                 raise ConstitutionalViolation("NONCE_MISMATCH")
             if nonce in seen_nonces:
                 raise ConstitutionalViolation("NONCE_REPLAY")
             seen_nonces.add(nonce)
+            if signed_state_hash and signed_state_hash != current_state_hash:
+                raise ConstitutionalViolation("STALE_GRANT")
+            if signed_policy_hash and signed_policy_hash != current_policy_hash:
+                raise ConstitutionalViolation("POLICY_MISMATCH")
+            if signed_branch_id and signed_branch_id != self.config.branch_id:
+                raise ConstitutionalViolation("BRANCH_MISMATCH")
             if expires_at:
                 try:
                     expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
@@ -136,6 +146,8 @@ class ConstitutionalKernel:
             key = self.config.authority_keys.get(key_id)
             if key is None:
                 raise ConstitutionalViolation("UNKNOWN_KEY")
+            if key.key_id != key_id:
+                raise ConstitutionalViolation("KEY_SUBSTITUTION")
             if not key.valid_for(record.timestamp):
                 raise ConstitutionalViolation("KEY_REVOKED_OR_OUT_OF_VALIDITY")
 
@@ -161,12 +173,7 @@ class ConstitutionalKernel:
         authorized_grant = self._validate_evidence(before, evidence)
         if not self.admissible(before, action):
             raise ConstitutionalViolation(f"inadmissible action: {action}")
-        after = Transition.apply(
-            before, action, evidence,
-            authorized_authority=authorized_grant,
-            branch_bound=self.config.policy.branch_bound,
-            _kernel_authorized=True,
-        )
+        after = Transition.apply(before, action, evidence, authorized_authority=authorized_grant, branch_bound=self.config.policy.branch_bound, _kernel_authorized=True)
         if self.config.require_monotonic_evidence_count and after.evidence_count < before.evidence_count:
             raise ConstitutionalViolation("EVIDENCE_COUNT_DECREASED")
         if action == Action.ENABLE_EXECUTION and after.authority >= Authority.EXECUTE:
