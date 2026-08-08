@@ -80,3 +80,12 @@ def test_transition_cannot_escalate_without_kernel_authorization() -> None:
     state = EpistemicState()
     with pytest.raises(ValueError):
         Transition.apply(state, __import__("erk").Action.BLOCK, authorized_authority=Authority.SIMULATE)
+
+
+def test_authority_keys_are_frozen_at_kernel_boundary() -> None:
+    keys = {SOURCE: bytearray(KEY)}
+    kernel = ConstitutionalKernel(KernelConfig(authority_keys=keys))
+    keys[SOURCE][:] = b"mutated-key"
+    assert kernel.config.authority_keys[SOURCE] == KEY
+    with pytest.raises(TypeError):
+        kernel.config.authority_keys[SOURCE] = b"replacement-key"
