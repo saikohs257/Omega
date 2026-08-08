@@ -25,6 +25,22 @@ def test_kernel_consumes_execute_authority() -> None:
     assert next_state.authority == Authority.SIMULATE
 
 
+def test_kernel_rejects_untrusted_authority_grant() -> None:
+    kernel = ConstitutionalKernel()
+    evidence = EvidenceRecord("e1", "attacker", "t1", {"grant": 2}, authority_grant=Authority.EXECUTE)
+    with pytest.raises(ConstitutionalViolation):
+        kernel.step(EpistemicState(), Action.BRANCH, (evidence,))
+
+
+def test_kernel_accepts_trusted_authority_grant_one_level_at_a_time() -> None:
+    kernel = ConstitutionalKernel()
+    evidence = EvidenceRecord("e1", "kernel-authority", "t1", {"grant": 2}, authority_grant=Authority.EXECUTE)
+    first = kernel.step(EpistemicState(), Action.BRANCH, (evidence,))
+    second = kernel.step(first, Action.BRANCH, (evidence,))
+    assert first.authority == Authority.SIMULATE
+    assert second.authority == Authority.EXECUTE
+
+
 def test_kernel_replays_identically() -> None:
     kernel = ConstitutionalKernel()
     evidence = EvidenceRecord("e1", "trusted", "t1", {"x": 1})
@@ -36,7 +52,7 @@ def test_kernel_replays_identically() -> None:
 
 
 def test_kernel_rejects_cycle_even_with_execute_authority() -> None:
-    from erk import GraphEdge, GraphNode, Supervisor, graph_metrics
+    from erk import GraphEdge, GraphNode, graph_metrics
 
     nodes = [GraphNode("a", "inference"), GraphNode("b", "inference")]
     metrics = graph_metrics(nodes, [GraphEdge("a", "b"), GraphEdge("b", "a")])
