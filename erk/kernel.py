@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import hashlib
 import hmac
-import json
 from typing import Mapping, Sequence
 
 from .core import Action, Authority, EpistemicState, EvidenceRecord, PolicyConfig, Supervisor, Transition, _canonical
@@ -32,13 +31,6 @@ class ConstitutionalKernel:
 
     @staticmethod
     def _authority_binding(record: EvidenceRecord, state: EpistemicState) -> bytes:
-        """Return the single canonical message covered by an authority signature.
-
-        The evidence payload is represented without its signature, while the
-        current authority/state binding is included by EvidenceRecord's
-        authority_message().  Keeping exactly one construction path prevents
-        signing and verification from drifting through duplicated fields.
-        """
         return record.authority_message(state)
 
     def _validate_evidence(self, state: EpistemicState, evidence: Sequence[EvidenceRecord]) -> Authority | None:
@@ -100,4 +92,4 @@ class ConstitutionalKernel:
     @staticmethod
     def replay_hash(states: Sequence[EpistemicState]) -> str:
         payload = [_canonical({"observability": dict(state.observability), "hypotheses": dict(state.hypotheses), "predictions": dict(state.predictions), "relevance": dict(state.relevance), "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": dict(state.critical_load), "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version, "terminal": state.terminal, "used_authority_grants": state.used_authority_grants}) for state in states]
-        return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+        return hashlib.sha256(__import__("json").dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
