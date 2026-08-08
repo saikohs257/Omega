@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, Mapping
 
 
@@ -9,6 +10,11 @@ class StateVector:
     """Immutable reconstructed runtime state."""
 
     values: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.values, Mapping):
+            raise TypeError("values must be a mapping")
+        object.__setattr__(self, "values", MappingProxyType(dict(self.values)))
 
     def with_updates(self, **updates: Any) -> StateVector:
         next_values = dict(self.values)
