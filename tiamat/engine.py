@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from runtime.events import Event
 from runtime.replay import ReplayEngine
 from runtime.trajectory import Trajectory
+
+from .replay import replay as replay_state
+from .state import TiamatState
+from .transition import transition
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +36,14 @@ class TiamatEngine:
 
     def execute(self, state: Mapping[str, Any], request: Mapping[str, Any]) -> Decision:
         return self.evaluate(state, request)
+
+    def transition_state(self, state: TiamatState, evidence: Mapping[str, Any]) -> TiamatState:
+        """Canonical TIAMAT state-machine entry point."""
+        return transition(state, evidence)
+
+    def replay_state(self, initial_state: TiamatState, evidence: Sequence[Mapping[str, Any]]) -> TiamatState:
+        """Replay through the exact same transition function used live."""
+        return replay_state(initial_state, evidence)
 
     def replay(self, initial_state: Mapping[str, Any] | None, trajectory: Trajectory) -> dict[str, Any]:
         return self.replay_engine.replay(initial_state, trajectory).state

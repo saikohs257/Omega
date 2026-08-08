@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import IntEnum, StrEnum
 import hashlib
+import hmac
 import json
 import math
 from types import MappingProxyType
@@ -269,10 +270,11 @@ class Supervisor:
 
 class Transition:
     @staticmethod
-    def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None, branch_bound: int = 16) -> EpistemicState:
+    def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None, branch_bound: int = 16, *, _kernel_authorized: bool = False) -> EpistemicState:
         state = state.normalized(); evidence = tuple(evidence)
         if state.terminal is not None: raise ValueError("terminal branch cannot transition")
         if branch_bound < 1: raise ValueError("branch bound must be positive")
+        if authorized_authority is not None and not _kernel_authorized: raise ValueError("authority escalation requires kernel authorization")
         grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
         if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id in transition")
         if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay detected")
