@@ -6,7 +6,7 @@ from statistics import fmean
 from typing import Any, Callable, Mapping, Sequence
 from .experiment_config import TournamentConfig
 from .identification_registry import MODEL_REGISTRY
-from .metric_contract import ProbabilityPredictor
+from .metric_contract import LabelProvenance, ProbabilityPredictor
 from .state import TiamatState
 from .telemetry import CANONICAL_CONTROL_AXES, TelemetryAdapter, TelemetryRow, axes_for_model
 from .transition import transition
@@ -42,15 +42,15 @@ class IdentificationRunner:
     transition_fn: TransitionFn = transition
     control_model_id: str = "M7"
     control_axes: tuple[str, ...] = CANONICAL_CONTROL_AXES
-    def normalize_rows(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], *, model_id: str = "M3") -> tuple[TelemetryRow, ...]: return tuple(self.adapter.normalize(row, model_id=model_id) for row in rows)
+    def normalize_rows(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], *, model_id: str = "M3") -> tuple[TelemetryRow,...]: return tuple(self.adapter.normalize(row, model_id=model_id) for row in rows)
     def axes_for(self, model_id: str) -> tuple[str, ...]: return self.control_axes if model_id == self.control_model_id else axes_for_model(model_id)
     def evaluate(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], *, model_ids: Sequence[str] | None = None) -> TournamentReport:
         normalized=self.normalize_rows(rows); ids=tuple(model_ids or MODEL_REGISTRY.keys()); return TournamentReport(tuple(sorted((self._evaluate_model(normalized,m) for m in ids),key=self._trial_order)))
-    def holdout_experiment(self, *, train_fraction: float=0.6, validation_fraction: float=0.2, test_fraction: float=0.2, config: TournamentConfig|None=None, implementation_hash: str|None=None, probability_predictor: ProbabilityPredictor|None=None):
+    def holdout_experiment(self, *, train_fraction: float=0.6, validation_fraction: float=0.2, test_fraction: float=0.2, config: TournamentConfig|None=None, implementation_hash: str|None=None, probability_predictor: ProbabilityPredictor|None=None, label_provenance: LabelProvenance|None=None):
         from .holdout import HoldoutExperiment
-        return HoldoutExperiment(runner=self, train_fraction=train_fraction, validation_fraction=validation_fraction, test_fraction=test_fraction, adapter=self.adapter, config=config, implementation_hash=implementation_hash or "UNBOUND", probability_predictor=probability_predictor)
+        return HoldoutExperiment(runner=self, train_fraction=train_fraction, validation_fraction=validation_fraction, test_fraction=test_fraction, adapter=self.adapter, config=config, implementation_hash=implementation_hash or "UNBOUND", probability_predictor=probability_predictor, label_provenance=label_provenance)
     def split_rows(self, rows: Sequence[Mapping[str, Any]|TelemetryRow], *, train_fraction: float=0.6, validation_fraction: float=0.2, test_fraction: float=0.2, config: TournamentConfig|None=None): return self.holdout_experiment(train_fraction=train_fraction,validation_fraction=validation_fraction,test_fraction=test_fraction,config=config).split_rows(rows)
-    def evaluate_holdout(self, rows: Sequence[Mapping[str, Any]|TelemetryRow], *, model_ids: Sequence[str]|None=None, train_fraction: float=0.6, validation_fraction: float=0.2, test_fraction: float=0.2, config: TournamentConfig|None=None, implementation_hash: str|None=None, probability_predictor: ProbabilityPredictor|None=None): return self.holdout_experiment(train_fraction=train_fraction,validation_fraction=validation_fraction,test_fraction=test_fraction,config=config,implementation_hash=implementation_hash,probability_predictor=probability_predictor).evaluate(rows,model_ids=model_ids,implementation_hash=implementation_hash,probability_predictor=probability_predictor)
+    def evaluate_holdout(self, rows: Sequence[Mapping[str, Any]|TelemetryRow], *, model_ids: Sequence[str]|None=None, train_fraction: float=0.6, validation_fraction: float=0.2, test_fraction: float=0.2, config: TournamentConfig|None=None, implementation_hash: str|None=None, probability_predictor: ProbabilityPredictor|None=None, label_provenance: LabelProvenance|None=None): return self.holdout_experiment(train_fraction=train_fraction,validation_fraction=validation_fraction,test_fraction=test_fraction,config=config,implementation_hash=implementation_hash,probability_predictor=probability_predictor,label_provenance=label_provenance).evaluate(rows,model_ids=model_ids,implementation_hash=implementation_hash,probability_predictor=probability_predictor)
     def build_frames(self, rows: Sequence[Mapping[str, Any]|TelemetryRow], model_id: str) -> tuple[dict[str, Any],...]: return self.adapter.frame(rows,model_id)
     def build_states(self, rows: Sequence[Mapping[str, Any]|TelemetryRow], model_id: str="M3") -> tuple[TiamatState,...]: return self.adapter.states(rows,model_id)
     def _evaluate_model(self, rows: tuple[TelemetryRow,...], model_id: str) -> CandidateTrial:
