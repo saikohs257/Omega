@@ -6,11 +6,11 @@ from runtime.trajectory import Trajectory
 
 
 def test_replay_is_deterministic() -> None:
-    events = [
+    events = (
         Event.create("alpha", {"i": 1}),
         Event.create("beta", {"i": 2}),
         Event.create("gamma", {"i": 3}),
-    ]
+    )
     trajectory = Trajectory().extend(events)
     engine = ReplayEngine()
     result_a = engine.replay({"seed": True}, trajectory)
