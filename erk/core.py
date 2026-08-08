@@ -63,6 +63,20 @@ def _finite_nonnegative(value: float, name: str) -> float:
     return value
 
 
+def _positive_int(value: int, name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer")
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        raise ValueError(f"{name} must be finite")
+    integer = int(numeric)
+    if numeric != integer:
+        raise ValueError(f"{name} must be an integer")
+    if integer < 1:
+        raise ValueError(f"{name} must be positive")
+    return integer
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceRecord:
     evidence_id: str
@@ -226,12 +240,8 @@ class PolicyConfig:
     def __post_init__(self) -> None:
         object.__setattr__(self, "u_crit", _unit_interval(self.u_crit, "u_crit"))
         object.__setattr__(self, "calibration_crit", _unit_interval(self.calibration_crit, "calibration_crit"))
-        depth_bound = int(self.depth_bound)
-        branch_bound = int(self.branch_bound)
-        if depth_bound < 1:
-            raise ValueError("depth_bound must be positive")
-        if branch_bound < 1:
-            raise ValueError("branch_bound must be positive")
+        depth_bound = _positive_int(self.depth_bound, "depth_bound")
+        branch_bound = _positive_int(self.branch_bound, "branch_bound")
         object.__setattr__(self, "depth_bound", depth_bound)
         object.__setattr__(self, "branch_bound", branch_bound)
         object.__setattr__(self, "cost_weights", _freeze({action: _finite_nonnegative(weight, f"cost_weights[{action}]") for action, weight in self.cost_weights.items()}))
@@ -272,7 +282,7 @@ class Transition:
     def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None, branch_bound: int = 16) -> EpistemicState:
         state = state.normalized(); evidence = tuple(evidence)
         if state.terminal is not None: raise ValueError("terminal branch cannot transition")
-        if branch_bound < 1: raise ValueError("branch bound must be positive")
+        branch_bound = _positive_int(branch_bound, "branch bound")
         grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
         if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id in transition")
         if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay detected")
