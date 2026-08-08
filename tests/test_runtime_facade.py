@@ -1,16 +1,14 @@
+import pytest
+
 from erk import Action, ConstitutionalRuntime, EpistemicState
 
 
-def test_runtime_step_normalizes_state_and_records_transition() -> None:
+def test_runtime_step_rejects_negative_state_counters() -> None:
     runtime = ConstitutionalRuntime()
     state = EpistemicState(observability={"signal": 2.0}, active_branches=-3)
 
-    result = runtime.step(state, Action.BLOCK)
-
-    assert result.before.observability["signal"] == 1.0
-    assert result.before.active_branches == 0
-    assert result.action is Action.BLOCK
-    assert result.after == result.before
+    with pytest.raises(ValueError, match="active_branches must be non-negative"):
+        runtime.step(state, Action.BLOCK)
 
 
 def test_runtime_step_chooses_constitutional_action_when_omitted() -> None:
