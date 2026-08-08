@@ -1,4 +1,3 @@
-from __future__ import annotations
 from dataclasses import replace
 from typing import Any, Mapping
 from .guards import GuardResult, evaluate_guards
