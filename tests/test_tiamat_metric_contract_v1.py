@@ -26,13 +26,14 @@ def test_brier_definition_uses_full_state_space_squared_error():
 def test_ece_uses_fixed_width_confidence_bins():
     metric = _metric()
     rows = [(_p(0.9, 0.05, 0.05), "Q"), (_p(0.8, 0.1, 0.1), "P")]
-    assert metric.ece(rows) == pytest.approx(0.5)
+    # Each confidence lies in its own 0.1-wide bin: 0.9 correct, 0.8 incorrect.
+    assert metric.ece(rows) == pytest.approx(0.45)
 
 
 def test_metric_contract_rejects_invalid_probability_inputs():
     metric = _metric()
     with pytest.raises(ValueError):
-        metric.nll({"Q": 0.5, "P": 0.5, "E": -0.0}, "Q")
+        metric.nll({"Q": 0.5, "P": 0.5, "E": -0.1}, "Q")
     with pytest.raises(ValueError):
         metric.brier({"Q": 0.5, "P": 0.5, "E": 0.5}, "Q")
 
