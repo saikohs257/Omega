@@ -13,6 +13,8 @@ NUMERIC_FIELDS: tuple[str, ...] = ("B", "V", "D", "tau_D", "tau_mode", "Phi")
 
 
 def _finite(value: Any, name: str) -> float:
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be a real number, not bool")
     value = float(value)
     if not math.isfinite(value):
         raise ValueError(f"{name} must be finite")
