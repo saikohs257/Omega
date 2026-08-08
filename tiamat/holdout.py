@@ -78,7 +78,7 @@ class HoldoutExperiment:
         if selected is not None:
             test_rows=tuple(self.runner.normalize_rows(split.test,model_id=selected))
             for row in test_rows: validate_probability_output(row,predictor,self.probability_contract)
-        locked=LockedModelEvaluator(selected,self.runner) if selected is not None else None
+        locked=(None if selected is None else LockedModelEvaluator(selected,self.runner,predictor,self.probability_contract))
         test_result=None if locked is None else locked.evaluate(split.test)
         corpus_hash=corpus_fingerprint([r.to_mapping() for r in (*split.train,*split.validation,*split.test)]); manifest_model_id=selected or (ids[0] if ids else "M3"); label=self.label_provenance
         if label.label_corpus_hash=="UNBOUND": label=LabelProvenance(label.label_source,label.label_version,label.label_generation_method,label.label_confidence,label.target_dependencies,corpus_hash,label.label_temporal_offset,label.label_episode_boundary_aware,label.version)
