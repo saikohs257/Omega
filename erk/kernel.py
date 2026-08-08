@@ -68,7 +68,7 @@ class ConstitutionalKernel:
         for record in evidence:
             if record.authority_grant is None:
                 continue
-            if not record.authority_grant_id:
+            if not isinstance(record.authority_grant_id, str) or not record.authority_grant_id:
                 raise ConstitutionalViolation("authority grant requires unique grant id")
             if record.authority_grant_id in seen_grant_ids:
                 raise ConstitutionalViolation("duplicate authority grant id in transition")
@@ -78,11 +78,17 @@ class ConstitutionalKernel:
             raw_grant = record.authority_grant
             if isinstance(raw_grant, bool):
                 raise ConstitutionalViolation("authority grant outside constitutional domain")
-            numeric_grant = float(raw_grant)
-            if not math.isfinite(numeric_grant) or numeric_grant != int(numeric_grant):
+            try:
+                numeric_grant = float(raw_grant)
+                integral_grant = int(numeric_grant)
+            except (ValueError, TypeError, OverflowError) as exc:
+                raise ConstitutionalViolation(
+                    "authority grant outside constitutional domain"
+                ) from exc
+            if not math.isfinite(numeric_grant) or numeric_grant != integral_grant:
                 raise ConstitutionalViolation("authority grant outside constitutional domain")
             try:
-                grant = Authority(int(numeric_grant))
+                grant = Authority(integral_grant)
             except (ValueError, TypeError, OverflowError) as exc:
                 raise ConstitutionalViolation(
                     "authority grant outside constitutional domain"
@@ -97,7 +103,7 @@ class ConstitutionalKernel:
                 self._authority_binding(record, state),
                 hashlib.sha256,
             ).hexdigest()
-            if not record.authority_signature or not hmac.compare_digest(
+            if not isinstance(record.authority_signature, str) or not record.authority_signature or not hmac.compare_digest(
                 expected, record.authority_signature
             ):
                 raise ConstitutionalViolation("invalid authority signature")
