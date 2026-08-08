@@ -18,6 +18,7 @@ def test_replay_is_deterministic() -> None:
                 Event.create("beta", {"i": 2}),
                 Event.create("gamma", {"i": 3}),
             )
+        )
     )
 
     engine = ReplayEngine()
@@ -29,6 +30,25 @@ def test_replay_is_deterministic() -> None:
     assert result_a.state_vector.get("record_count") == 3
     assert result_a.state_vector.get("last_record_type") == "gamma"
     assert result_a.state_vector.get("last_payload") == {"i": 3}
+
+
+def test_registered_operator_controls_reconstruction() -> None:
+    class MarkerOperator:
+        def reconstruct(self, record: ConstitutionalRecord, state):
+            return state.with_updates(marker=record.payload["marker"])
+
+    engine = ReplayEngine()
+    engine.registry.register("marker", MarkerOperator())
+    record = ConstitutionalRecord(
+        record_type="marker",
+        payload={"marker": "custom"},
+        timestamp="1",
+    )
+
+    result = engine.replay((record,))
+
+    assert result.state_vector.get("marker") == "custom"
+    assert result.state_vector.get("record_count") is None
 
 
 def test_capsule_round_trip_is_stable() -> None:
