@@ -14,26 +14,66 @@ SOURCE = "trusted"
 def sign(record: EvidenceRecord, state: EpistemicState) -> EvidenceRecord:
     kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
     signature = hmac.new(KEY, kernel._authority_binding(record, state), hashlib.sha256).hexdigest()
-    return EvidenceRecord(record.evidence_id, record.source, record.timestamp, record.payload, record.authority_grant, signature)
+    return EvidenceRecord(
+        record.evidence_id,
+        record.source,
+        record.timestamp,
+        record.payload,
+        record.authority_grant,
+        signature,
+        authority_grant_id=record.authority_grant_id,
+    )
 
 
 def test_valid_one_level_grant_is_admitted() -> None:
     state = EpistemicState()
-    unsigned = EvidenceRecord("e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True}, authority_grant=1)
+    unsigned = EvidenceRecord(
+        "e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True},
+        authority_grant=1, authority_grant_id="grant-1",
+    )
     signed = sign(unsigned, state)
     kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
     after = kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
     assert after.authority == Authority.SIMULATE
+    assert after.used_authority_grants == ("grant-1",)
 
 
 def test_grant_bound_to_state_hash() -> None:
     state = EpistemicState()
-    unsigned = EvidenceRecord("e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True}, authority_grant=1)
+    unsigned = EvidenceRecord(
+        "e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True},
+        authority_grant=1, authority_grant_id="grant-1",
+    )
     signed = sign(unsigned, state)
     changed = EpistemicState(policy_version="different")
     kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
     with pytest.raises(ConstitutionalViolation):
         kernel.step(changed, __import__("erk").Action.BLOCK, (signed,))
+
+
+def test_grant_replay_is_rejected() -> None:
+    state = EpistemicState()
+    unsigned = EvidenceRecord(
+        "e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True},
+        authority_grant=1, authority_grant_id="grant-1",
+    )
+    signed = sign(unsigned, state)
+    kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
+    after = kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
+    with pytest.raises(ConstitutionalViolation, match="replay"):
+        kernel.step(after, __import__("erk").Action.BLOCK, (signed,))
+
+
+def test_grant_without_id_is_rejected() -> None:
+    state = EpistemicState()
+    unsigned = EvidenceRecord(
+        "e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True},
+        authority_grant=1,
+    )
+    signed = sign(unsigned, state)
+    kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
+    with pytest.raises(ConstitutionalViolation, match="unique grant id"):
+        kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
 
 
 def test_transition_cannot_escalate_without_kernel_authorization() -> None:
