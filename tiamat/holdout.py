@@ -128,12 +128,18 @@ class HoldoutExperiment:
         self,
         rows: Sequence[Mapping[str, Any] | TelemetryRow],
         *,
-        controls: Mapping[str, Mapping[str, float]],
-        candidates: Mapping[str, Mapping[str, float]],
+        controls: Mapping[str, ProbabilityPredictor],
+        candidates: Mapping[str, ProbabilityPredictor],
         inference_purity: bool,
         ece_reliability_behavior: str,
         model_id: str = "M3",
     ) -> CalibrationReport:
+        """Create calibration diagnostics using predictors only.
+
+        Every control and candidate is normalized, probability-validated, and
+        scored through the same MetricContract path. Pre-computed metric bundles
+        are intentionally rejected by the type/validation boundary.
+        """
         split = self.split_rows(rows, model_id=model_id)
         corpus_hash = corpus_fingerprint([r.to_mapping() for r in (*split.train, *split.validation, *split.test)])
         label = self.label_provenance
@@ -147,7 +153,16 @@ class HoldoutExperiment:
         label_hash = provenance_fingerprint(label.to_dict())
         metric_hash = provenance_fingerprint(self.metric_contract.to_dict())
         diagnostic = CalibrationDiagnostic(self.metric_contract, self.probability_contract, self.adapter)
-        return diagnostic.make_report(corpus_manifest_hash=corpus_hash, label_provenance_hash=label_hash, metric_contract_hash=metric_hash, controls=controls, candidates=candidates, inference_purity=inference_purity, ece_reliability_behavior=ece_reliability_behavior)
+        return diagnostic.create_report(
+            corpus_manifest_hash=corpus_hash,
+            label_provenance_hash=label_hash,
+            metric_contract_hash=metric_hash,
+            rows=rows,
+            controls=controls,
+            candidates=candidates,
+            inference_purity=inference_purity,
+            ece_reliability_behavior=ece_reliability_behavior,
+        )
 
     def _feature_provenance_hash(self, model_id: str) -> str:
         spec = MODEL_REGISTRY[model_id]
