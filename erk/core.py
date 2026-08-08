@@ -138,8 +138,16 @@ def _prediction_distance(first: Any, second: Any) -> float:
     return 0.0 if first == second else 1.0
 
 
+def _finite_nonnegative(value: float, name: str) -> float:
+    value = float(value)
+    if not math.isfinite(value) or value < 0:
+        raise ValueError(f"{name} must be finite and non-negative")
+    return value
+
+
 def compute_strain(hypotheses: Mapping[str, float], predictions: Mapping[str, Mapping[str, Any]], observability: Mapping[str, float], relevance: Mapping[str, float] | None = None, lam: float = 1.0) -> float:
-    if not hypotheses or lam < 0: return 0.0
+    lam = _finite_nonnegative(lam, "lam")
+    if not hypotheses: return 0.0
     total = sum(max(0.0, float(probability)) for probability in hypotheses.values())
     if total <= 0: return 0.0
     probabilities = {name: max(0.0, float(probability)) / total for name, probability in hypotheses.items()}; relevance = relevance or {}; names = list(probabilities); conflict = 0.0
