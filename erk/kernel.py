@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Sequence
+from dataclasses import dataclass, field
+from typing import Mapping, Sequence
 import hashlib
+import hmac
 import json
 
 from .core import Action, Authority, EpistemicState, EvidenceRecord, PolicyConfig, Supervisor, Transition, _canonical
@@ -14,9 +15,9 @@ class ConstitutionalViolation(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class KernelConfig:
-    policy: PolicyConfig = PolicyConfig()
+    policy: PolicyConfig = field(default_factory=PolicyConfig)
     require_monotonic_evidence_count: bool = True
-    trusted_authority_sources: frozenset[str] = frozenset({"kernel-authority"})
+    authority_keys: Mapping[str, bytes] = field(default_factory=dict)
 
 
 class ConstitutionalKernel:
@@ -29,12 +30,45 @@ class ConstitutionalKernel:
     def admissible(self, state: EpistemicState, action: Action) -> bool:
         return action in self.supervisor.safe_actions(state)
 
-    def _validate_evidence(self, evidence: Sequence[EvidenceRecord]) -> None:
+    @staticmethod
+    def _authority_binding(record: EvidenceRecord, state: EpistemicState) -> bytes:
+        binding = {
+            "base_authority": int(state.authority),
+            "evidence_count": state.evidence_count,
+        }
+        return record.authority_message() + b"|" + json.dumps(
+            _canonical(binding), sort_keys=True, separators=(",", ":")
+        ).encode()
+
+    def _validate_evidence(
+        self,
+        state: EpistemicState,
+        evidence: Sequence[EvidenceRecord],
+    ) -> Authority | None:
+        requested: Authority | None = None
         for record in evidence:
-            if record.authority_grant is not None and record.source not in self.config.trusted_authority_sources:
-                raise ConstitutionalViolation("untrusted source attempted authority escalation")
-            if record.authority_grant is not None and not 0 <= int(record.authority_grant) <= int(Authority.EXECUTE):
+            if record.authority_grant is None:
+                continue
+            try:
+                grant = Authority(int(record.authority_grant))
+            except (ValueError, TypeError):
                 raise ConstitutionalViolation("authority grant outside constitutional domain")
+            key = self.config.authority_keys.get(record.source)
+            if key is None:
+                raise ConstitutionalViolation("untrusted source attempted authority escalation")
+            expected = hmac.new(
+                key,
+                self._authority_binding(record, state),
+                hashlib.sha256,
+            ).hexdigest()
+            if not record.authority_signature or not hmac.compare_digest(expected, record.authority_signature):
+                raise ConstitutionalViolation("invalid authority signature")
+            if grant <= state.authority or grant != Authority(int(state.authority) + 1):
+                raise ConstitutionalViolation("authority escalation must be exactly one level")
+            if requested is not None and grant != requested:
+                raise ConstitutionalViolation("multiple authority grants disagree")
+            requested = grant
+        return requested
 
     def step(
         self,
@@ -42,11 +76,12 @@ class ConstitutionalKernel:
         action: Action,
         evidence: Sequence[EvidenceRecord] = (),
     ) -> EpistemicState:
-        self._validate_evidence(evidence)
-        if not self.admissible(state, action):
-            raise ConstitutionalViolation(f"inadmissible action: {action}")
         before = state.normalized()
-        after = Transition.apply(before, action, evidence)
+        evidence = tuple(evidence)
+        authorized_grant = self._validate_evidence(before, evidence)
+        if not self.admissible(before, action):
+            raise ConstitutionalViolation(f"inadmissible action: {action}")
+        after = Transition.apply(before, action, evidence, authorized_authority=authorized_grant)
         if self.config.require_monotonic_evidence_count and after.evidence_count < before.evidence_count:
             raise ConstitutionalViolation("evidence count decreased")
         if action == Action.ENABLE_EXECUTION and after.authority >= Authority.EXECUTE:
