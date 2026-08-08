@@ -142,3 +142,7 @@ class IdentificationRunner:
             trial.complexity,
             trial.model_id,
         )
+
+
+# Identification is an experiment surface; keep its version boundary explicit.
+IDENTIFICATION_RUNNER_VERSION = "v1"
