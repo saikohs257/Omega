@@ -66,6 +66,23 @@ def test_holdout_calibration_report_requires_label_provenance() -> None:
     assert report.metric_contract_hash
 
 
+def test_calibration_null_nll_floor_is_hard_gate() -> None:
+    rows = [
+        {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
+        {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
+    ]
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), "UNBOUND"))
+    report = experiment.calibration_report(
+        rows,
+        controls={"uniform": _predictor("Q")},
+        candidates={"M3": _predictor("P"), "M4": _predictor("E")},
+        inference_purity=True,
+        ece_reliability_behavior="balanced",
+    )
+    assert report.null_floor_check is False
+    assert report.decision == "HOLD"
+
+
 def test_holdout_calibration_report_rejects_label_corpus_mismatch() -> None:
     rows = [
         {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
