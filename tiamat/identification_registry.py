@@ -1,5 +1,4 @@
 """Permanent TIAMAT identification registry."""
-from __future__ import annotations
 from dataclasses import dataclass
 from types import MappingProxyType
 @dataclass(frozen=True, slots=True)
