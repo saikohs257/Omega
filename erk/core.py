@@ -149,7 +149,12 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
 
 
 def _prediction_distance(first: Any, second: Any) -> float:
-    if isinstance(first, (int, float)) and isinstance(second, (int, float)): return min(1.0, abs(float(first) - float(second)))
+    if isinstance(first, (int, float)) and isinstance(second, (int, float)):
+        first = float(first)
+        second = float(second)
+        if not math.isfinite(first) or not math.isfinite(second):
+            raise ValueError("numeric predictions must be finite")
+        return min(1.0, abs(first - second))
     return 0.0 if first == second else 1.0
 
 
@@ -158,6 +163,8 @@ def compute_strain(hypotheses: Mapping[str, float], predictions: Mapping[str, Ma
     if not hypotheses: return 0.0
     probabilities = {name: _finite_nonnegative(probability, f"hypotheses[{name}]") for name, probability in hypotheses.items()}
     total = sum(probabilities.values())
+    if not math.isfinite(total):
+        raise ValueError("hypotheses total must be finite")
     if total <= 0: return 0.0
     probabilities = {name: probability / total for name, probability in probabilities.items()}
     validated_observability = {variable: _unit_interval(observed, f"observability[{variable}]") for variable, observed in observability.items()}
