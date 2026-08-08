@@ -72,6 +72,46 @@ class IdentificationRunner:
         trials = tuple(sorted((self._evaluate_model(normalized, model_id) for model_id in ids), key=self._trial_order))
         return TournamentReport(trials=trials)
 
+    def holdout_experiment(self, *, train_fraction: float = 0.6, validation_fraction: float = 0.2, test_fraction: float = 0.2):
+        from .holdout import HoldoutExperiment
+
+        return HoldoutExperiment(
+            runner=self,
+            train_fraction=train_fraction,
+            validation_fraction=validation_fraction,
+            test_fraction=test_fraction,
+            adapter=self.adapter,
+        )
+
+    def split_rows(
+        self,
+        rows: Sequence[Mapping[str, Any] | TelemetryRow],
+        *,
+        train_fraction: float = 0.6,
+        validation_fraction: float = 0.2,
+        test_fraction: float = 0.2,
+    ):
+        return self.holdout_experiment(
+            train_fraction=train_fraction,
+            validation_fraction=validation_fraction,
+            test_fraction=test_fraction,
+        ).split_rows(rows)
+
+    def evaluate_holdout(
+        self,
+        rows: Sequence[Mapping[str, Any] | TelemetryRow],
+        *,
+        model_ids: Sequence[str] | None = None,
+        train_fraction: float = 0.6,
+        validation_fraction: float = 0.2,
+        test_fraction: float = 0.2,
+    ):
+        return self.holdout_experiment(
+            train_fraction=train_fraction,
+            validation_fraction=validation_fraction,
+            test_fraction=test_fraction,
+        ).evaluate(rows, model_ids=model_ids)
+
     def build_frames(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], model_id: str) -> tuple[dict[str, Any], ...]:
         return self.adapter.frame(rows, model_id)
 

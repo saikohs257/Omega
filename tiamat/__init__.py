@@ -1,5 +1,6 @@
 from tiamat.engine import Decision, TiamatEngine
 from tiamat.guards import GuardResult, evaluate_guards
+from tiamat.holdout import HOLDOUT_EXPERIMENT_VERSION, HoldoutEvaluation, HoldoutExperiment, HoldoutSplit
 from tiamat.identification_registry import CANONICAL_THRESHOLDS, MODEL_REGISTRY, ModelSpec, model
 from tiamat.identification_runner import CandidateTrial, IDENTIFICATION_RUNNER_VERSION, IdentificationRunner, TournamentReport
 from tiamat.modes import TiamatMode
@@ -14,6 +15,10 @@ __all__ = [
     "CANONICAL_THRESHOLDS",
     "Decision",
     "GuardResult",
+    "HOLDOUT_EXPERIMENT_VERSION",
+    "HoldoutEvaluation",
+    "HoldoutExperiment",
+    "HoldoutSplit",
     "IDENTIFICATION_RUNNER_VERSION",
     "IdentificationRunner",
     "MODEL_REGISTRY",
