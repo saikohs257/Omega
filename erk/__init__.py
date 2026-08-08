@@ -16,11 +16,13 @@ from .core import (
     state_hash,
 )
 from .kernel import ConstitutionalKernel, ConstitutionalViolation, KernelConfig
+from .runtime import ConstitutionalRuntime, RuntimeStep
 
 __all__ = [
     "Action",
     "Authority",
     "ConstitutionalKernel",
+    "ConstitutionalRuntime",
     "ConstitutionalViolation",
     "EpistemicState",
     "EvidenceRecord",
@@ -29,6 +31,7 @@ __all__ = [
     "GraphNode",
     "KernelConfig",
     "PolicyConfig",
+    "RuntimeStep",
     "Supervisor",
     "Transition",
     "compute_strain",
