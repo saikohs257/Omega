@@ -32,3 +32,9 @@ def test_holdout_evaluation_reports_three_splits_and_validation_selection() -> N
 def test_holdout_rejects_boolean_fractions() -> None:
     with pytest.raises(TypeError, match="train_fraction"):
         HoldoutExperiment(train_fraction=True, validation_fraction=0.0, test_fraction=0.0)
+
+def test_holdout_rejects_non_real_fractions() -> None:
+    with pytest.raises(TypeError, match="train_fraction"):
+        HoldoutExperiment(train_fraction="0.6", validation_fraction=0.2, test_fraction=0.2)
+    with pytest.raises(TypeError, match="train_fraction"):
+        HoldoutExperiment(train_fraction=0.6 + 0.0j, validation_fraction=0.2, test_fraction=0.2)
