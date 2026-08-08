@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from runtime.constitutional_record import ConstitutionalRecord
 from runtime.events import Event
 from runtime.replay import ReplayEngine
+from runtime.state_vector import StateVector
 from runtime.trajectory import Trajectory
 
 
@@ -34,4 +36,13 @@ class TiamatEngine:
         return self.evaluate(state, request)
 
     def replay(self, initial_state: Mapping[str, Any] | None, trajectory: Trajectory) -> dict[str, Any]:
-        return self.replay_engine.replay(initial_state, trajectory).state
+        initial = StateVector(dict(initial_state or {}))
+        records = tuple(
+            ConstitutionalRecord(
+                record_type=event.kind,
+                payload=event.payload_dict(),
+                timestamp=str(index),
+            )
+            for index, event in enumerate(trajectory)
+        )
+        return self.replay_engine.replay(records, initial_state=initial).state_vector.as_dict()
