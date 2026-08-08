@@ -193,7 +193,8 @@ class Supervisor:
         if state.strain >= self.config.u_crit: return (Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
         if state.calibration_error >= self.config.calibration_crit: return (Action.ESCALATE, Action.QUARANTINE)
         if state.unsupported_depth >= self.config.depth_bound: return (Action.ESCALATE, Action.QUARANTINE)
-        if state.active_branches >= self.config.branch_bound: return (Action.ESCALATE, Action.QUARANTINE)
+        if state.active_branches >= self.config.branch_bound:
+            return (Action.BLOCK, Action.ESCALATE, Action.QUARANTINE)
         actions = [Action.BLOCK, Action.BRANCH, Action.REJECT, Action.QUARANTINE, Action.ESCALATE, Action.ARCHIVE]
         if state.authority == Authority.EXECUTE: actions.append(Action.ENABLE_EXECUTION)
         return tuple(actions)
@@ -204,7 +205,7 @@ class Supervisor:
         if state.strain >= self.config.u_crit: return Action.QUARANTINE
         if state.calibration_error >= self.config.calibration_crit: return Action.ESCALATE
         if state.unsupported_depth >= self.config.depth_bound: return Action.ESCALATE
-        if state.active_branches >= self.config.branch_bound: return Action.ESCALATE
+        if state.active_branches >= self.config.branch_bound: return Action.BLOCK
         if state.authority == Authority.EXECUTE: return Action.ENABLE_EXECUTION
         preferred = (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
         admissible = set(actions)
@@ -222,6 +223,11 @@ class Transition:
         grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
         if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id in transition")
         if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay detected")
+        if authorized_authority is not None:
+            expected = Authority(int(state.authority) + 1)
+            if authorized_authority != expected: raise ValueError("authority escalation must be exactly one level")
+            if not any(record.authority_grant is not None and record.authority_grant_id is not None for record in evidence):
+                raise ValueError("authority escalation requires kernel authorization evidence")
         if action == Action.BRANCH:
             if state.active_branches >= branch_bound: raise ValueError("branch bound exceeded")
             return replace(state, active_branches=state.active_branches + 1, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
@@ -232,8 +238,6 @@ class Transition:
             return replace(state, authority=Authority.SIMULATE, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
         next_authority = state.authority
         if authorized_authority is not None:
-            expected = Authority(int(state.authority) + 1)
-            if authorized_authority != expected: raise ValueError("authority escalation must be exactly one level")
             next_authority = authorized_authority
         return replace(state, authority=next_authority, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
 
