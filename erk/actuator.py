@@ -29,7 +29,13 @@ class ExecutionReceipt:
 
 
 class ActuatorFirewall:
-    """Final effect boundary with explicit prepare/commit semantics."""
+    """Final effect boundary with explicit prepare/commit semantics.
+
+    The firewall authenticates authorization and supplies a stable effect_id
+    so an external actuator can implement idempotent effects. Exactly-once
+    external execution requires the actuator/effect store to atomically bind
+    effect_id to the external effect; the firewall alone cannot guarantee that.
+    """
 
     def __init__(self, kernel: ConstitutionalKernel, key_id: str) -> None:
         self.kernel = kernel
@@ -41,7 +47,7 @@ class ActuatorFirewall:
         if not self.kernel.admissible(state, Action.ENABLE_EXECUTION):
             raise ConstitutionalViolation("execution is not constitutionally admissible")
         if state.authority != Authority.EXECUTE:
-            raise ConstitutionalViolation("execution is not admissible without EXECUTE authority")
+            raise ConstitutionalViolation("execution permit requires EXECUTE authority")
         key = self.kernel.config.authority_keys.get(self.key_id)
         if key is None:
             raise ConstitutionalViolation("execution permit key unavailable")
@@ -63,6 +69,7 @@ class ActuatorFirewall:
         return permit.effect_id
 
     def commit(self, state: EpistemicState, permit: ExecutionPermit, effect: Callable[[str], None]) -> ExecutionReceipt:
+        """Commit only if the authorization is still valid at the effect boundary."""
         self._verify(state, permit)
         if permit.permit_id in self._consumed:
             raise ConstitutionalViolation("execution permit replay detected")
