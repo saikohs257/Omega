@@ -88,6 +88,38 @@ def test_fractional_authority_grant_is_rejected() -> None:
         kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
 
 
+def test_non_numeric_authority_grant_is_rejected_as_constitutional_violation() -> None:
+    state = EpistemicState()
+    unsigned = EvidenceRecord(
+        "e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True},
+        authority_grant="not-an-authority", authority_grant_id="grant-invalid",
+    )
+    signed = sign(unsigned, state)
+    kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
+    with pytest.raises(ConstitutionalViolation, match="outside constitutional domain"):
+        kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
+
+
+def test_non_string_authority_signature_is_rejected() -> None:
+    state = EpistemicState()
+    unsigned = EvidenceRecord(
+        "e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True},
+        authority_grant=1, authority_grant_id="grant-signature-type",
+    )
+    signed = EvidenceRecord(
+        unsigned.evidence_id,
+        unsigned.source,
+        unsigned.timestamp,
+        unsigned.payload,
+        unsigned.authority_grant,
+        authority_signature=b"not-a-string",
+        authority_grant_id=unsigned.authority_grant_id,
+    )
+    kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
+    with pytest.raises(ConstitutionalViolation, match="invalid authority signature"):
+        kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
+
+
 def test_transition_cannot_escalate_without_kernel_authorization() -> None:
     state = EpistemicState()
     with pytest.raises(ValueError):
