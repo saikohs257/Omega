@@ -111,6 +111,7 @@ class ConstitutionalKernel:
             action,
             evidence,
             authorized_authority=authorized_grant,
+            branch_bound=self.config.policy.branch_bound,
         )
         if (
             self.config.require_monotonic_evidence_count
