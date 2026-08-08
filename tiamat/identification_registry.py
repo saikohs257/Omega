@@ -4,12 +4,33 @@ from dataclasses import asdict, dataclass
 from types import MappingProxyType
 from .experiment_manifest import canonical_hash
 
+
+@dataclass(frozen=True, slots=True)
+class ProbabilityAdapterDeclaration:
+    adapter_type: str = "native"
+    adapter_version: str = "v1"
+    adapter_hash: str = ""
+    calibration_corpus_hash: str | None = None
+    known_limitations: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.adapter_type not in {"platt", "isotonic", "degenerate", "native"}:
+            raise ValueError("unsupported probability adapter type")
+        if self.adapter_type in {"platt", "isotonic"} and not self.calibration_corpus_hash:
+            raise ValueError("calibration_corpus_hash is required for fitted probability adapters")
+        if self.adapter_type != "native" and not self.adapter_hash:
+            raise ValueError("adapter_hash is required for non-native probability adapters")
+        object.__setattr__(self, "known_limitations", tuple(str(v) for v in self.known_limitations))
+
+
 @dataclass(frozen=True, slots=True)
 class ModelSpec:
     model_id: str
     state: tuple[str, ...] | str
     role: str
     version: str = "v1"
+    probability_adapter: ProbabilityAdapterDeclaration = ProbabilityAdapterDeclaration()
+
 
 MODEL_REGISTRY = MappingProxyType({
     "M0": ModelSpec("M0", ("B",), "burden baseline"),
@@ -19,7 +40,13 @@ MODEL_REGISTRY = MappingProxyType({
     "M4": ModelSpec("M4", ("B", "V", "D", "tau_D"), "damage-memory candidate"),
     "M5": ModelSpec("M5", ("B", "V", "D", "tau_D", "tau_M"), "temporal-memory candidate"),
     "M6": ModelSpec("M6", ("B", "V", "D", "tau_D", "tau_M", "Phi"), "cross-axis candidate"),
-    "M7": ModelSpec("M7", "V6_control", "permanent V6 control"),
+    "M7": ModelSpec(
+        "M7", "V6_control", "permanent V6 control",
+        probability_adapter=ProbabilityAdapterDeclaration(
+            adapter_type="native",
+            known_limitations=("historical control must expose a native probability distribution; otherwise register as incomparable",),
+        ),
+    ),
 })
 
 DYNAMICS_REGISTRY = MappingProxyType({
