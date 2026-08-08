@@ -29,8 +29,8 @@ def sign(record: EvidenceRecord, state: EpistemicState, k: ConstitutionalKernel 
     return EvidenceRecord(record.evidence_id, record.source, record.timestamp, record.payload, record.authority_grant, signature, authority_grant_id=record.authority_grant_id)
 
 
-def grant(state: EpistemicState, grant_id: str = "grant-1", **overrides: object) -> EvidenceRecord:
-    k = kernel()
+def grant(state: EpistemicState, grant_id: str = "grant-1", k: ConstitutionalKernel | None = None, **overrides: object) -> EvidenceRecord:
+    k = k or kernel()
     payload = {
         "verified": True,
         "authority_key_id": KEY_ID,
@@ -38,7 +38,7 @@ def grant(state: EpistemicState, grant_id: str = "grant-1", **overrides: object)
         "authority_expires_at": "2026-12-31T00:00:00Z",
         "authority_state_hash": state_hash(state),
         "authority_policy_hash": k._policy_hash(),
-        "authority_branch_id": BRANCH,
+        "authority_branch_id": k.config.branch_id,
         **overrides,
     }
     unsigned = EvidenceRecord("e", SOURCE, "2026-08-07T00:00:00Z", payload, authority_grant=1, authority_grant_id=grant_id)
@@ -59,6 +59,18 @@ def test_grant_bound_to_state_hash_is_stale() -> None:
     changed = EpistemicState(policy_version="different")
     with pytest.raises(ConstitutionalViolation, match="STALE_GRANT"):
         kernel().step(changed, Action.BLOCK, (signed,))
+
+
+def test_grant_bound_to_policy_hash_is_rejected() -> None:
+    state = EpistemicState()
+    signed = grant(state)
+    changed = ConstitutionalKernel(KernelConfig(
+        policy=__import__("erk").PolicyConfig(u_crit=0.81),
+        authority_keys={KEY_ID: AuthorityKey(KEY_ID, KEY, valid_from="2026-01-01T00:00:00Z", valid_until="2027-01-01T00:00:00Z")},
+        branch_id=BRANCH,
+    ))
+    with pytest.raises(ConstitutionalViolation, match="POLICY_MISMATCH"):
+        changed.step(state, Action.BLOCK, (signed,))
 
 
 def test_grant_replay_is_rejected() -> None:
@@ -100,6 +112,17 @@ def test_expired_key_is_rejected() -> None:
     state = EpistemicState()
     k = ConstitutionalKernel(KernelConfig(
         authority_keys={KEY_ID: AuthorityKey(KEY_ID, KEY, valid_from="2026-01-01T00:00:00Z", valid_until="2026-08-01T00:00:00Z")},
+        branch_id=BRANCH,
+    ))
+    signed = grant(state)
+    with pytest.raises(ConstitutionalViolation, match="KEY_REVOKED_OR_OUT_OF_VALIDITY"):
+        k.step(state, Action.BLOCK, (signed,))
+
+
+def test_revoked_key_is_rejected() -> None:
+    state = EpistemicState()
+    k = ConstitutionalKernel(KernelConfig(
+        authority_keys={KEY_ID: AuthorityKey(KEY_ID, KEY, valid_from="2026-01-01T00:00:00Z", valid_until="2027-01-01T00:00:00Z", revoked=True)},
         branch_id=BRANCH,
     ))
     signed = grant(state)
