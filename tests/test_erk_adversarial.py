@@ -16,6 +16,24 @@ from erk.core import (
     graph_metrics,
     state_hash,
 )
+from erk.kernel import ConstitutionalKernel, ConstitutionalViolation, KernelConfig
+
+
+def signed_grant(kernel: ConstitutionalKernel, state: EpistemicState, target: Authority) -> EvidenceRecord:
+    unsigned = EvidenceRecord("grant-1", "authority", "t1", {"decision": "grant"}, authority_grant=target)
+    signature = __import__("hmac").new(
+        b"test-secret",
+        kernel._authority_binding(unsigned, state),
+        __import__("hashlib").sha256,
+    ).hexdigest()
+    return EvidenceRecord(
+        unsigned.evidence_id,
+        unsigned.source,
+        unsigned.timestamp,
+        unsigned.payload,
+        authority_grant=target,
+        authority_signature=signature,
+    )
 
 
 def test_execution_cannot_self_grant_authority() -> None:
@@ -24,13 +42,21 @@ def test_execution_cannot_self_grant_authority() -> None:
     assert next_state.authority == Authority.SIMULATE
 
 
-def test_authority_grant_is_one_level_per_transition() -> None:
+def test_raw_evidence_cannot_grant_authority_inside_transition() -> None:
     state = EpistemicState(authority=Authority.OBSERVE)
-    evidence = EvidenceRecord("e1", "court", "t1", {"decision": "grant"}, authority_grant=Authority.EXECUTE)
+    evidence = EvidenceRecord("e1", "attacker", "t1", {"grant": 2}, authority_grant=Authority.EXECUTE)
     next_state = Transition.apply(state, Action.BRANCH, [evidence])
-    assert next_state.authority == Authority.SIMULATE
-    final_state = Transition.apply(next_state, Action.BRANCH, [evidence])
-    assert final_state.authority == Authority.EXECUTE
+    assert next_state.authority == Authority.OBSERVE
+
+
+def test_kernel_signed_grant_is_one_level_and_state_bound() -> None:
+    kernel = ConstitutionalKernel(KernelConfig(authority_keys={"authority": b"test-secret"}))
+    state = EpistemicState()
+    evidence = signed_grant(kernel, state, Authority.SIMULATE)
+    first = kernel.step(state, Action.BRANCH, (evidence,))
+    assert first.authority == Authority.SIMULATE
+    with pytest.raises(ConstitutionalViolation):
+        kernel.step(first, Action.BRANCH, (evidence,))
 
 
 def test_tampered_provenance_is_rejected() -> None:
@@ -115,7 +141,7 @@ def test_strain_is_bounded() -> None:
 
 
 def test_replay_like_transition_is_deterministic() -> None:
-    evidence = EvidenceRecord("e1", "court", "t1", {"x": 1}, authority_grant=Authority.SIMULATE)
+    evidence = EvidenceRecord("e1", "court", "t1", {"x": 1})
     initial = EpistemicState()
     a = Transition.apply(initial, Action.BRANCH, [evidence])
     b = Transition.apply(initial, Action.BRANCH, [evidence])
