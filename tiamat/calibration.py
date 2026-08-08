@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite
+from math import isfinite, log
 from typing import Any, Mapping, Sequence
 
 from .experiment_manifest import canonical_hash
@@ -156,6 +156,10 @@ class CalibrationDiagnostic:
             candidate_sets.append(CandidateDiagnostic(model_id=model_id, metrics=metrics, rows=count))
 
         candidates_tuple = tuple(candidate_sets)
+        state_count = len(self.probability_contract.state_space)
+        null_nll_floor = log(state_count)
+        candidate_nlls = [c.metrics["nll"] for c in candidates_tuple]
+        null_floor_check = bool(candidate_nlls) and all(nll < null_nll_floor for nll in candidate_nlls)
         spread = {
             metric: (
                 max((c.metrics.get(metric, 0.0) for c in candidates_tuple), default=0.0)
@@ -163,8 +167,8 @@ class CalibrationDiagnostic:
             )
             for metric in ("nll", "brier", "ece")
         }
-        null_floor_check = all(control.nll >= 0.0 for control in control_sets)
-        proceed = null_floor_check and all(spread[m] >= self.spread_threshold for m in spread)
+        spread_pass = len(candidates_tuple) >= 2 and all(spread[m] >= self.spread_threshold for m in spread)
+        proceed = null_floor_check and spread_pass
         return CalibrationReport(
             corpus_manifest_hash=corpus_manifest_hash,
             label_provenance_hash=label_provenance_hash,
@@ -172,13 +176,18 @@ class CalibrationDiagnostic:
             controls=tuple(control_sets),
             candidates=candidates_tuple,
             null_floor_check=null_floor_check,
-            spread_check={"threshold": self.spread_threshold, "observed": spread, "pass": proceed},
+            spread_check={
+                "threshold": self.spread_threshold,
+                "observed": spread,
+                "candidate_count": len(candidates_tuple),
+                "pass": spread_pass,
+            },
             ece_reliability_behavior=ece_reliability_behavior,
             inference_purity=inference_purity,
             decision="PROCEED" if proceed and inference_purity else "HOLD",
             decision_rationale=(
                 "Calibration diagnostics cleared the null floor and spread threshold"
                 if proceed and inference_purity
-                else "Calibration diagnostics failed the gating threshold or inference purity check"
+                else "Calibration diagnostics failed the null-floor, spread, or inference-purity gate"
             ),
         )
