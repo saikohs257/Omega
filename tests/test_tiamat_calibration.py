@@ -44,7 +44,7 @@ def test_holdout_calibration_report_requires_label_provenance() -> None:
         {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
         {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
     ]
-    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), HASH))
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), "UNBOUND"))
     split = experiment.split_rows(rows)
     corpus_hash = corpus_fingerprint([r.to_mapping() for r in (*split.train, *split.validation, *split.test)])
     controls = {"uniform": {"nll": 1.0, "brier": 1.0, "ece": 1.0}}
@@ -61,7 +61,7 @@ def test_holdout_calibration_report_rejects_label_corpus_mismatch() -> None:
         {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
         {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
     ]
-    controls = {"uniform": {"nll": 1.0, "brier": 1.0, "ece": 1.0}}
+    controls = {"uniform": {"nll": 1.0, "brier": 0.4, "ece": 0.3}}
     candidates = {"M3": {"nll": 0.5, "brier": 0.4, "ece": 0.3, "rows": 2}}
     experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), HASH))
     with pytest.raises(ValueError, match="label_provenance label_corpus_hash does not match holdout corpus"):
