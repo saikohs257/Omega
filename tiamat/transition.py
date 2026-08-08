@@ -16,45 +16,55 @@ def _bounded(value: Any, current: float) -> float:
     return value
 
 
+def _age(value: Any, current: int) -> int:
+    value = int(current if value is None else value)
+    if value < 0:
+        raise ValueError("TIAMAT ages cannot be negative")
+    return value
+
+
 def transition(
     state: TiamatState,
     evidence: Mapping[str, Any],
     guard_results: tuple[GuardResult, ...] | None = None,
 ) -> TiamatState:
-    """Pure deterministic TIAMAT transition.
+    """Pure deterministic TIAMAT transition boundary.
 
-    Evidence fields explicitly represented by the state are applied first;
-    guards are then evaluated against that candidate state. This same function
-    is the live and replay transition boundary.
+    This updates explicit state slots but does not assert recovered empirical
+    V7 equations. Live execution and replay must both call this function.
     """
-    timers = dict(state.timers)
-    timers["excitation_age"] = int(timers.get("excitation_age", 0)) + 1
     candidate = replace(
         state,
+        excitation=_bounded(evidence.get("excitation"), state.excitation),
         damage=_bounded(evidence.get("damage"), state.damage),
         recovery=_bounded(evidence.get("recovery"), state.recovery),
         residual_load=_bounded(evidence.get("residual_load"), state.residual_load),
-        excitation=_bounded(evidence.get("excitation"), state.excitation),
-        refractory=max(0, int(evidence.get("refractory", state.refractory))),
+        momentum=_bounded(evidence.get("momentum"), state.momentum),
+        mode_age_h=_age(evidence.get("mode_age_h"), state.mode_age_h + 1),
+        excitation_age_h=_age(evidence.get("excitation_age_h"), state.excitation_age_h + (1 if state.excitation > 0 else 0)),
+        relaxation_age_h=_age(evidence.get("relaxation_age_h"), state.relaxation_age_h + (1 if state.mode is TiamatMode.RELAXING else 0)),
+        refractory_age_h=_age(evidence.get("refractory_age_h"), state.refractory_age_h + 1),
         promotion_count=max(0, int(evidence.get("promotion_count", state.promotion_count))),
-        timers=timers,
+        arrival_class=str(evidence.get("arrival_class", state.arrival_class)),
+        hysteresis_memory=tuple(evidence.get("hysteresis_memory", state.hysteresis_memory)),
     )
+
     guards = guard_results or evaluate_guards(candidate, evidence)
     triggered = {g.name for g in guards if g.triggered}
 
     if "DURATION_DAMAGE_HAZARD_GUARD" in triggered or "LATENT_HAZARD_PRECURSOR_GUARD" in triggered:
-        return replace(candidate, mode=TiamatMode.HAZARD, promotion_count=candidate.promotion_count + 1)
+        return replace(candidate, mode=TiamatMode.HAZARD, promotion_count=candidate.promotion_count + 1, mode_age_h=0)
 
     if "RELAXATION_WITH_RESIDUAL_DAMAGE" in triggered:
-        return replace(candidate, mode=TiamatMode.HAZARD)
+        return replace(candidate, mode=TiamatMode.HAZARD, mode_age_h=0)
 
     if "COUPLED_TRANSFER_HAZARD_PROMOTION" in triggered:
-        return replace(candidate, mode=TiamatMode.HAZARD, promotion_count=candidate.promotion_count + 1)
+        return replace(candidate, mode=TiamatMode.HAZARD, promotion_count=candidate.promotion_count + 1, mode_age_h=0)
 
     if "EXCITATION_DURATION_EXPIRED" in triggered:
-        return replace(candidate, mode=TiamatMode.RELAXING)
+        return replace(candidate, mode=TiamatMode.RELAXING, mode_age_h=0, relaxation_age_h=0)
 
     if candidate.excitation > 0.0:
-        return replace(candidate, mode=TiamatMode.EXCITED)
+        return replace(candidate, mode=TiamatMode.EXCITED, mode_age_h=0)
 
-    return replace(candidate, mode=TiamatMode.IDLE)
+    return replace(candidate, mode=TiamatMode.IDLE, mode_age_h=0)
