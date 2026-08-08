@@ -80,3 +80,21 @@ def test_compute_strain_rejects_non_finite_numeric_predictions() -> None:
 def test_compute_strain_rejects_non_finite_hypothesis_total() -> None:
     with pytest.raises(ValueError, match="hypotheses total must be finite"):
         compute_strain({"h1": 1e308, "h2": 1e308}, {}, {})
+
+
+def test_policy_config_rejects_invalid_thresholds_and_bounds() -> None:
+    with pytest.raises(ValueError, match="u_crit must be finite"):
+        PolicyConfig(u_crit=math.nan)
+    with pytest.raises(ValueError, match="calibration_crit must be finite"):
+        PolicyConfig(calibration_crit=math.inf)
+    with pytest.raises(ValueError, match="depth_bound must be positive"):
+        PolicyConfig(depth_bound=0)
+    with pytest.raises(ValueError, match="branch_bound must be positive"):
+        PolicyConfig(branch_bound=0)
+
+
+def test_policy_config_rejects_invalid_cost_weights() -> None:
+    with pytest.raises(ValueError, match="cost_weights\[BLOCK\] must be finite"):
+        PolicyConfig(cost_weights={Action.BLOCK: math.inf})
+    with pytest.raises(ValueError, match="cost_weights\[BLOCK\] must be non-negative"):
+        PolicyConfig(cost_weights={Action.BLOCK: -1.0})
