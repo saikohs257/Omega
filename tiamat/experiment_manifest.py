@@ -3,9 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+import re
 from typing import Any, Mapping, Sequence
 
-MANIFEST_VERSION = "experiment-manifest-v2"
+MANIFEST_VERSION = "experiment-manifest-v3"
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _canonical(value: Any) -> Any:
@@ -23,10 +25,14 @@ def canonical_hash(value: Any) -> str:
     return sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _require_hash(name: str, value: str) -> None:
+    if not isinstance(value, str) or not _SHA256_RE.fullmatch(value):
+        raise ValueError(f"{name} must be a lowercase 64-character SHA-256 hex digest")
+
+
 @dataclass(frozen=True, slots=True)
 class ExperimentManifest:
     """Identity DAG for a reproducible TIAMAT experiment."""
-
     config_hash: str
     corpus_hash: str
     feature_provenance_hash: str
@@ -37,24 +43,20 @@ class ExperimentManifest:
     manifest_version: str = MANIFEST_VERSION
 
     def __post_init__(self) -> None:
-        fields = (
-            self.config_hash, self.corpus_hash, self.feature_provenance_hash,
-            self.label_provenance_hash, self.model_registry_hash,
-            self.probability_contract_hash, self.implementation_hash,
-        )
-        if any(not str(value) for value in fields):
-            raise ValueError("all experiment manifest identity components are required")
-
-    def dependency_payload(self) -> dict[str, object]:
-        return {
+        fields = {
+            "config_hash": self.config_hash,
             "corpus_hash": self.corpus_hash,
             "feature_provenance_hash": self.feature_provenance_hash,
             "label_provenance_hash": self.label_provenance_hash,
             "model_registry_hash": self.model_registry_hash,
             "probability_contract_hash": self.probability_contract_hash,
-            "config_hash": self.config_hash,
             "implementation_hash": self.implementation_hash,
         }
+        for name, value in fields.items():
+            _require_hash(name, value)
+
+    def dependency_payload(self) -> dict[str, object]:
+        return {"corpus_hash": self.corpus_hash, "feature_provenance_hash": self.feature_provenance_hash, "label_provenance_hash": self.label_provenance_hash, "model_registry_hash": self.model_registry_hash, "probability_contract_hash": self.probability_contract_hash, "config_hash": self.config_hash, "implementation_hash": self.implementation_hash}
 
     def canonical_payload(self) -> dict[str, object]:
         return {"manifest_version": self.manifest_version, **self.dependency_payload()}
