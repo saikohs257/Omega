@@ -66,6 +66,16 @@ def test_replay_registry_rejects_invalid_operator_registration() -> None:
         engine.registry.register("broken", object())
 
 
+def test_replay_registry_rejects_invalid_resolution_type() -> None:
+    engine = ReplayEngine()
+
+    with pytest.raises(TypeError, match="record_type"):
+        engine.registry.resolve(123)
+
+    with pytest.raises(TypeError, match="record_type"):
+        engine.registry.resolve("")
+
+
 def test_replay_preserves_explicit_initial_state() -> None:
     record = ConstitutionalRecord(record_type="alpha", payload={"i": 1}, timestamp="1")
     initial = StateVector({"seed": "base"})
