@@ -47,6 +47,13 @@ def _canonical(value: Any) -> Any:
     return value
 
 
+def _unit_interval(value: float, name: str) -> float:
+    value = float(value)
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be finite")
+    return min(1.0, max(0.0, value))
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceRecord:
     evidence_id: str
@@ -170,7 +177,7 @@ class EpistemicState:
         for name in ("observability", "hypotheses", "predictions", "relevance", "critical_load"): object.__setattr__(self, name, _freeze(getattr(self, name)))
         object.__setattr__(self, "used_authority_grants", tuple(self.used_authority_grants))
     def normalized(self) -> EpistemicState:
-        return replace(self, observability={key: min(1.0, max(0.0, float(value))) for key, value in self.observability.items()}, strain=min(1.0, max(0.0, float(self.strain))), calibration_error=min(1.0, max(0.0, float(self.calibration_error))), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)), used_authority_grants=tuple(self.used_authority_grants))
+        return replace(self, observability={key: _unit_interval(value, f"observability[{key}]") for key, value in self.observability.items()}, strain=_unit_interval(self.strain, "strain"), calibration_error=_unit_interval(self.calibration_error, "calibration_error"), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)), used_authority_grants=tuple(self.used_authority_grants))
 
 
 @dataclass(frozen=True, slots=True)
