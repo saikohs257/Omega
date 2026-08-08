@@ -14,6 +14,8 @@ class StateVector:
     def __post_init__(self) -> None:
         if not isinstance(self.values, Mapping):
             raise TypeError("values must be a mapping")
+        if any(not isinstance(key, str) for key in self.values):
+            raise TypeError("values keys must be strings")
         object.__setattr__(self, "values", MappingProxyType(dict(self.values)))
 
     def with_updates(self, **updates: Any) -> StateVector:
