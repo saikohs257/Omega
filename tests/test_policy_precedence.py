@@ -44,3 +44,7 @@ def test_non_finite_state_values_are_rejected() -> None:
         EpistemicState(strain=math.nan).normalized()
     with pytest.raises(ValueError, match="observability\[signal\] must be finite"):
         EpistemicState(observability={"signal": math.inf}).normalized()
+    with pytest.raises(ValueError, match="hypotheses\[h1\] must be finite"):
+        EpistemicState(hypotheses={"h1": math.inf}).normalized()
+    with pytest.raises(ValueError, match="relevance\[signal\] must be non-negative"):
+        EpistemicState(relevance={"signal": -1.0}).normalized()
