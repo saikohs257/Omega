@@ -1,7 +1,7 @@
 from tiamat.engine import Decision, TiamatEngine
 from tiamat.guards import GuardResult, evaluate_guards
 from tiamat.identification_registry import CANONICAL_THRESHOLDS, MODEL_REGISTRY, ModelSpec, model
-from tiamat.identification_runner import CandidateTrial, IdentificationRunner, TournamentReport
+from tiamat.identification_runner import CandidateTrial, IDENTIFICATION_RUNNER_VERSION, IdentificationRunner, TournamentReport
 from tiamat.modes import TiamatMode
 from tiamat.replay import replay
 from tiamat.state import TiamatState
@@ -14,6 +14,7 @@ __all__ = [
     "CANONICAL_THRESHOLDS",
     "Decision",
     "GuardResult",
+    "IDENTIFICATION_RUNNER_VERSION",
     "IdentificationRunner",
     "MODEL_REGISTRY",
     "ModelSpec",
