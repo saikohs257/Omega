@@ -32,8 +32,14 @@ class ConstitutionalKernel:
 
     @staticmethod
     def _authority_binding(record: EvidenceRecord, state: EpistemicState) -> bytes:
-        binding = {"base_authority": int(state.authority), "evidence_count": state.evidence_count}
-        return record.authority_message(state) + b"|" + json.dumps(_canonical(binding), sort_keys=True, separators=(",", ":")).encode("utf-8")
+        """Return the single canonical message covered by an authority signature.
+
+        The evidence payload is represented without its signature, while the
+        current authority/state binding is included by EvidenceRecord's
+        authority_message().  Keeping exactly one construction path prevents
+        signing and verification from drifting through duplicated fields.
+        """
+        return record.authority_message(state)
 
     def _validate_evidence(self, state: EpistemicState, evidence: Sequence[EvidenceRecord]) -> Authority | None:
         requested: Authority | None = None
