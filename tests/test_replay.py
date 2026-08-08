@@ -3,6 +3,8 @@ from bentaxis.store import BentAxisStore
 from runtime.constitutional_record import ConstitutionalRecord
 from runtime.replay import ReplayEngine
 from runtime.events import Event
+from runtime.state_vector import StateVector
+import pytest
 
 
 def test_replay_is_deterministic() -> None:
@@ -49,6 +51,27 @@ def test_registered_operator_controls_reconstruction() -> None:
 
     assert result.state_vector.get("marker") == "custom"
     assert result.state_vector.get("record_count") is None
+
+
+def test_replay_preserves_explicit_initial_state() -> None:
+    record = ConstitutionalRecord(record_type="alpha", payload={"i": 1}, timestamp="1")
+    initial = StateVector({"seed": "base"})
+
+    result = ReplayEngine().replay((record,), initial_state=initial)
+
+    assert result.state_vector.get("seed") == "base"
+    assert result.state_vector.get("record_count") == 1
+
+
+def test_replay_rejects_invalid_boundary_inputs() -> None:
+    engine = ReplayEngine()
+    record = ConstitutionalRecord(record_type="alpha", payload={}, timestamp="1")
+
+    with pytest.raises(TypeError, match="initial_state"):
+        engine.replay((record,), initial_state={})
+
+    with pytest.raises(TypeError, match="records"):
+        engine.replay((record, object()))
 
 
 def test_capsule_round_trip_is_stable() -> None:
