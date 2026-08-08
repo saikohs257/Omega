@@ -68,7 +68,9 @@ class ActuatorFirewall:
         self._prepared[permit.permit_id] = permit
         return permit.effect_id
 
-    def commit(self, permit: ExecutionPermit, effect: Callable[[str], None]) -> ExecutionReceipt:
+    def commit(self, state: EpistemicState, permit: ExecutionPermit, effect: Callable[[str], None]) -> ExecutionReceipt:
+        """Commit only if the authorization is still valid at the effect boundary."""
+        self._verify(state, permit)
         if permit.permit_id in self._consumed:
             raise ConstitutionalViolation("execution permit replay detected")
         prepared = self._prepared.get(permit.permit_id)
@@ -81,7 +83,7 @@ class ActuatorFirewall:
 
     def execute(self, state: EpistemicState, permit: ExecutionPermit, effect: Callable[[str], None]) -> ExecutionReceipt:
         self.prepare(state, permit)
-        return self.commit(permit, effect)
+        return self.commit(state, permit, effect)
 
     def _verify(self, state: EpistemicState, permit: ExecutionPermit) -> None:
         if state.authority != Authority.EXECUTE:
