@@ -24,6 +24,8 @@ class Guard:
 
 
 def _finite_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
     try:
         result = float(value)
     except (TypeError, ValueError, OverflowError):
