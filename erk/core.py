@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import IntEnum, StrEnum
 import hashlib
+import hmac
 import json
 import math
 from types import MappingProxyType
@@ -49,13 +50,14 @@ def _canonical(value: Any) -> Any:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceRecord:
-    """Immutable evidence; the digest is derived from canonical content."""
+    """Immutable evidence. Authority claims are inert until kernel-authenticated."""
 
     evidence_id: str
     source: str
     timestamp: str
     payload: Mapping[str, Any]
     authority_grant: int | None = None
+    authority_signature: str = ""
     provenance_hash: str = ""
 
     def __post_init__(self) -> None:
@@ -73,8 +75,29 @@ class EvidenceRecord:
             "timestamp": self.timestamp,
             "payload": _canonical(self.payload),
             "authority_grant": self.authority_grant,
+            "authority_signature": self.authority_signature,
         }
         return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode()
+
+    def authority_message(self) -> bytes:
+        obj = {
+            "evidence_id": self.evidence_id,
+            "source": self.source,
+            "timestamp": self.timestamp,
+            "payload": _canonical(self.payload),
+            "authority_grant": self.authority_grant,
+        }
+        return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode()
+
+    @staticmethod
+    def make_authority_signature(record: "EvidenceRecord", secret: bytes) -> str:
+        return hmac.new(secret, record.authority_message(), hashlib.sha256).hexdigest()
+
+    def has_valid_authority_signature(self, secret: bytes) -> bool:
+        if self.authority_grant is None or not self.authority_signature:
+            return False
+        expected = self.make_authority_signature(self, secret)
+        return hmac.compare_digest(expected, self.authority_signature)
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,7 +241,7 @@ class EpistemicState:
         object.__setattr__(self, "relevance", _freeze(self.relevance))
         object.__setattr__(self, "critical_load", _freeze(self.critical_load))
 
-    def normalized(self) -> EpistemicState:
+    def normalized(self) -> "EpistemicState":
         obs = {k: min(1.0, max(0.0, float(v))) for k, v in self.observability.items()}
         return replace(
             self,
@@ -280,20 +303,24 @@ class Supervisor:
 
 
 class Transition:
-    """The sole state mutation boundary for constitutional runtime state."""
+    """Sole state transition function. Evidence claims cannot grant authority."""
 
     @staticmethod
-    def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = ()) -> EpistemicState:
+    def apply(
+        state: EpistemicState,
+        action: Action,
+        evidence: Sequence[EvidenceRecord] = (),
+        authorized_authority: Authority | None = None,
+    ) -> EpistemicState:
         s = state.normalized()
         evidence = tuple(evidence)
         next_authority = s.authority
         if action == Action.ENABLE_EXECUTION:
             next_authority = Authority.SIMULATE
-        for record in evidence:
-            if record.authority_grant is not None:
-                requested = int(record.authority_grant)
-                if requested > int(next_authority) and requested <= int(Authority.EXECUTE):
-                    next_authority = Authority(min(int(next_authority) + 1, requested))
+        if authorized_authority is not None and authorized_authority > next_authority:
+            if int(authorized_authority) != int(next_authority) + 1:
+                raise ValueError("authority transition must increase by exactly one level")
+            next_authority = authorized_authority
         return replace(s, authority=next_authority, evidence_count=s.evidence_count + len(evidence)).normalized()
 
 
