@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import hashlib
 import hmac
 import json
+from types import MappingProxyType
 from typing import Mapping, Sequence
 
 from .core import (
@@ -27,6 +28,13 @@ class KernelConfig:
     policy: PolicyConfig = field(default_factory=PolicyConfig)
     require_monotonic_evidence_count: bool = True
     authority_keys: Mapping[str, bytes] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "authority_keys",
+            MappingProxyType({str(source): bytes(key) for source, key in self.authority_keys.items()}),
+        )
 
 
 class ConstitutionalKernel:
