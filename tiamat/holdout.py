@@ -20,11 +20,7 @@ class HoldoutSplit:
 
     @property
     def sizes(self) -> dict[str, int]:
-        return {
-            "train": len(self.train),
-            "validation": len(self.validation),
-            "test": len(self.test),
-        }
+        return {"train": len(self.train), "validation": len(self.validation), "test": len(self.test)}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -67,7 +63,11 @@ class SplitTournament:
 
 @dataclass(frozen=True, slots=True)
 class HoldoutEvaluation:
-    """Train / validation / test identification report."""
+    """Train / validation / test identification report.
+
+    Model selection is based on validation only. The test report is strictly
+    a final out-of-sample measurement and can never change the selected model.
+    """
 
     split: HoldoutSplit
     train: TournamentReport
@@ -76,15 +76,29 @@ class HoldoutEvaluation:
 
     @property
     def selected_model_id(self) -> str | None:
-        for report in (self.validation, self.train, self.test):
-            if report.winner is not None:
-                return report.winner.model_id
+        if self.validation.winner is not None:
+            return self.validation.winner.model_id
+        if self.train.winner is not None:
+            return self.train.winner.model_id
         return None
 
+    @property
+    def test_selected(self):
+        if self.selected_model_id is None:
+            return None
+        return next((trial for trial in self.test.trials if trial.model_id == self.selected_model_id), None)
+
     def to_dict(self) -> dict[str, Any]:
+        selected = self.test_selected
         return {
             "version": HOLDOUT_EXPERIMENT_VERSION,
             "selected_model_id": self.selected_model_id,
+            "test_selected": None if selected is None else {
+                "model_id": selected.model_id,
+                "coverage": selected.coverage,
+                "transition_error": selected.transition_error,
+                "score": selected.score,
+            },
             "split": self.split.to_dict(),
             "splits": [
                 SplitTournament("train", self.train).to_dict(),
@@ -108,11 +122,7 @@ class HoldoutExperiment:
         total = float(self.train_fraction) + float(self.validation_fraction) + float(self.test_fraction)
         if not math.isclose(total, 1.0, rel_tol=1e-9, abs_tol=1e-9):
             raise ValueError("holdout fractions must sum to 1.0")
-        for name, value in (
-            ("train_fraction", self.train_fraction),
-            ("validation_fraction", self.validation_fraction),
-            ("test_fraction", self.test_fraction),
-        ):
+        for name, value in (("train_fraction", self.train_fraction), ("validation_fraction", self.validation_fraction), ("test_fraction", self.test_fraction)):
             if not math.isfinite(float(value)) or float(value) < 0.0:
                 raise ValueError(f"{name} must be finite and non-negative")
 
@@ -124,10 +134,7 @@ class HoldoutExperiment:
         if not normalized:
             return HoldoutSplit((), (), ())
         ordered = self._order_rows(normalized)
-        train_count, validation_count, test_count = self._allocate_counts(
-            len(ordered),
-            (self.train_fraction, self.validation_fraction, self.test_fraction),
-        )
+        train_count, validation_count, test_count = self._allocate_counts(len(ordered), (self.train_fraction, self.validation_fraction, self.test_fraction))
         train_end = train_count
         validation_end = train_end + validation_count
         return HoldoutSplit(
