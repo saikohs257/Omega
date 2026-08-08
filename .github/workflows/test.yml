@@ -28,4 +28,4 @@ jobs:
       - run: python -m compileall -q erk tiamat runtime bentaxis
       - run: python -m pytest tests -q
 
-# CI trigger marker: no functional change.
+# temporary ci trigger marker
