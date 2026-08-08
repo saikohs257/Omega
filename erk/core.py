@@ -66,31 +66,14 @@ class EvidenceRecord:
         object.__setattr__(self, "provenance_hash", digest)
 
     def _content(self, include_signature: bool = True) -> dict[str, Any]:
-        return {
-            "evidence_id": self.evidence_id,
-            "source": self.source,
-            "timestamp": self.timestamp,
-            "payload": _canonical(self.payload),
-            "authority_grant": self.authority_grant,
-            "authority_grant_id": self.authority_grant_id,
-            "authority_signature": self.authority_signature if include_signature else "",
-        }
+        return {"evidence_id": self.evidence_id, "source": self.source, "timestamp": self.timestamp, "payload": _canonical(self.payload), "authority_grant": self.authority_grant, "authority_grant_id": self.authority_grant_id, "authority_signature": self.authority_signature if include_signature else ""}
 
     def _canonical_content(self) -> bytes:
         return json.dumps(self._content(), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
 
     def authority_message(self, state: EpistemicState) -> bytes:
-        binding = {
-            "base_authority": int(state.authority),
-            "evidence_count": state.evidence_count,
-            "policy_version": state.policy_version,
-            "state_hash": state_hash(state),
-        }
-        return json.dumps(
-            {"evidence": self._content(False), "binding": _canonical(binding)},
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
+        binding = {"base_authority": int(state.authority), "evidence_count": state.evidence_count, "policy_version": state.policy_version, "state_hash": state_hash(state)}
+        return json.dumps({"evidence": self._content(False), "binding": _canonical(binding)}, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,90 +106,45 @@ def graph_metrics(nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> Gra
     cycles: list[tuple[str, ...]] = []
     color = {node_id: 0 for node_id in ids}
     stack: list[str] = []
-
     def visit(node_id: str) -> None:
-        color[node_id] = 1
-        stack.append(node_id)
+        color[node_id] = 1; stack.append(node_id)
         for target in adjacency[node_id]:
-            if color[target] == 0:
-                visit(target)
+            if color[target] == 0: visit(target)
             elif color[target] == 1:
-                start = stack.index(target)
-                cycles.append(tuple(stack[start:] + [target]))
-        stack.pop()
-        color[node_id] = 2
-
+                start = stack.index(target); cycles.append(tuple(stack[start:] + [target]))
+        stack.pop(); color[node_id] = 2
     for node_id in sorted(ids):
-        if color[node_id] == 0:
-            visit(node_id)
-
+        if color[node_id] == 0: visit(node_id)
     memo: dict[str, int] = {}
-
     def depth(node_id: str, visiting: set[str]) -> int:
-        if node_id in memo:
-            return memo[node_id]
-        if node_id in visiting:
-            return 0
-        visiting.add(node_id)
-        value = max((1 + depth(target, visiting) for target in adjacency[node_id]), default=0)
-        visiting.remove(node_id)
-        memo[node_id] = value
-        return value
-
+        if node_id in memo: return memo[node_id]
+        if node_id in visiting: return 0
+        visiting.add(node_id); value = max((1 + depth(target, visiting) for target in adjacency[node_id]), default=0); visiting.remove(node_id); memo[node_id] = value; return value
     critical: dict[str, int] = {}
     for node_id in sorted(ids):
-        seen: set[str] = set()
-        todo = list(adjacency[node_id])
+        seen: set[str] = set(); todo = list(adjacency[node_id])
         while todo:
             target = todo.pop()
-            if target in seen:
-                continue
-            seen.add(target)
-            todo.extend(adjacency[target])
+            if target in seen: continue
+            seen.add(target); todo.extend(adjacency[target])
         critical[node_id] = len(seen)
-
     unsupported = [node.node_id for node in nodes if not node.supported]
-    return GraphMetrics(
-        max((depth(node_id, set()) for node_id in unsupported), default=0),
-        MappingProxyType(critical),
-        tuple(cycles),
-    )
+    return GraphMetrics(max((depth(node_id, set()) for node_id in unsupported), default=0), MappingProxyType(critical), tuple(cycles))
 
 
 def _prediction_distance(first: Any, second: Any) -> float:
-    if isinstance(first, (int, float)) and isinstance(second, (int, float)):
-        return min(1.0, abs(float(first) - float(second)))
+    if isinstance(first, (int, float)) and isinstance(second, (int, float)): return min(1.0, abs(float(first) - float(second)))
     return 0.0 if first == second else 1.0
 
 
-def compute_strain(
-    hypotheses: Mapping[str, float],
-    predictions: Mapping[str, Mapping[str, Any]],
-    observability: Mapping[str, float],
-    relevance: Mapping[str, float] | None = None,
-    lam: float = 1.0,
-) -> float:
-    if not hypotheses or lam < 0:
-        return 0.0
+def compute_strain(hypotheses: Mapping[str, float], predictions: Mapping[str, Mapping[str, Any]], observability: Mapping[str, float], relevance: Mapping[str, float] | None = None, lam: float = 1.0) -> float:
+    if not hypotheses or lam < 0: return 0.0
     total = sum(max(0.0, float(probability)) for probability in hypotheses.values())
-    if total <= 0:
-        return 0.0
-    probabilities = {name: max(0.0, float(probability)) / total for name, probability in hypotheses.items()}
-    relevance = relevance or {}
-    names = list(probabilities)
-    conflict = 0.0
+    if total <= 0: return 0.0
+    probabilities = {name: max(0.0, float(probability)) / total for name, probability in hypotheses.items()}; relevance = relevance or {}; names = list(probabilities); conflict = 0.0
     for index, first in enumerate(names):
         for second in names[index + 1:]:
-            disagreement = sum(
-                max(0.0, float(relevance.get(variable, 1.0)))
-                * float(observed)
-                * _prediction_distance(
-                    predictions.get(first, {}).get(variable),
-                    predictions.get(second, {}).get(variable),
-                )
-                for variable, observed in observability.items()
-                if observed > 0
-            )
+            disagreement = sum(max(0.0, float(relevance.get(variable, 1.0))) * float(observed) * _prediction_distance(predictions.get(first, {}).get(variable), predictions.get(second, {}).get(variable)) for variable, observed in observability.items() if observed > 0)
             conflict += probabilities[first] * probabilities[second] * disagreement
     return 1.0 - math.exp(-lam * max(0.0, conflict))
 
@@ -228,22 +166,11 @@ class EpistemicState:
     policy_version: str = "erk-v2.2"
     terminal: str | None = None
     used_authority_grants: tuple[str, ...] = ()
-
     def __post_init__(self) -> None:
-        for name in ("observability", "hypotheses", "predictions", "relevance", "critical_load"):
-            object.__setattr__(self, name, _freeze(getattr(self, name)))
+        for name in ("observability", "hypotheses", "predictions", "relevance", "critical_load"): object.__setattr__(self, name, _freeze(getattr(self, name)))
         object.__setattr__(self, "used_authority_grants", tuple(self.used_authority_grants))
-
     def normalized(self) -> EpistemicState:
-        return replace(
-            self,
-            observability={key: min(1.0, max(0.0, float(value))) for key, value in self.observability.items()},
-            strain=min(1.0, max(0.0, float(self.strain))),
-            calibration_error=min(1.0, max(0.0, float(self.calibration_error))),
-            active_branches=max(0, int(self.active_branches)),
-            evidence_count=max(0, int(self.evidence_count)),
-            used_authority_grants=tuple(self.used_authority_grants),
-        )
+        return replace(self, observability={key: min(1.0, max(0.0, float(value))) for key, value in self.observability.items()}, strain=min(1.0, max(0.0, float(self.strain))), calibration_error=min(1.0, max(0.0, float(self.calibration_error))), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)), used_authority_grants=tuple(self.used_authority_grants))
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,175 +179,65 @@ class PolicyConfig:
     depth_bound: int = 8
     calibration_crit: float = 0.25
     branch_bound: int = 16
-    cost_weights: Mapping[Action, float] = field(
-        default_factory=lambda: {
-            Action.BLOCK: 0.20,
-            Action.BRANCH: 0.40,
-            Action.ARCHIVE: 0.60,
-            Action.QUARANTINE: 0.80,
-            Action.REJECT: 1.00,
-            Action.ESCALATE: 0.90,
-            Action.ENABLE_EXECUTION: 0.00,
-        }
-    )
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "cost_weights", _freeze(self.cost_weights))
+    cost_weights: Mapping[Action, float] = field(default_factory=lambda: {Action.BLOCK: 0.20, Action.BRANCH: 0.40, Action.ARCHIVE: 0.60, Action.QUARANTINE: 0.80, Action.REJECT: 1.00, Action.ESCALATE: 0.90, Action.ENABLE_EXECUTION: 0.00})
+    def __post_init__(self) -> None: object.__setattr__(self, "cost_weights", _freeze(self.cost_weights))
 
 
 class Supervisor:
-    """Deterministic constitutional policy layer.
-
-    Safety/liveness/boundedness gates are evaluated before optimization.
-    Cost weights may select only among actions surviving those gates.
-    """
-
-    def __init__(self, config: PolicyConfig | None = None) -> None:
-        self.config = config or PolicyConfig()
-
+    """Deterministic constitutional policy layer. Safety gates precede optimization."""
+    def __init__(self, config: PolicyConfig | None = None) -> None: self.config = config or PolicyConfig()
     def safe_actions(self, state: EpistemicState) -> tuple[Action, ...]:
         state = state.normalized()
-        if state.terminal is not None:
-            return ()
-        if state.cycles:
-            return (Action.REJECT, Action.QUARANTINE, Action.ESCALATE)
-        if state.strain >= self.config.u_crit:
-            return (Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
-        if state.calibration_error >= self.config.calibration_crit:
-            return (Action.ESCALATE, Action.QUARANTINE)
-        if state.unsupported_depth >= self.config.depth_bound:
-            return (Action.ESCALATE, Action.QUARANTINE)
-        if state.active_branches > self.config.branch_bound:
-            return (Action.ESCALATE, Action.QUARANTINE)
-
-        actions = [
-            Action.BLOCK,
-            Action.BRANCH,
-            Action.REJECT,
-            Action.QUARANTINE,
-            Action.ESCALATE,
-            Action.ARCHIVE,
-        ]
-        if state.authority == Authority.EXECUTE:
-            actions.append(Action.ENABLE_EXECUTION)
+        if state.terminal is not None: return ()
+        if state.cycles: return (Action.REJECT, Action.QUARANTINE, Action.ESCALATE)
+        if state.strain >= self.config.u_crit: return (Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
+        if state.calibration_error >= self.config.calibration_crit: return (Action.ESCALATE, Action.QUARANTINE)
+        if state.unsupported_depth >= self.config.depth_bound: return (Action.ESCALATE, Action.QUARANTINE)
+        if state.active_branches >= self.config.branch_bound: return (Action.ESCALATE, Action.QUARANTINE)
+        actions = [Action.BLOCK, Action.BRANCH, Action.REJECT, Action.QUARANTINE, Action.ESCALATE, Action.ARCHIVE]
+        if state.authority == Authority.EXECUTE: actions.append(Action.ENABLE_EXECUTION)
         return tuple(actions)
-
     def supervise(self, state: EpistemicState) -> Action:
-        state = state.normalized()
-        actions = self.safe_actions(state)
-        if not actions:
-            return Action.ESCALATE
-
-        # Constitutional precedence is resolved before cost optimization.
-        if state.cycles:
-            return Action.REJECT
-        if state.strain >= self.config.u_crit:
-            return Action.QUARANTINE
-        if state.calibration_error >= self.config.calibration_crit:
-            return Action.ESCALATE
-        if state.unsupported_depth >= self.config.depth_bound:
-            return Action.ESCALATE
-        if state.active_branches > self.config.branch_bound:
-            return Action.ESCALATE
-        if state.authority == Authority.EXECUTE:
-            return Action.ENABLE_EXECUTION
-
-        # Normal operation: minimal intervention first, then configured cost.
+        state = state.normalized(); actions = self.safe_actions(state)
+        if not actions: return Action.ESCALATE
+        if state.cycles: return Action.REJECT
+        if state.strain >= self.config.u_crit: return Action.QUARANTINE
+        if state.calibration_error >= self.config.calibration_crit: return Action.ESCALATE
+        if state.unsupported_depth >= self.config.depth_bound: return Action.ESCALATE
+        if state.active_branches >= self.config.branch_bound: return Action.ESCALATE
+        if state.authority == Authority.EXECUTE: return Action.ENABLE_EXECUTION
         preferred = (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
         admissible = set(actions)
         for action in preferred:
-            if action in admissible:
-                return action
+            if action in admissible: return action
         return min(actions, key=lambda action: (self.config.cost_weights.get(action, 1.0), action.value))
 
 
 class Transition:
     @staticmethod
-    def apply(
-        state: EpistemicState,
-        action: Action,
-        evidence: Sequence[EvidenceRecord] = (),
-        authorized_authority: Authority | None = None,
-        branch_bound: int = 16,
-    ) -> EpistemicState:
-        state = state.normalized()
-        evidence = tuple(evidence)
-        if state.terminal is not None:
-            raise ValueError("terminal branch cannot transition")
-        if branch_bound < 1:
-            raise ValueError("branch bound must be positive")
-
-        grant_ids = tuple(
-            record.authority_grant_id
-            for record in evidence
-            if record.authority_grant is not None and record.authority_grant_id is not None
-        )
-        if len(set(grant_ids)) != len(grant_ids):
-            raise ValueError("duplicate authority grant id in transition")
-        if any(grant_id in state.used_authority_grants for grant_id in grant_ids):
-            raise ValueError("authority grant replay detected")
-
+    def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None, branch_bound: int = 16) -> EpistemicState:
+        state = state.normalized(); evidence = tuple(evidence)
+        if state.terminal is not None: raise ValueError("terminal branch cannot transition")
+        if branch_bound < 1: raise ValueError("branch bound must be positive")
+        grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
+        if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id in transition")
+        if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay detected")
         if action == Action.BRANCH:
-            if state.active_branches >= branch_bound:
-                raise ValueError("branch bound exceeded")
-            return replace(
-                state,
-                active_branches=state.active_branches + 1,
-                evidence_count=state.evidence_count + len(evidence),
-                used_authority_grants=state.used_authority_grants + grant_ids,
-            ).normalized()
-
+            if state.active_branches >= branch_bound: raise ValueError("branch bound exceeded")
+            return replace(state, active_branches=state.active_branches + 1, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
         if action in (Action.REJECT, Action.QUARANTINE, Action.ARCHIVE):
-            return replace(
-                state,
-                terminal=action.value,
-                evidence_count=state.evidence_count + len(evidence),
-                used_authority_grants=state.used_authority_grants + grant_ids,
-            ).normalized()
-
+            return replace(state, terminal=action.value, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
         if action == Action.ENABLE_EXECUTION:
-            if state.authority != Authority.EXECUTE:
-                raise ValueError("execution requires authority=EXECUTE")
-            return replace(
-                state,
-                authority=Authority.SIMULATE,
-                evidence_count=state.evidence_count + len(evidence),
-                used_authority_grants=state.used_authority_grants + grant_ids,
-            ).normalized()
-
+            if state.authority != Authority.EXECUTE: raise ValueError("execution requires authority=EXECUTE")
+            return replace(state, authority=Authority.SIMULATE, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
         next_authority = state.authority
         if authorized_authority is not None:
             expected = Authority(int(state.authority) + 1)
-            if authorized_authority != expected:
-                raise ValueError("authority escalation must be exactly one level")
+            if authorized_authority != expected: raise ValueError("authority escalation must be exactly one level")
             next_authority = authorized_authority
-
-        return replace(
-            state,
-            authority=next_authority,
-            evidence_count=state.evidence_count + len(evidence),
-            used_authority_grants=state.used_authority_grants + grant_ids,
-        ).normalized()
+        return replace(state, authority=next_authority, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
 
 
 def state_hash(state: EpistemicState) -> str:
-    payload = {
-        "observability": dict(state.observability),
-        "hypotheses": dict(state.hypotheses),
-        "predictions": dict(state.predictions),
-        "relevance": dict(state.relevance),
-        "strain": state.strain,
-        "unsupported_depth": state.unsupported_depth,
-        "critical_load": dict(state.critical_load),
-        "cycles": state.cycles,
-        "authority": int(state.authority),
-        "calibration_error": state.calibration_error,
-        "active_branches": state.active_branches,
-        "evidence_count": state.evidence_count,
-        "policy_version": state.policy_version,
-        "terminal": state.terminal,
-        "used_authority_grants": state.used_authority_grants,
-    }
-    return hashlib.sha256(
-        json.dumps(_canonical(payload), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    ).hexdigest()
+    payload = {"observability": dict(state.observability), "hypotheses": dict(state.hypotheses), "predictions": dict(state.predictions), "relevance": dict(state.relevance), "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": dict(state.critical_load), "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version, "terminal": state.terminal, "used_authority_grants": state.used_authority_grants}
+    return hashlib.sha256(json.dumps(_canonical(payload), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
