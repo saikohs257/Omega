@@ -5,6 +5,7 @@ import math
 from statistics import fmean
 from typing import Any, Callable, Mapping, Sequence
 
+from .experiment_config import TournamentConfig
 from .identification_registry import MODEL_REGISTRY, ModelSpec
 from .state import TiamatState
 from .telemetry import CANONICAL_CONTROL_AXES, TelemetryAdapter, TelemetryRow, axes_for_model
@@ -72,7 +73,14 @@ class IdentificationRunner:
         trials = tuple(sorted((self._evaluate_model(normalized, model_id) for model_id in ids), key=self._trial_order))
         return TournamentReport(trials=trials)
 
-    def holdout_experiment(self, *, train_fraction: float = 0.6, validation_fraction: float = 0.2, test_fraction: float = 0.2):
+    def holdout_experiment(
+        self,
+        *,
+        train_fraction: float = 0.6,
+        validation_fraction: float = 0.2,
+        test_fraction: float = 0.2,
+        config: TournamentConfig | None = None,
+    ):
         from .holdout import HoldoutExperiment
 
         return HoldoutExperiment(
@@ -81,6 +89,7 @@ class IdentificationRunner:
             validation_fraction=validation_fraction,
             test_fraction=test_fraction,
             adapter=self.adapter,
+            config=config,
         )
 
     def split_rows(
@@ -90,11 +99,13 @@ class IdentificationRunner:
         train_fraction: float = 0.6,
         validation_fraction: float = 0.2,
         test_fraction: float = 0.2,
+        config: TournamentConfig | None = None,
     ):
         return self.holdout_experiment(
             train_fraction=train_fraction,
             validation_fraction=validation_fraction,
             test_fraction=test_fraction,
+            config=config,
         ).split_rows(rows)
 
     def evaluate_holdout(
@@ -105,11 +116,13 @@ class IdentificationRunner:
         train_fraction: float = 0.6,
         validation_fraction: float = 0.2,
         test_fraction: float = 0.2,
+        config: TournamentConfig | None = None,
     ):
         return self.holdout_experiment(
             train_fraction=train_fraction,
             validation_fraction=validation_fraction,
             test_fraction=test_fraction,
+            config=config,
         ).evaluate(rows, model_ids=model_ids)
 
     def build_frames(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], model_id: str) -> tuple[dict[str, Any], ...]:
@@ -175,8 +188,9 @@ class IdentificationRunner:
         return fmean(errors) if errors else 0.0
 
     @staticmethod
-    def _trial_order(trial: CandidateTrial) -> tuple[float, float, int, str]:
+    def _trial_order(trial: CandidateTrial) -> tuple[float, float, float, int, str]:
         return (
+            -trial.score,
             trial.transition_error if trial.transition_error is not None else 1.0,
             -trial.coverage,
             trial.complexity,
