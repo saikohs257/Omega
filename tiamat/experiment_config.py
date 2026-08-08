@@ -67,7 +67,7 @@ class TemporalCausalGate:
     def validate_row(self,row:Mapping[str,Any])->None:
         forbidden=("episode_end","future_duration","future_target","next_target","target_t_plus_1")
         bad=[str(k) for k in row if str(k) in forbidden or str(k).startswith(("future_","next_","target_next_","y_next_")) or str(k).endswith(("_future","_next","_t+1"))]
-        if bad: raise ValueError(f"temporal contamination detected: {', '.join(sorted(set(bad))}")
+        if bad: raise ValueError(f"temporal contamination detected: {', '.join(sorted(set(bad)))}")
         self.validate_features()
     def validate_rows(self,rows:Sequence[Mapping[str,Any]])->None:
         for row in rows:self.validate_row(row)
