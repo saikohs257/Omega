@@ -12,6 +12,7 @@ from .core import (
     compute_strain,
     graph_metrics,
 )
+from .kernel import ConstitutionalKernel, ConstitutionalViolation, KernelConfig
 
 __all__ = [
     "Action",
@@ -24,4 +25,7 @@ __all__ = [
     "Transition",
     "compute_strain",
     "graph_metrics",
+    "ConstitutionalKernel",
+    "ConstitutionalViolation",
+    "KernelConfig",
 ]
