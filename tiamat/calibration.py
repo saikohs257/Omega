@@ -43,6 +43,9 @@ class CandidateDiagnostic:
             raise ValueError("candidate model_id is required")
         if self.rows < 0:
             raise ValueError("candidate rows must be non-negative")
+        for name, value in self.metrics.items():
+            if not isfinite(float(value)) or float(value) < 0.0:
+                raise ValueError(f"candidate metric {name} must be finite and non-negative")
 
     def to_dict(self) -> dict[str, Any]:
         return {"model_id": self.model_id, "rows": self.rows, "metrics": {k: float(v) for k, v in sorted(self.metrics.items())}}
@@ -108,6 +111,10 @@ class CalibrationDiagnostic:
     control_labels: tuple[str, ...] = ("uniform", "majority", "historical")
     spread_threshold: float = 0.05
 
+    def __post_init__(self) -> None:
+        if not isfinite(float(self.spread_threshold)) or self.spread_threshold < 0.0:
+            raise ValueError("spread_threshold must be finite and non-negative")
+
     def evaluate_rows(
         self,
         rows: Sequence[Mapping[str, Any] | TelemetryRow],
@@ -142,6 +149,8 @@ class CalibrationDiagnostic:
         """
         if not controls and not candidates:
             raise ValueError("at least one control or candidate predictor is required")
+        if not isinstance(ece_reliability_behavior, str) or not ece_reliability_behavior.strip():
+            raise ValueError("ece_reliability_behavior must be a non-empty assessment")
 
         control_sets: list[ControlMetricSet] = []
         for name, predictor in sorted(controls.items()):
@@ -178,6 +187,7 @@ class CalibrationDiagnostic:
             null_floor_check=null_floor_check,
             spread_check={
                 "threshold": self.spread_threshold,
+                "null_nll_floor": null_nll_floor,
                 "observed": spread,
                 "candidate_count": len(candidates_tuple),
                 "pass": spread_pass,
