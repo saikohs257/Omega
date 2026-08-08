@@ -54,6 +54,15 @@ def _unit_interval(value: float, name: str) -> float:
     return min(1.0, max(0.0, value))
 
 
+def _finite_nonnegative(value: float, name: str) -> float:
+    value = float(value)
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be finite")
+    if value < 0.0:
+        raise ValueError(f"{name} must be non-negative")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceRecord:
     evidence_id: str
@@ -177,7 +186,17 @@ class EpistemicState:
         for name in ("observability", "hypotheses", "predictions", "relevance", "critical_load"): object.__setattr__(self, name, _freeze(getattr(self, name)))
         object.__setattr__(self, "used_authority_grants", tuple(self.used_authority_grants))
     def normalized(self) -> EpistemicState:
-        return replace(self, observability={key: _unit_interval(value, f"observability[{key}]") for key, value in self.observability.items()}, strain=_unit_interval(self.strain, "strain"), calibration_error=_unit_interval(self.calibration_error, "calibration_error"), active_branches=max(0, int(self.active_branches)), evidence_count=max(0, int(self.evidence_count)), used_authority_grants=tuple(self.used_authority_grants))
+        return replace(
+            self,
+            observability={key: _unit_interval(value, f"observability[{key}]") for key, value in self.observability.items()},
+            hypotheses={key: _finite_nonnegative(value, f"hypotheses[{key}]") for key, value in self.hypotheses.items()},
+            relevance={key: _finite_nonnegative(value, f"relevance[{key}]") for key, value in self.relevance.items()},
+            strain=_unit_interval(self.strain, "strain"),
+            calibration_error=_unit_interval(self.calibration_error, "calibration_error"),
+            active_branches=max(0, int(self.active_branches)),
+            evidence_count=max(0, int(self.evidence_count)),
+            used_authority_grants=tuple(self.used_authority_grants),
+        )
 
 
 @dataclass(frozen=True, slots=True)
