@@ -6,7 +6,6 @@ readable and can be consolidated after the next clean CI pass.
 """
 from __future__ import annotations
 
-from dataclasses import replace
 import math
 
 from . import core as _core
@@ -33,21 +32,6 @@ def _supervise(self: _core.Supervisor, state: _core.EpistemicState) -> _core.Act
 
 if not hasattr(_core.Supervisor, "supervise"):
     _core.Supervisor.supervise = _supervise
-
-
-# Normalization is a boundary operation: bounded scalar telemetry is clamped,
-# while structural integer counters are repaired to their legal lower bound.
-_original_normalized = _core.EpistemicState.normalized
-
-
-def _normalized(self: _core.EpistemicState) -> _core.EpistemicState:
-    active_branches = self.active_branches
-    if isinstance(active_branches, (int, float)) and math.isfinite(float(active_branches)) and active_branches < 0:
-        return _original_normalized(replace(self, active_branches=0))
-    return _original_normalized(self)
-
-
-_core.EpistemicState.normalized = _normalized
 
 
 # Preserve the historical error contract for lambda validation, including
@@ -107,7 +91,7 @@ def _kernel_step(self, state, action, evidence=()):
     grants = [r.authority_grant for r in evidence if r.authority_grant is not None]
     if grants and action is not _core.Action.ESCALATE:
         numeric = int(float(grants[0]))
-        after = replace(after, authority=_core.Authority(numeric)).normalized()
+        after = _core.replace(after, authority=_core.Authority(numeric)).normalized()
     return after
 
 
