@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 import math
 from types import MappingProxyType
@@ -17,28 +17,37 @@ class TiamatMode(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class TiamatState:
+    """Explicit deterministic TIAMAT v0.1 state boundary.
+
+    These are structural state slots only. Empirical V7 equations remain
+    intentionally outside this scaffold until independently recovered.
+    """
+
     mode: TiamatMode = TiamatMode.IDLE
+    excitation: float = 0.0
     damage: float = 0.0
     recovery: float = 0.0
     residual_load: float = 0.0
-    excitation: float = 0.0
-    refractory: int = 0
+    momentum: float = 0.0
+    mode_age_h: int = 0
+    excitation_age_h: int = 0
+    relaxation_age_h: int = 0
+    refractory_age_h: int = 0
     promotion_count: int = 0
-    hysteresis: tuple[str, ...] = ()
-    timers: Mapping[str, int] = field(default_factory=dict)
+    arrival_class: str = "UNKNOWN"
+    hysteresis_memory: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        for name in ("damage", "recovery", "residual_load", "excitation"):
+        for name in ("excitation", "damage", "recovery", "residual_load", "momentum"):
             value = float(getattr(self, name))
             if not math.isfinite(value) or not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be finite and in [0, 1]")
-        if self.refractory < 0 or self.promotion_count < 0:
-            raise ValueError("timers and counters cannot be negative")
-        frozen_timers = {str(key): int(value) for key, value in self.timers.items()}
-        if any(value < 0 for value in frozen_timers.values()):
-            raise ValueError("timer values cannot be negative")
-        object.__setattr__(self, "hysteresis", tuple(self.hysteresis))
-        object.__setattr__(self, "timers", MappingProxyType(frozen_timers))
+        for name in ("mode_age_h", "excitation_age_h", "relaxation_age_h", "refractory_age_h", "promotion_count"):
+            if int(getattr(self, name)) < 0:
+                raise ValueError(f"{name} cannot be negative")
+        if not isinstance(self.arrival_class, str) or not self.arrival_class:
+            raise ValueError("arrival_class must be a non-empty string")
+        object.__setattr__(self, "hysteresis_memory", tuple(self.hysteresis_memory))
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> "TiamatState":
@@ -47,25 +56,33 @@ class TiamatState:
             mode = TiamatMode(str(mode))
         return cls(
             mode=mode,
+            excitation=float(value.get("excitation", 0.0)),
             damage=float(value.get("damage", 0.0)),
             recovery=float(value.get("recovery", 0.0)),
             residual_load=float(value.get("residual_load", 0.0)),
-            excitation=float(value.get("excitation", 0.0)),
-            refractory=int(value.get("refractory", 0)),
+            momentum=float(value.get("momentum", 0.0)),
+            mode_age_h=int(value.get("mode_age_h", 0)),
+            excitation_age_h=int(value.get("excitation_age_h", 0)),
+            relaxation_age_h=int(value.get("relaxation_age_h", 0)),
+            refractory_age_h=int(value.get("refractory_age_h", 0)),
             promotion_count=int(value.get("promotion_count", 0)),
-            hysteresis=tuple(value.get("hysteresis", ())),
-            timers=dict(value.get("timers", {})),
+            arrival_class=str(value.get("arrival_class", "UNKNOWN")),
+            hysteresis_memory=tuple(value.get("hysteresis_memory", ())),
         )
 
     def to_dict(self) -> dict:
         return {
             "mode": self.mode.value,
+            "excitation": self.excitation,
             "damage": self.damage,
             "recovery": self.recovery,
             "residual_load": self.residual_load,
-            "excitation": self.excitation,
-            "refractory": self.refractory,
+            "momentum": self.momentum,
+            "mode_age_h": self.mode_age_h,
+            "excitation_age_h": self.excitation_age_h,
+            "relaxation_age_h": self.relaxation_age_h,
+            "refractory_age_h": self.refractory_age_h,
             "promotion_count": self.promotion_count,
-            "hysteresis": list(self.hysteresis),
-            "timers": dict(sorted(self.timers.items())),
+            "arrival_class": self.arrival_class,
+            "hysteresis_memory": list(self.hysteresis_memory),
         }
