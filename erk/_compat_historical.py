@@ -1,4 +1,6 @@
-"""Small compatibility boundary for the current ERK contracts.
+"""Historical ERK compatibility boundary.
+
+DO NOT IMPORT: preserved as forensic reference after canonicalization.
 
 This module contains only behavior recovered from the failing public test suite.
 It is intentionally isolated so the underlying constitutional primitives remain

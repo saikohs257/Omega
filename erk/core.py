@@ -268,6 +268,22 @@ class Supervisor:
         if state.active_branches >= self.config.branch_bound: return (Action.BLOCK, Action.ESCALATE, Action.QUARANTINE)
         return (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE, Action.ENABLE_EXECUTION)
 
+    def supervise(self, state: EpistemicState) -> Action:
+        state = state.normalized()
+        if state.cycles:
+            return Action.REJECT
+        if state.strain >= self.config.u_crit:
+            return Action.QUARANTINE
+        if state.calibration_error >= self.config.calibration_crit:
+            return Action.ESCALATE
+        if state.unsupported_depth >= self.config.depth_bound:
+            return Action.ESCALATE
+        if state.active_branches >= self.config.branch_bound:
+            return Action.BLOCK
+        if state.authority == Authority.EXECUTE:
+            return Action.ENABLE_EXECUTION
+        return Action.BLOCK
+
 
 @dataclass(frozen=True, slots=True)
 class Transition:
@@ -284,6 +300,8 @@ class Transition:
         if any(grant_id in state.used_authority_grants for grant_id in grant_ids):
             raise ValueError("authority grant replay detected")
         next_authority = state.authority
+        if authorized_authority is not None and not evidence and action is not Action.ESCALATE:
+            raise ValueError("authority escalation requires kernel authorization")
         if action == Action.ESCALATE:
             if authorized_authority is None:
                 raise ValueError("authority escalation requires kernel authorization")
