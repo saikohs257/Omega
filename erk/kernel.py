@@ -55,9 +55,17 @@ class ConstitutionalKernel:
         evidence: Sequence[EvidenceRecord],
     ) -> Authority | None:
         requested: Authority | None = None
+        seen_grant_ids: set[str] = set()
         for record in evidence:
             if record.authority_grant is None:
                 continue
+            if not record.authority_grant_id:
+                raise ConstitutionalViolation("authority grant requires unique grant id")
+            if record.authority_grant_id in seen_grant_ids:
+                raise ConstitutionalViolation("duplicate authority grant id in transition")
+            if record.authority_grant_id in state.used_authority_grants:
+                raise ConstitutionalViolation("authority grant replay detected")
+            seen_grant_ids.add(record.authority_grant_id)
             try:
                 grant = Authority(int(record.authority_grant))
             except (ValueError, TypeError) as exc:
@@ -144,6 +152,7 @@ class ConstitutionalKernel:
                     "evidence_count": state.evidence_count,
                     "policy_version": state.policy_version,
                     "terminal": state.terminal,
+                    "used_authority_grants": state.used_authority_grants,
                 }
             )
             for state in states
