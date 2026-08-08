@@ -1,24 +1,34 @@
 from bentaxis.capsule import BentAxisCapsule
 from bentaxis.store import BentAxisStore
-from runtime.events import Event
+from runtime.constitutional_record import ConstitutionalRecord
 from runtime.replay import ReplayEngine
-from runtime.trajectory import Trajectory
+from runtime.events import Event
 
 
 def test_replay_is_deterministic() -> None:
-    events = [
-        Event.create("alpha", {"i": 1}),
-        Event.create("beta", {"i": 2}),
-        Event.create("gamma", {"i": 3}),
-    ]
-    trajectory = Trajectory().extend(events)
+    records = tuple(
+        ConstitutionalRecord(
+            record_type=event.kind,
+            payload=event.payload_dict(),
+            timestamp=str(index),
+        )
+        for index, event in enumerate(
+            (
+                Event.create("alpha", {"i": 1}),
+                Event.create("beta", {"i": 2}),
+                Event.create("gamma", {"i": 3}),
+            )
+    )
+
     engine = ReplayEngine()
-    result_a = engine.replay({"seed": True}, trajectory)
-    result_b = engine.replay({"seed": True}, trajectory)
-    assert result_a.state == result_b.state
-    assert result_a.trajectory == result_b.trajectory
-    assert result_a.state["event_count"] == 3
-    assert result_a.state["last_event_kind"] == "gamma"
+    result_a = engine.replay(records)
+    result_b = engine.replay(records)
+
+    assert result_a.records == result_b.records
+    assert result_a.state_vector.as_dict() == result_b.state_vector.as_dict()
+    assert result_a.state_vector.get("record_count") == 3
+    assert result_a.state_vector.get("last_record_type") == "gamma"
+    assert result_a.state_vector.get("last_payload") == {"i": 3}
 
 
 def test_capsule_round_trip_is_stable() -> None:
