@@ -39,33 +39,44 @@ if not hasattr(_core.Supervisor, "supervise"):
 # while structural integer counters are repaired to their legal lower bound.
 _original_normalized = _core.EpistemicState.normalized
 
+
 def _normalized(self: _core.EpistemicState) -> _core.EpistemicState:
-    if self.active_branches < 0:
+    active_branches = self.active_branches
+    if isinstance(active_branches, (int, float)) and math.isfinite(float(active_branches)) and active_branches < 0:
         return _original_normalized(replace(self, active_branches=0))
     return _original_normalized(self)
+
 
 _core.EpistemicState.normalized = _normalized
 
 
-# Preserve the historical error contract for lambda validation.
+# Preserve the historical error contract for lambda validation, including
+# callers that pass lambda positionally.
 _original_strain = _core.compute_strain
 
+
 def _compute_strain(*args, **kwargs):
-    lam = kwargs.get("lam", 1.0)
+    lam = kwargs.get("lam", args[4] if len(args) > 4 else 1.0)
     try:
         return _original_strain(*args, **kwargs)
     except ValueError as exc:
-        if not math.isfinite(float(lam)) or float(lam) < 0:
+        try:
+            invalid = not math.isfinite(float(lam)) or float(lam) < 0
+        except (TypeError, ValueError, OverflowError):
+            invalid = True
+        if invalid:
             raise ValueError("lam must be finite and non-negative") from exc
         raise
+
 
 _core.compute_strain = _compute_strain
 
 
-# A signed grant carried with evidence authorizes exactly one level even when
-# the requested operational action is otherwise BLOCK/BRANCH/etc. Direct use
-# of Transition.apply with an authorization but no evidence remains forbidden.
+# Preserve the constitutional boundary: direct Transition.apply callers cannot
+# self-authorize. The kernel path supplies verified evidence; the kernel then
+# commits the resulting grant through the compatibility boundary below.
 _original_transition_apply = _core.Transition.apply
+
 
 @staticmethod
 def _transition_apply(state, action, evidence=(), authorized_authority=None, branch_bound=16):
@@ -73,18 +84,22 @@ def _transition_apply(state, action, evidence=(), authorized_authority=None, bra
     if authorized_authority is not None and not evidence and action is not _core.Action.ESCALATE:
         raise ValueError("authority escalation requires kernel authorization")
     return _original_transition_apply(
-        state, action, evidence,
+        state,
+        action,
+        evidence,
         authorized_authority=authorized_authority,
         branch_bound=branch_bound,
     )
 
+
 _core.Transition.apply = _transition_apply
 
 
-# The kernel already verifies signatures and records grant consumption. The
-# missing contract was applying the verified one-level grant to the resulting
-# state for non-ESCALATE operational actions.
+# The kernel verifies signatures and records grant consumption. The missing
+# contract was applying the verified one-level grant to the resulting state for
+# non-ESCALATE operational actions.
 _original_kernel_step = _kernel.ConstitutionalKernel.step
+
 
 def _kernel_step(self, state, action, evidence=()):
     evidence = tuple(evidence)
@@ -94,5 +109,6 @@ def _kernel_step(self, state, action, evidence=()):
         numeric = int(float(grants[0]))
         after = replace(after, authority=_core.Authority(numeric)).normalized()
     return after
+
 
 _kernel.ConstitutionalKernel.step = _kernel_step
