@@ -1,4 +1,11 @@
 from tiamat.engine import Decision, TiamatEngine
+from tiamat.experiment_config import (
+    DEFAULT_METRIC_WEIGHTS,
+    TEMPORAL_CAUSAL_GATE_VERSION,
+    TOURNAMENT_CONFIG_VERSION,
+    TemporalCausalGate,
+    TournamentConfig,
+)
 from tiamat.guards import GuardResult, evaluate_guards
 from tiamat.holdout import HOLDOUT_EXPERIMENT_VERSION, HoldoutEvaluation, HoldoutExperiment, HoldoutSplit
 from tiamat.identification_registry import CANONICAL_THRESHOLDS, MODEL_REGISTRY, ModelSpec, model
@@ -13,6 +20,7 @@ __all__ = [
     "CandidateTrial",
     "CANONICAL_CONTROL_AXES",
     "CANONICAL_THRESHOLDS",
+    "DEFAULT_METRIC_WEIGHTS",
     "Decision",
     "GuardResult",
     "HOLDOUT_EXPERIMENT_VERSION",
@@ -23,11 +31,16 @@ __all__ = [
     "IdentificationRunner",
     "MODEL_REGISTRY",
     "ModelSpec",
+    "TEMPORAL_CAUSAL_GATE_VERSION",
     "TelemetryAdapter",
     "TelemetryRow",
+    "TemporalCausalGate",
+    "TIAMAT_CONFIG_VERSION",
+    "TOURNAMENT_CONFIG_VERSION",
     "TiamatEngine",
     "TiamatMode",
     "TiamatState",
+    "TournamentConfig",
     "TournamentReport",
     "axes_for_model",
     "evaluate_guards",
@@ -35,3 +48,5 @@ __all__ = [
     "replay",
     "transition",
 ]
+
+TIAMAT_CONFIG_VERSION = TOURNAMENT_CONFIG_VERSION
