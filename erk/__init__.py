@@ -15,12 +15,13 @@ from .core import (
     graph_metrics,
     state_hash,
 )
-from .kernel import ConstitutionalKernel, ConstitutionalViolation, KernelConfig
+from .kernel import AuthorityKey, ConstitutionalKernel, ConstitutionalViolation, KernelConfig
 from .runtime import ConstitutionalRuntime, RuntimeStep
 
 __all__ = [
     "Action",
     "Authority",
+    "AuthorityKey",
     "ConstitutionalKernel",
     "ConstitutionalRuntime",
     "ConstitutionalViolation",
