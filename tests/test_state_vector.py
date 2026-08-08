@@ -20,3 +20,8 @@ def test_state_vector_copies_and_freezes_input_mapping() -> None:
 def test_state_vector_rejects_non_mapping_values() -> None:
     with pytest.raises(TypeError, match="values"):
         StateVector([("seed", "base")])
+
+
+def test_state_vector_rejects_non_string_keys() -> None:
+    with pytest.raises(TypeError, match="keys must be strings"):
+        StateVector({1: "invalid"})
