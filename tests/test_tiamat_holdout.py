@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from tiamat import HoldoutExperiment, IdentificationRunner
 
 ROWS = [
@@ -26,3 +28,7 @@ def test_holdout_evaluation_reports_three_splits_and_validation_selection() -> N
     assert {split["name"] for split in payload["splits"]} == {"train", "validation", "test"}
     assert evaluation.selected_model_id in {"M0", "M3", "M7"}
     assert evaluation.validation.winner is not None
+
+def test_holdout_rejects_boolean_fractions() -> None:
+    with pytest.raises(TypeError, match="train_fraction"):
+        HoldoutExperiment(train_fraction=True, validation_fraction=0.0, test_fraction=0.0)
