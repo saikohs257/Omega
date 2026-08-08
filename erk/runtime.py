@@ -32,9 +32,23 @@ class ConstitutionalRuntime:
 
     @staticmethod
     def _normalize_evidence(evidence: Sequence[EvidenceRecord]) -> tuple[EvidenceRecord, ...]:
+        if not isinstance(evidence, Sequence) or isinstance(evidence, (str, bytes)):
+            raise TypeError("evidence must be a sequence of EvidenceRecord values")
         normalized = tuple(evidence)
         if any(not isinstance(record, EvidenceRecord) for record in normalized):
             raise TypeError("evidence must contain only EvidenceRecord values")
+        return normalized
+
+    @staticmethod
+    def _normalize_actions(
+        actions: Sequence[tuple[Action | None, Sequence[EvidenceRecord]]],
+    ) -> tuple[tuple[Action | None, Sequence[EvidenceRecord]], ...]:
+        if not isinstance(actions, Sequence) or isinstance(actions, (str, bytes)):
+            raise TypeError("actions must be a sequence of (Action | None, evidence) tuples")
+        normalized = tuple(actions)
+        for item in normalized:
+            if not isinstance(item, tuple) or len(item) != 2:
+                raise TypeError("each runtime action must be a (Action | None, evidence) tuple")
         return normalized
 
     def step(
@@ -59,12 +73,10 @@ class ConstitutionalRuntime:
     ) -> tuple[RuntimeStep, ...]:
         if not isinstance(initial, EpistemicState):
             raise TypeError("initial must be an EpistemicState")
+        normalized_actions = self._normalize_actions(actions)
         current = initial.normalized()
         steps: list[RuntimeStep] = []
-        for item in actions:
-            if not isinstance(item, tuple) or len(item) != 2:
-                raise TypeError("each runtime action must be a (Action | None, evidence) tuple")
-            action, evidence = item
+        for action, evidence in normalized_actions:
             result = self.step(current, action, evidence)
             steps.append(result)
             current = result.after
