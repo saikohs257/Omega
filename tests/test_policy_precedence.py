@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from erk.core import Action, Authority, EpistemicState, PolicyConfig, Supervisor
+from erk.core import Action, Authority, EpistemicState, PolicyConfig, Supervisor, compute_strain
 
 
 def test_cycles_have_structural_precedence_over_optimization() -> None:
@@ -48,3 +48,12 @@ def test_non_finite_state_values_are_rejected() -> None:
         EpistemicState(hypotheses={"h1": math.inf}).normalized()
     with pytest.raises(ValueError, match="relevance\[signal\] must be non-negative"):
         EpistemicState(relevance={"signal": -1.0}).normalized()
+
+
+def test_compute_strain_rejects_non_finite_lambda() -> None:
+    with pytest.raises(ValueError, match="lam must be finite and non-negative"):
+        compute_strain({"h1": 1.0}, {}, {}, lam=math.nan)
+    with pytest.raises(ValueError, match="lam must be finite and non-negative"):
+        compute_strain({"h1": 1.0}, {}, {}, lam=math.inf)
+    with pytest.raises(ValueError, match="lam must be finite and non-negative"):
+        compute_strain({"h1": 1.0}, {}, {}, lam=-1.0)
