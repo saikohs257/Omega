@@ -1,3 +1,5 @@
+import hashlib
+
 from tiamat.experiment_config import FeatureDeclaration, TemporalCausalGate, TournamentConfig
 from tiamat.experiment_manifest import ExperimentManifest, corpus_fingerprint, provenance_fingerprint
 from tiamat.identification_registry import registry_fingerprint
@@ -7,8 +9,7 @@ from tiamat import IdentificationRunner, STATE_SPACE
 
 
 def _h(value: str) -> str:
-    hex_value = {"l": "a", "p": "b"}.get(value, value)
-    return (hex_value * 64)[:64]
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _manifest_kwargs():
