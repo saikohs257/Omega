@@ -36,7 +36,7 @@ class ConstitutionalKernel:
             "base_authority": int(state.authority),
             "evidence_count": state.evidence_count,
         }
-        return record.authority_message() + b"|" + json.dumps(
+        return record._canonical_content() + b"|" + json.dumps(
             _canonical(binding), sort_keys=True, separators=(",", ":")
         ).encode()
 
@@ -81,7 +81,11 @@ class ConstitutionalKernel:
         authorized_grant = self._validate_evidence(before, evidence)
         if not self.admissible(before, action):
             raise ConstitutionalViolation(f"inadmissible action: {action}")
-        after = Transition.apply(before, action, evidence, authorized_authority=authorized_grant)
+        
+        # Use first available kernel secret or empty bytes
+        kernel_secret = next(iter(self.config.authority_keys.values())) if self.config.authority_keys else b""
+        
+        after = Transition.apply(before, action, evidence, grant=authorized_grant, kernel_secret=kernel_secret)
         if self.config.require_monotonic_evidence_count and after.evidence_count < before.evidence_count:
             raise ConstitutionalViolation("evidence count decreased")
         if action == Action.ENABLE_EXECUTION and after.authority >= Authority.EXECUTE:
