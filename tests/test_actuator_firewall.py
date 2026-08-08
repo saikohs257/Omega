@@ -48,6 +48,18 @@ def test_commit_rechecks_current_state_after_prepare() -> None:
     assert effects == []
 
 
+def test_commit_rechecks_policy_after_prepare() -> None:
+    firewall = ActuatorFirewall(kernel(), SOURCE)
+    state = executable_state()
+    permit = firewall.issue(state)
+    firewall.prepare(state, permit)
+    changed = EpistemicState(authority=Authority.EXECUTE, policy_version="changed-policy")
+    effects: list[str] = []
+    with pytest.raises(ConstitutionalViolation, match="policy mismatch"):
+        firewall.commit(changed, permit, effects.append)
+    assert effects == []
+
+
 def test_permit_cannot_cross_state_boundary() -> None:
     firewall = ActuatorFirewall(kernel(), SOURCE)
     permit = firewall.issue(executable_state())
