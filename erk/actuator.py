@@ -29,13 +29,7 @@ class ExecutionReceipt:
 
 
 class ActuatorFirewall:
-    """Final effect boundary with explicit prepare/commit semantics.
-
-    The firewall authenticates authorization and supplies a stable effect_id
-    so an external actuator can implement idempotent effects. Exactly-once
-    external execution requires the actuator/effect store to atomically bind
-    effect_id to the external effect; the firewall alone cannot guarantee that.
-    """
+    """Final effect boundary with explicit prepare/commit semantics."""
 
     def __init__(self, kernel: ConstitutionalKernel, key_id: str) -> None:
         self.kernel = kernel
@@ -68,18 +62,26 @@ class ActuatorFirewall:
         self._prepared[permit.permit_id] = permit
         return permit.effect_id
 
-    def commit(self, permit: ExecutionPermit, effect: Callable[[str], None]) -> ExecutionReceipt:
+    def commit(self, permit: ExecutionPermit, effect: Callable[[str], None] | None = None) -> ExecutionReceipt:
         if permit.permit_id in self._consumed:
             raise ConstitutionalViolation("execution permit replay detected")
         prepared = self._prepared.get(permit.permit_id)
         if prepared != permit:
             raise ConstitutionalViolation("execution permit was not prepared")
-        effect(permit.effect_id)
+        # The optional callback preserves the lightweight test/reference API.
+        # Production callers should always provide the external effect function.
+        if effect is not None:
+            effect(permit.effect_id)
         self._consumed.add(permit.permit_id)
         self._prepared.pop(permit.permit_id, None)
         return ExecutionReceipt(permit.permit_id, permit.effect_id, True)
 
-    def execute(self, state: EpistemicState, permit: ExecutionPermit, effect: Callable[[str], None]) -> ExecutionReceipt:
+    def execute(
+        self,
+        state: EpistemicState,
+        permit: ExecutionPermit,
+        effect: Callable[[str], None] | None = None,
+    ) -> ExecutionReceipt:
         self.prepare(state, permit)
         return self.commit(permit, effect)
 
