@@ -5,16 +5,19 @@ from math import isfinite
 from typing import Any, Mapping, Sequence
 
 from .experiment_manifest import canonical_hash
-from .metric_contract import MetricContract, ProbabilityContract, ProbabilityPredictor, validate_probability_output
+from .metric_contract import (
+    MetricContract,
+    ProbabilityContract,
+    ProbabilityPredictor,
+    validate_probability_output,
+)
 from .telemetry import TelemetryAdapter, TelemetryRow
 
-CALIBRATION_REPORT_VERSION = "calibration-report-v1"
+CALIBRATION_REPORT_VERSION = "calibration-report-v1.1"
 
 
 @dataclass(frozen=True, slots=True)
 class ControlMetricSet:
-    """Frozen control metrics for a calibration pass."""
-
     nll: float
     brier: float
     ece: float
@@ -97,7 +100,7 @@ class CalibrationReport:
 
 @dataclass(frozen=True, slots=True)
 class CalibrationDiagnostic:
-    """Inference-only diagnostic stage before selector activation."""
+    """Single scoring path for controls and candidates; no pre-scored input is accepted."""
 
     metric_contract: MetricContract
     probability_contract: ProbabilityContract
@@ -105,7 +108,13 @@ class CalibrationDiagnostic:
     control_labels: tuple[str, ...] = ("uniform", "majority", "historical")
     spread_threshold: float = 0.05
 
-    def evaluate_rows(self, rows: Sequence[Mapping[str, Any] | TelemetryRow], *, probability_predictor: ProbabilityPredictor, model_id: str = "M3") -> tuple[dict[str, float], int]:
+    def evaluate_rows(
+        self,
+        rows: Sequence[Mapping[str, Any] | TelemetryRow],
+        *,
+        probability_predictor: ProbabilityPredictor,
+        model_id: str,
+    ) -> tuple[dict[str, float], int]:
         normalized = tuple(self.adapter.normalize(row, model_id=model_id) for row in rows)
         scored: list[tuple[Mapping[str, float], str]] = []
         for row in normalized:
@@ -114,27 +123,44 @@ class CalibrationDiagnostic:
             scored.append((probs, target))
         return self.metric_contract.score(scored), len(normalized)
 
-    def make_report(
+    def create_report(
         self,
         *,
         corpus_manifest_hash: str,
         label_provenance_hash: str,
         metric_contract_hash: str,
-        controls: Mapping[str, Mapping[str, float]],
-        candidates: Mapping[str, Mapping[str, float]],
+        rows: Sequence[Mapping[str, Any] | TelemetryRow],
+        controls: Mapping[str, ProbabilityPredictor],
+        candidates: Mapping[str, ProbabilityPredictor],
         inference_purity: bool,
         ece_reliability_behavior: str,
     ) -> CalibrationReport:
-        control_sets = tuple(
-            ControlMetricSet(label=name, nll=float(metrics["nll"]), brier=float(metrics["brier"]), ece=float(metrics["ece"]))
-            for name, metrics in sorted(controls.items())
-        )
-        candidate_sets = tuple(
-            CandidateDiagnostic(model_id=model_id, metrics={k: float(v) for k, v in metrics.items()}, rows=int(metrics.get("rows", 0)))
-            for model_id, metrics in sorted(candidates.items())
-        )
+        """Score every evaluand through the same MetricContract path.
+
+        Predictors are accepted rather than pre-computed metric bundles, so the
+        calibration boundary cannot be populated by bypassing the scorer.
+        """
+        if not controls and not candidates:
+            raise ValueError("at least one control or candidate predictor is required")
+
+        control_sets: list[ControlMetricSet] = []
+        for name, predictor in sorted(controls.items()):
+            metrics, _ = self.evaluate_rows(rows, probability_predictor=predictor, model_id=name)
+            control_sets.append(
+                ControlMetricSet(label=name, nll=metrics["nll"], brier=metrics["brier"], ece=metrics["ece"])
+            )
+
+        candidate_sets: list[CandidateDiagnostic] = []
+        for model_id, predictor in sorted(candidates.items()):
+            metrics, count = self.evaluate_rows(rows, probability_predictor=predictor, model_id=model_id)
+            candidate_sets.append(CandidateDiagnostic(model_id=model_id, metrics=metrics, rows=count))
+
+        candidates_tuple = tuple(candidate_sets)
         spread = {
-            metric: (max((c.metrics.get(metric, 0.0) for c in candidate_sets), default=0.0) - min((c.metrics.get(metric, 0.0) for c in candidate_sets), default=0.0))
+            metric: (
+                max((c.metrics.get(metric, 0.0) for c in candidates_tuple), default=0.0)
+                - min((c.metrics.get(metric, 0.0) for c in candidates_tuple), default=0.0)
+            )
             for metric in ("nll", "brier", "ece")
         }
         null_floor_check = all(control.nll >= 0.0 for control in control_sets)
@@ -143,8 +169,8 @@ class CalibrationDiagnostic:
             corpus_manifest_hash=corpus_manifest_hash,
             label_provenance_hash=label_provenance_hash,
             metric_contract_hash=metric_contract_hash,
-            controls=control_sets,
-            candidates=candidate_sets,
+            controls=tuple(control_sets),
+            candidates=candidates_tuple,
             null_floor_check=null_floor_check,
             spread_check={"threshold": self.spread_threshold, "observed": spread, "pass": proceed},
             ece_reliability_behavior=ece_reliability_behavior,
