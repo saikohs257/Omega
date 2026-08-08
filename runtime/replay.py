@@ -1,27 +1,37 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping
 
-from runtime.constitutional_record import ConstitutionalRecord
-from runtime.replay_registry import ReplayRegistry
-from runtime.state_vector import StateVector
+from runtime.events import Event
+from runtime.trajectory import Trajectory
 
 
 @dataclass(frozen=True, slots=True)
 class ReplayResult:
-    records: tuple[ConstitutionalRecord, ...]
-    state_vector: StateVector
-    metadata: Mapping[str, Any] = field(default_factory=dict)
+    """Deterministic reconstruction result for the canonical runtime trajectory."""
+
+    state: Mapping[str, Any]
+    trajectory: Trajectory
 
 
-@dataclass(slots=True)
 class ReplayEngine:
-    registry: ReplayRegistry = field(default_factory=ReplayRegistry)
+    """Pure replay engine for the current runtime event model.
 
-    def replay(self, records: tuple[ConstitutionalRecord, ...]) -> ReplayResult:
-        state = StateVector()
-        for record in records:
-            operator = self.registry.resolve(record.record_type)
-            state = operator.reconstruct(record, state)
-        return ReplayResult(records=records, state_vector=state)
+    The previous implementation referenced removed ``ConstitutionalRecord``,
+    ``ReplayRegistry`` and ``StateVector`` modules and exposed an incompatible
+    API. Replay is now deliberately small: the event trajectory is the source
+    of truth and the reconstructed state is derived only from those events.
+    """
+
+    @staticmethod
+    def replay(initial_state: Mapping[str, Any] | None, trajectory: Trajectory) -> ReplayResult:
+        state = dict(initial_state or {})
+        state["event_count"] = 0
+        state.pop("last_event_kind", None)
+
+        for event in trajectory:
+            state["event_count"] += 1
+            state["last_event_kind"] = event.kind
+
+        return ReplayResult(state=state, trajectory=trajectory)

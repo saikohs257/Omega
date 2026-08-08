@@ -1,0 +1,20 @@
+name: ERK Constitutional Tests
+
+on:
+  push:
+    branches: ["erk-v22-fix"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  constitutional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+      - name: Run constitutional test suite
+        run: python -m pytest -q tests/test_erk_adversarial.py tests/test_erk_kernel.py tests/test_erk_metamorphic.py tests/test_erk_boundaries.py
