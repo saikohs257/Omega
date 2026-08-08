@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import pytest
 
 from tiamat import CalibrationReport, CandidateDiagnostic, ControlMetricSet, HoldoutExperiment, LabelProvenance, STATE_SPACE, corpus_fingerprint
@@ -56,9 +57,6 @@ def test_holdout_calibration_report_requires_label_provenance() -> None:
     controls = {"uniform": _predictor("Q")}
     candidates = {"M3": _predictor("P")}
     report = experiment.calibration_report(rows, controls=controls, candidates=candidates, inference_purity=True, ece_reliability_behavior="balanced")
-    # A single candidate cannot establish an inter-candidate spread; HOLD is
-    # therefore the correct calibration outcome. This test is about provenance,
-    # not about manufacturing a PROCEED decision from insufficient candidates.
     assert report.decision == "HOLD"
     assert report.spread_check["pass"] is False
     assert report.corpus_manifest_hash == corpus_hash
@@ -80,7 +78,61 @@ def test_calibration_null_nll_floor_is_hard_gate() -> None:
         ece_reliability_behavior="balanced",
     )
     assert report.null_floor_check is False
+    assert report.spread_check["null_nll_floor"] == pytest.approx(math.log(len(STATE_SPACE)))
     assert report.decision == "HOLD"
+
+
+def test_calibration_exact_uniform_nll_floor_does_not_pass() -> None:
+    rows = [
+        {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
+        {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
+    ]
+    uniform = lambda _row: {state: 1.0 / len(STATE_SPACE) for state in STATE_SPACE}
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), "UNBOUND"))
+    report = experiment.calibration_report(
+        rows,
+        controls={"uniform": uniform},
+        candidates={"M3": uniform, "M4": _predictor("Q")},
+        inference_purity=True,
+        ece_reliability_behavior="balanced",
+    )
+    assert report.null_floor_check is False
+    assert report.decision == "HOLD"
+
+
+def test_calibration_inference_impurity_is_hard_gate() -> None:
+    rows = [
+        {"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
+        {"timestamp": "2026-08-08T10:01:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 1.0, "mode": "P"},
+    ]
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), "UNBOUND"))
+    report = experiment.calibration_report(
+        rows,
+        controls={"uniform": _predictor("Q")},
+        candidates={"M3": _predictor("P"), "M4": _predictor("Q")},
+        inference_purity=False,
+        ece_reliability_behavior="balanced",
+    )
+    assert report.decision == "HOLD"
+    assert report.inference_purity is False
+
+
+def test_calibration_requires_explicit_ece_reliability_assessment() -> None:
+    rows = [{"timestamp": "2026-08-08T10:00:00Z", "B": 0.0, "V": 0.0, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"}]
+    experiment = HoldoutExperiment(label_provenance=LabelProvenance("proxy", "v1", "fixed boundary calibration", 1.0, ("mode",), "UNBOUND"))
+    with pytest.raises(ValueError, match="ece_reliability_behavior"):
+        experiment.calibration_report(
+            rows,
+            controls={"uniform": _predictor("Q")},
+            candidates={"M3": _predictor("Q")},
+            inference_purity=True,
+            ece_reliability_behavior="",
+        )
+
+
+def test_candidate_metric_records_reject_nonfinite_values() -> None:
+    with pytest.raises(ValueError, match="candidate metric nll"):
+        CandidateDiagnostic("M3", {"nll": float("nan"), "brier": 0.1, "ece": 0.1}, 2)
 
 
 def test_holdout_calibration_report_rejects_label_corpus_mismatch() -> None:
