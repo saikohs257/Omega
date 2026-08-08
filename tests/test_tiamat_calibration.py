@@ -56,7 +56,11 @@ def test_holdout_calibration_report_requires_label_provenance() -> None:
     controls = {"uniform": _predictor("Q")}
     candidates = {"M3": _predictor("P")}
     report = experiment.calibration_report(rows, controls=controls, candidates=candidates, inference_purity=True, ece_reliability_behavior="balanced")
-    assert report.decision == "PROCEED"
+    # A single candidate cannot establish an inter-candidate spread; HOLD is
+    # therefore the correct calibration outcome. This test is about provenance,
+    # not about manufacturing a PROCEED decision from insufficient candidates.
+    assert report.decision == "HOLD"
+    assert report.spread_check["pass"] is False
     assert report.corpus_manifest_hash == corpus_hash
     assert report.label_provenance_hash
     assert report.metric_contract_hash
