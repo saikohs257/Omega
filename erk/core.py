@@ -63,7 +63,7 @@ def _finite_nonnegative(value: float, name: str) -> float:
     return value
 
 
-def _positive_int(value: int, name: str) -> int:
+def _nonnegative_int(value: int, name: str) -> int:
     if isinstance(value, bool):
         raise ValueError(f"{name} must be an integer")
     numeric = float(value)
@@ -72,6 +72,13 @@ def _positive_int(value: int, name: str) -> int:
     integer = int(numeric)
     if numeric != integer:
         raise ValueError(f"{name} must be an integer")
+    if integer < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return integer
+
+
+def _positive_int(value: int, name: str) -> int:
+    integer = _nonnegative_int(value, name)
     if integer < 1:
         raise ValueError(f"{name} must be positive")
     return integer
@@ -223,9 +230,10 @@ class EpistemicState:
             hypotheses={key: _finite_nonnegative(value, f"hypotheses[{key}]") for key, value in self.hypotheses.items()},
             relevance={key: _finite_nonnegative(value, f"relevance[{key}]") for key, value in self.relevance.items()},
             strain=_unit_interval(self.strain, "strain"),
+            unsupported_depth=_nonnegative_int(self.unsupported_depth, "unsupported_depth"),
             calibration_error=_unit_interval(self.calibration_error, "calibration_error"),
-            active_branches=max(0, int(self.active_branches)),
-            evidence_count=max(0, int(self.evidence_count)),
+            active_branches=_nonnegative_int(self.active_branches, "active_branches"),
+            evidence_count=_nonnegative_int(self.evidence_count, "evidence_count"),
             used_authority_grants=tuple(self.used_authority_grants),
         )
 
@@ -258,50 +266,40 @@ class Supervisor:
         if state.calibration_error >= self.config.calibration_crit: return (Action.ESCALATE, Action.QUARANTINE)
         if state.unsupported_depth >= self.config.depth_bound: return (Action.ESCALATE, Action.QUARANTINE)
         if state.active_branches >= self.config.branch_bound: return (Action.BLOCK, Action.ESCALATE, Action.QUARANTINE)
-        actions = [Action.BLOCK, Action.BRANCH, Action.REJECT, Action.QUARANTINE, Action.ESCALATE, Action.ARCHIVE]
-        if state.authority == Authority.EXECUTE: actions.append(Action.ENABLE_EXECUTION)
-        return tuple(actions)
-    def supervise(self, state: EpistemicState) -> Action:
-        state = state.normalized(); actions = self.safe_actions(state)
-        if not actions: return Action.ESCALATE
-        if state.cycles: return Action.REJECT
-        if state.strain >= self.config.u_crit: return Action.QUARANTINE
-        if state.calibration_error >= self.config.calibration_crit: return Action.ESCALATE
-        if state.unsupported_depth >= self.config.depth_bound: return Action.ESCALATE
-        if state.active_branches >= self.config.branch_bound: return Action.BLOCK
-        if state.authority == Authority.EXECUTE: return Action.ENABLE_EXECUTION
-        preferred = (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE)
-        admissible = set(actions)
-        for action in preferred:
-            if action in admissible: return action
-        return min(actions, key=lambda action: (self.config.cost_weights.get(action, 1.0), action.value))
+        return (Action.BLOCK, Action.BRANCH, Action.ARCHIVE, Action.QUARANTINE, Action.REJECT, Action.ESCALATE, Action.ENABLE_EXECUTION)
 
 
+@dataclass(frozen=True, slots=True)
 class Transition:
     @staticmethod
     def apply(state: EpistemicState, action: Action, evidence: Sequence[EvidenceRecord] = (), authorized_authority: Authority | None = None, branch_bound: int = 16) -> EpistemicState:
-        state = state.normalized(); evidence = tuple(evidence)
-        if state.terminal is not None: raise ValueError("terminal branch cannot transition")
-        branch_bound = _positive_int(branch_bound, "branch bound")
-        grant_ids = tuple(record.authority_grant_id for record in evidence if record.authority_grant is not None and record.authority_grant_id is not None)
-        if len(set(grant_ids)) != len(grant_ids): raise ValueError("duplicate authority grant id in transition")
-        if any(grant_id in state.used_authority_grants for grant_id in grant_ids): raise ValueError("authority grant replay detected")
-        if action == Action.BRANCH:
-            if state.active_branches >= branch_bound: raise ValueError("branch bound exceeded")
-            return replace(state, active_branches=state.active_branches + 1, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
-        if action in (Action.REJECT, Action.QUARANTINE, Action.ARCHIVE):
-            return replace(state, terminal=action.value, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
-        if action == Action.ENABLE_EXECUTION:
-            if state.authority != Authority.EXECUTE: raise ValueError("execution requires authority=EXECUTE")
-            return replace(state, authority=Authority.SIMULATE, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
+        state = state.normalized()
+        branch_bound = _positive_int(branch_bound, "branch_bound")
+        evidence = tuple(evidence)
         next_authority = state.authority
-        if authorized_authority is not None:
-            expected = Authority(int(state.authority) + 1)
-            if authorized_authority != expected: raise ValueError("authority escalation must be exactly one level")
+        if action == Action.ESCALATE:
+            if authorized_authority is None:
+                raise ValueError("authority escalation requires kernel authorization")
+            if authorized_authority <= state.authority or authorized_authority != Authority(int(state.authority) + 1):
+                raise ValueError("authority escalation must be exactly one level")
             next_authority = authorized_authority
-        return replace(state, authority=next_authority, evidence_count=state.evidence_count + len(evidence), used_authority_grants=state.used_authority_grants + grant_ids).normalized()
+        if action == Action.ENABLE_EXECUTION:
+            if state.authority < Authority.EXECUTE:
+                raise ValueError("execution requires EXECUTE authority")
+            next_authority = Authority.SIMULATE
+        next_branches = state.active_branches
+        if action == Action.BRANCH:
+            if state.active_branches >= branch_bound:
+                raise ValueError("branch bound exceeded")
+            next_branches += 1
+        next_grants = tuple(state.used_authority_grants) + tuple(record.authority_grant_id for record in evidence if record.authority_grant_id)
+        return replace(state, authority=next_authority, active_branches=next_branches, evidence_count=state.evidence_count + len(evidence), used_authority_grants=next_grants, terminal=action.value if action in {Action.REJECT, Action.QUARANTINE, Action.ARCHIVE} else state.terminal)
 
 
 def state_hash(state: EpistemicState) -> str:
-    payload = {"observability": dict(state.observability), "hypotheses": dict(state.hypotheses), "predictions": dict(state.predictions), "relevance": dict(state.relevance), "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": dict(state.critical_load), "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version, "terminal": state.terminal, "used_authority_grants": state.used_authority_grants}
-    return hashlib.sha256(json.dumps(_canonical(payload), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+    payload = _canonical({"observability": state.observability, "hypotheses": state.hypotheses, "predictions": state.predictions, "relevance": state.relevance, "strain": state.strain, "unsupported_depth": state.unsupported_depth, "critical_load": state.critical_load, "cycles": state.cycles, "authority": int(state.authority), "calibration_error": state.calibration_error, "active_branches": state.active_branches, "evidence_count": state.evidence_count, "policy_version": state.policy_version, "terminal": state.terminal, "used_authority_grants": state.used_authority_grants})
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+
+
+class SupervisorDecision:
+    def __init__(self, action: Action, rationale: str): self.action, self.rationale = action, rationale
