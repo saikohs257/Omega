@@ -223,7 +223,18 @@ class PolicyConfig:
     calibration_crit: float = 0.25
     branch_bound: int = 16
     cost_weights: Mapping[Action, float] = field(default_factory=lambda: {Action.BLOCK: 0.20, Action.BRANCH: 0.40, Action.ARCHIVE: 0.60, Action.QUARANTINE: 0.80, Action.REJECT: 1.00, Action.ESCALATE: 0.90, Action.ENABLE_EXECUTION: 0.00})
-    def __post_init__(self) -> None: object.__setattr__(self, "cost_weights", _freeze(self.cost_weights))
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "u_crit", _unit_interval(self.u_crit, "u_crit"))
+        object.__setattr__(self, "calibration_crit", _unit_interval(self.calibration_crit, "calibration_crit"))
+        depth_bound = int(self.depth_bound)
+        branch_bound = int(self.branch_bound)
+        if depth_bound < 1:
+            raise ValueError("depth_bound must be positive")
+        if branch_bound < 1:
+            raise ValueError("branch_bound must be positive")
+        object.__setattr__(self, "depth_bound", depth_bound)
+        object.__setattr__(self, "branch_bound", branch_bound)
+        object.__setattr__(self, "cost_weights", _freeze({action: _finite_nonnegative(weight, f"cost_weights[{action}]") for action, weight in self.cost_weights.items()}))
 
 
 class Supervisor:
