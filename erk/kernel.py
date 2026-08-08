@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import hmac
 import json
@@ -134,6 +134,9 @@ class ConstitutionalKernel:
             authorized_authority=authorized_grant,
             branch_bound=self.config.policy.branch_bound,
         )
+        if authorized_grant is not None and action is not Action.ESCALATE:
+            after = replace(after, authority=authorized_grant).normalized()
+
         if (
             self.config.require_monotonic_evidence_count
             and after.evidence_count < before.evidence_count
