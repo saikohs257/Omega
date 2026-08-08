@@ -1,6 +1,6 @@
 import hashlib
 
-from tiamat.experiment_config import FeatureDeclaration, TemporalCausalGate, TournamentConfig
+from tiamat.experiment_config import FeatureDeclaration, TemporalCausalGate, TournamentConfig, DEFAULT_METRIC_WEIGHTS
 from tiamat.experiment_manifest import ExperimentManifest, corpus_fingerprint, provenance_fingerprint
 from tiamat.identification_registry import registry_fingerprint
 from tiamat.locked_evaluator import LockedModelEvaluator
@@ -17,7 +17,11 @@ def _manifest_kwargs():
 
 
 def test_config_is_immutable_and_hash_changes_with_policy():
-    a=TournamentConfig(metric_weights=(("nll",1.0),)); b=TournamentConfig(metric_weights=(("nll",0.0),)); assert a.config_hash()!=b.config_hash()
+    base=dict(DEFAULT_METRIC_WEIGHTS)
+    a=TournamentConfig(metric_weights=tuple(base.items()))
+    base["nll"]=0.0
+    b=TournamentConfig(metric_weights=tuple(base.items()))
+    assert a.config_hash()!=b.config_hash()
     try: a.metric_weights += (("x",1.0),)
     except Exception: pass
     else: raise AssertionError("frozen tournament config was mutable")
