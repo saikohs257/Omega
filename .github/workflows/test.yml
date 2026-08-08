@@ -21,4 +21,5 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip wheel . --no-deps -w /tmp/omega-dist
       - run: python -m pip install -e ".[test]"
+      - run: python -m compileall -q erk tiamat runtime bentaxis
       - run: python -m pytest tests -q
