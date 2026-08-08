@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from runtime.constitutional_record import ConstitutionalRecord
 from runtime.events import Event
@@ -9,6 +9,9 @@ from runtime.replay import ReplayEngine
 from runtime.state_vector import StateVector
 from runtime.trajectory import Trajectory
 
+from .replay import replay as replay_state
+from .state import TiamatState
+from .transition import transition
 
 @dataclass(frozen=True, slots=True)
 class Decision:
@@ -16,7 +19,6 @@ class Decision:
     reason: str
     state: dict[str, Any]
     event: Event
-
 
 @dataclass(slots=True)
 class TiamatEngine:
@@ -26,14 +28,20 @@ class TiamatEngine:
         current = dict(state)
         if request.get("allow") is False:
             event = Event.create("tiamat_reject", dict(request), {"reason": "request disallowed"})
-            return Decision(approved=False, reason="request disallowed", state=current, event=event)
+            return Decision(False, "request disallowed", current, event)
         next_state = dict(current)
         next_state.update(request)
         event = Event.create("tiamat_approve", dict(request), {"reason": "request allowed"})
-        return Decision(approved=True, reason="request allowed", state=next_state, event=event)
+        return Decision(True, "request allowed", next_state, event)
 
     def execute(self, state: Mapping[str, Any], request: Mapping[str, Any]) -> Decision:
         return self.evaluate(state, request)
+
+    def transition_state(self, state: TiamatState, evidence: Mapping[str, Any]) -> TiamatState:
+        return transition(state, evidence)
+
+    def replay_state(self, initial_state: TiamatState, evidence: Sequence[Mapping[str, Any]]) -> TiamatState:
+        return replay_state(initial_state, evidence)
 
     def replay(self, initial_state: Mapping[str, Any] | None, trajectory: Trajectory) -> dict[str, Any]:
         initial = StateVector(dict(initial_state or {}))
