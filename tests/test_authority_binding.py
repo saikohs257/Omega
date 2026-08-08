@@ -76,6 +76,18 @@ def test_grant_without_id_is_rejected() -> None:
         kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
 
 
+def test_fractional_authority_grant_is_rejected() -> None:
+    state = EpistemicState()
+    unsigned = EvidenceRecord(
+        "e", SOURCE, "2026-08-07T00:00:00Z", {"verified": True},
+        authority_grant=1.5, authority_grant_id="grant-fractional",
+    )
+    signed = sign(unsigned, state)
+    kernel = ConstitutionalKernel(KernelConfig(authority_keys={SOURCE: KEY}))
+    with pytest.raises(ConstitutionalViolation, match="outside constitutional domain"):
+        kernel.step(state, __import__("erk").Action.BLOCK, (signed,))
+
+
 def test_transition_cannot_escalate_without_kernel_authorization() -> None:
     state = EpistemicState()
     with pytest.raises(ValueError):
