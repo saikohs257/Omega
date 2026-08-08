@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
+import math
 from typing import Mapping, Sequence
 
 from .core import Action, Authority, EpistemicState, EvidenceRecord, PolicyConfig, Supervisor, Transition, _canonical, state_hash
@@ -91,7 +92,7 @@ class ConstitutionalKernel:
         key_id, nonce, expires_at, signed_state_hash, signed_policy_hash, signed_branch_id = self._grant_metadata(record)
         binding = {
             "prior_authority": int(state.authority),
-            "target_authority": int(record.authority_grant) if record.authority_grant is not None else None,
+            "target_authority": int(record.authority_grant) if record.authority_grant is not None and not isinstance(record.authority_grant, bool) else record.authority_grant,
             "evidence_hash": record.provenance_hash,
             "state_hash": signed_state_hash or state_hash(state),
             "policy_hash": signed_policy_hash or self._policy_hash(),
@@ -151,15 +152,25 @@ class ConstitutionalKernel:
             if not key.valid_for(record.timestamp):
                 raise ConstitutionalViolation("KEY_REVOKED_OR_OUT_OF_VALIDITY")
 
+            raw_grant = record.authority_grant
+            if isinstance(raw_grant, bool):
+                raise ConstitutionalViolation("AUTHORITY_DOMAIN_INVALID")
             try:
-                grant = Authority(int(record.authority_grant))
+                numeric_grant = float(raw_grant)
+                integral_grant = int(numeric_grant)
+            except (ValueError, TypeError, OverflowError) as exc:
+                raise ConstitutionalViolation("AUTHORITY_DOMAIN_INVALID") from exc
+            if not math.isfinite(numeric_grant) or numeric_grant != integral_grant:
+                raise ConstitutionalViolation("AUTHORITY_DOMAIN_INVALID")
+            try:
+                grant = Authority(integral_grant)
             except (ValueError, TypeError) as exc:
                 raise ConstitutionalViolation("AUTHORITY_DOMAIN_INVALID") from exc
             if grant <= state.authority or grant != Authority(int(state.authority) + 1):
                 raise ConstitutionalViolation("AUTHORITY_STEP_INVALID")
 
             expected = hmac.new(key.secret, self._authority_binding(record, state), hashlib.sha256).hexdigest()
-            if not record.authority_signature or not hmac.compare_digest(expected, record.authority_signature):
+            if not isinstance(record.authority_signature, str) or not record.authority_signature or not hmac.compare_digest(expected, record.authority_signature):
                 raise ConstitutionalViolation("BAD_SIGNATURE")
 
             if requested is not None and grant != requested:
