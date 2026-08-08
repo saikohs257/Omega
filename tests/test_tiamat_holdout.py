@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from tiamat import HoldoutExperiment, IdentificationRunner
-
+from tiamat import HoldoutExperiment, IdentificationRunner, STATE_SPACE
 
 ROWS = [
     {"timestamp": "2026-08-08T10:03:00Z", "B": 0.2, "V": 0.1, "D": 0.0, "tau_D": 0.0, "tau_mode": 0.0, "mode": "Q"},
@@ -13,26 +12,28 @@ ROWS = [
 ]
 
 
+def uniform_predictor(_row):
+    p = 1.0 / len(STATE_SPACE)
+    return {state: p for state in STATE_SPACE}
+
+
 def test_holdout_split_orders_temporally_and_uses_all_rows() -> None:
     split = HoldoutExperiment().split_rows(ROWS)
-
     assert split.sizes == {"train": 4, "validation": 1, "test": 1}
-    assert [row.timestamp for row in split.train] == [
-        "2026-08-08T10:01:00Z",
-        "2026-08-08T10:02:00Z",
-        "2026-08-08T10:03:00Z",
-        "2026-08-08T10:04:00Z",
-    ]
+    assert [row.timestamp for row in split.train] == ["2026-08-08T10:01:00Z", "2026-08-08T10:02:00Z", "2026-08-08T10:03:00Z", "2026-08-08T10:04:00Z"]
     assert [row.timestamp for row in split.validation] == ["2026-08-08T10:05:00Z"]
     assert [row.timestamp for row in split.test] == ["2026-08-08T10:06:00Z"]
 
 
-def test_holdout_evaluation_reports_three_splits_and_validation_selection() -> None:
-    evaluation = IdentificationRunner().evaluate_holdout(ROWS, model_ids=("M0", "M3", "M7"))
+def test_holdout_evaluation_requires_and_records_probability_preflight() -> None:
+    implementation_hash = "0" * 64
+    evaluation = IdentificationRunner().evaluate_holdout(ROWS, model_ids=("M0", "M3", "M7"), probability_predictor=uniform_predictor, implementation_hash=implementation_hash)
     payload = evaluation.to_dict()
-
-    assert payload["version"] == "holdout-v1"
+    assert payload["version"] == "holdout-v3.1"
+    assert payload["manifest"]["implementation_hash"] == implementation_hash
+    assert payload["manifest"]["probability_contract_hash"]
+    assert payload["probability_contract"]["violation_policy"] == "reject"
     assert payload["split"]["sizes"] == {"train": 4, "validation": 1, "test": 1}
-    assert {split["name"] for split in payload["splits"]} == {"train", "validation", "test"}
     assert evaluation.selected_model_id in {"M0", "M3", "M7"}
-    assert evaluation.validation.winner is not None
+    assert evaluation.locked_model_id == evaluation.selected_model_id
+    assert evaluation.test_selected is not None
