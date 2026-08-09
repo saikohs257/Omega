@@ -96,7 +96,7 @@ def _hf10_metadata(
         claim_states = {}
 
     predictor_ids = tuple(sorted(set(predictors.controls) | set(predictors.candidates)))
-    per_predictor = {model_id: claim_states.get(model_id, claim_status) for model_id in predictor_ids}
+    per_predictor = {model_id: claim_states.get(model_id, "ABSTAIN") for model_id in predictor_ids}
     return {
         "hf10_information_set": information_set_payload,
         "hf10_information_set_hash": information_set_hash,
