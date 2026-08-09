@@ -1,0 +1,5 @@
+rule_id,old_action,new_action,reason,allowed_use,banned_use
+V21_PATCH_STALE_DRAIN_DEMOTED,RAISE_T3_STALE_DRAIN_WATCH,NO_STEER_T3_STALE_AMBIGUITY,Stale drain precision approximately 0.17; long-run entry bias decayed.,context only; require fresh evidence,directional drain steering
+V21_PATCH_STALE_UPSHIFT_SHADOW_ONLY,RAISE_T3_STALE_UPSHIFT_WATCH,RAISE_T3_STALE_UPSHIFT_SHADOW,High precision but only 2 runs; insufficient support for promotion.,shadow upshift warning,fresh baseline authority
+V21_PATCH_S2_DRAIN_DEMOTED,ANNOTATE_S2_DRAIN_SCOUT_UNRELIABLE,NO_STEER_S2_DRAIN_CONTEXT_UNTRUSTED,S2 drain scout precision approximately 0.02; not trustworthy.,annotation only,S2 drain steering
+V21_PATCH_CONFLICT_AMBIGUITY_MODE,RAISE_T3_AMBIGUITY_CONFLICT,RAISE_T3_AMBIGUITY_MODE,Conflict rows split both exits and should not choose direction.,instability/ambiguity warning,directional steering
