@@ -118,6 +118,13 @@ def _old_wrapper_reference(tmp_path: Path, run_id: str):
     return write_calibration_artifacts(report, root=tmp_path / "old", run_id=run_id)
 
 
+def _load_sealed(path: Path):
+    root = path.parents[2]
+    manifest_hash = path.parents[0].name
+    run_id = path.name
+    return load_calibration_bundle(root, manifest_hash, run_id)
+
+
 def _classify(old_bundle, new_bundle):
     old_report = old_bundle["calibration_report"]
     new_report = new_bundle["calibration_report"]
@@ -182,8 +189,8 @@ def test_hf10_old_wrapper_equivalence_and_emit_report(tmp_path: Path):
         information_set=_information_set(),
         claim_registry=_registry(),
     )
-    old_bundle = load_calibration_bundle(tmp_path / "old", "a" * 64, "hf10-equivalence-old")
-    new_bundle = load_calibration_bundle(tmp_path / "new", "a" * 64, "hf10-equivalence-new")
+    old_bundle = _load_sealed(old_path)
+    new_bundle = _load_sealed(new_result.artifact_path)
     report = _classify(old_bundle, new_bundle)
 
     output_root = Path(os.environ.get("GITHUB_WORKSPACE", str(tmp_path))) / "equivalence_artifacts"
