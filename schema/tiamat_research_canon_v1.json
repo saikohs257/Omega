@@ -1,0 +1,73 @@
+{
+  "schema_version": "tiamat-research-canon-v1",
+  "authority": {
+    "runtime": false,
+    "probability": false,
+    "global_burden": false
+  },
+  "layers": [
+    "source_corpus",
+    "native_route_extraction",
+    "pathbook_seats",
+    "head_raw_scores",
+    "timing_continuation",
+    "calibration_court",
+    "authority_conflict_court",
+    "falsification_court",
+    "diagnostic_report"
+  ],
+  "path_seats": {
+    "start_transition_path": ["0_to_4", "2_to_4", "3_to_4"],
+    "topology_path": ["0_to_4", "2_to_4", "3_to_4", "4_to_4"],
+    "four_to_four_rule": "topology_only_unless_start_doorway_is_observed"
+  },
+  "timing_seats": {
+    "active_burden": "runtime_timestamp_surface_burden",
+    "exit_bridge_deficit": "active_burden_sampled_at_episode_end",
+    "prior_carry_deficit": "previous_episode_exit_bridge_shifted_forward"
+  },
+  "heads": [
+    {"id": "H0", "path": "0_to_4", "name": "FalseCalmIgnition"},
+    {"id": "H2", "path": "2_to_4", "name": "ResetDragRelease"},
+    {"id": "H3", "path": "3_to_4", "name": "RecoveryInversion"},
+    {"id": "H4", "path": "4_to_4", "name": "CeilingTrap"},
+    {"id": "ExitBridge", "path": "episode_boundary", "name": "ExitBridge"},
+    {"id": "Carry", "path": "continuation", "name": "PriorCarry"}
+  ],
+  "promotion": {
+    "frequency_is_promotion": false,
+    "one_score_is_promotion": false,
+    "same_spine_threshold_tuning_is_promotion": false,
+    "mixed_source_union_is_runtime_authority": false
+  },
+  "current": {
+    "global_authority": false,
+    "allowed_context": "route_open_and_pathfront_pull",
+    "interpretation": "pressure_movement_through_conductance"
+  },
+  "false_watch": {
+    "standalone_predictor": false,
+    "high_high_conflict": "NO_AUTHORITY",
+    "runtime": false
+  },
+  "probability": {
+    "m7_requires_verified_mechanism": true,
+    "historical_control_requires_probability_contract": true,
+    "normalized_scores_are_not_automatically_probabilities": true
+  },
+  "execution_gates": [
+    "native_route_extraction",
+    "controls_only_diagnostic",
+    "m0_m7_diagnostic",
+    "calibration_report",
+    "selector",
+    "falsification"
+  ],
+  "evidence_ledger_fields": [
+    "claim_id",
+    "source_artifacts",
+    "source_hashes",
+    "gate_status",
+    "authority_status"
+  ]
+}

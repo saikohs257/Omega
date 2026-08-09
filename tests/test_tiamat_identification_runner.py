@@ -10,7 +10,7 @@ from tiamat import (
 
 
 def test_identification_runner_version_is_explicit_and_exported() -> None:
-    assert IDENTIFICATION_RUNNER_VERSION == "v1"
+    assert IDENTIFICATION_RUNNER_VERSION == "v1.1"
 
 
 def test_telemetry_row_projects_and_round_trips() -> None:

@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hf10_information_claim_court_v1.json",
+  "title": "HF10 Information / Claim Court V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "information_set", "claim", "evidence_status"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "information_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timing_seat",
+        "observation_cutoff",
+        "allowed_lookback",
+        "forbidden_future_window",
+        "label_offset",
+        "feature_snapshot_hash",
+        "provenance_hash",
+        "corpus_manifest_hash",
+        "registry_snapshot_hash",
+        "information_set_hash"
+      ],
+      "properties": {
+        "timing_seat": {
+          "type": "string",
+          "enum": ["BASE", "HOT", "PREC"]
+        },
+        "observation_cutoff": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "allowed_lookback": {
+          "type": "string",
+          "description": "ISO-8601 duration or equivalent frozen representation"
+        },
+        "forbidden_future_window": {
+          "type": "string",
+          "description": "ISO-8601 duration or equivalent frozen representation"
+        },
+        "label_offset": {
+          "type": "string",
+          "description": "ISO-8601 duration or equivalent frozen representation"
+        },
+        "feature_snapshot_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "provenance_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "corpus_manifest_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "registry_snapshot_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "information_set_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "predictor",
+        "falsification_level",
+        "status",
+        "rationale",
+        "information_set_hash",
+        "corpus_manifest_hash",
+        "registry_snapshot_hash"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9._:-]+$"
+        },
+        "predictor": {
+          "type": "string"
+        },
+        "path_seat": {
+          "type": ["string", "null"]
+        },
+        "timing_seat": {
+          "type": ["string", "null"],
+          "enum": ["BASE", "HOT", "PREC", null]
+        },
+        "information_set_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "corpus_manifest_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "registry_snapshot_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "falsification_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PASS", "FAIL", "INCOMPARABLE", "ABSTAIN", "UNRESOLVED"]
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "contradictions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "conventional_stack_hash": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": ["VALID", "SPARSE", "INCOMPARABLE", "INVALID", "UNTESTED"]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
