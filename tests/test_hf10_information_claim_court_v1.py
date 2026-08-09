@@ -115,7 +115,11 @@ def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     assert result.report.spread_check["hf10_claim_registry_snapshot_hash"] == REGISTRY_SNAPSHOT_HASH
     assert result.report.spread_check["hf10_claim_registry_hash"] == registry.claim_registry_hash
     assert result.report.spread_check["hf10_claim_status"] == "UNRESOLVED"
-    assert result.report.spread_check["hf10_claim_state_by_predictor"]["M3"] == "PASS"
+    assert result.report.spread_check["hf10_claim_state_by_predictor"] == {
+        "M3": "PASS",
+        "M7": "INCOMPARABLE",
+        "uniform": "ABSTAIN",
+    }
     saved = json.loads((result.artifact_path / "calibration_report.json").read_text(encoding="utf-8"))
     spread = saved["spread_check"]
     assert spread["hf10_claim_registry_hash"] == registry.claim_registry_hash
@@ -125,7 +129,11 @@ def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     assert spread["hf10_claims"] == [
         claim.to_dict() for claim in sorted(registry.claims, key=lambda claim: (claim.predictor, claim.claim_id))
     ]
-    assert spread["hf10_claim_state_by_predictor"] == {"M3": "PASS", "M7": "INCOMPARABLE"}
+    assert spread["hf10_claim_state_by_predictor"] == {
+        "M3": "PASS",
+        "M7": "INCOMPARABLE",
+        "uniform": "ABSTAIN",
+    }
 
 
 def test_hf10_missing_claim_context_defaults_to_abstain(tmp_path: Path):
