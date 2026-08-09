@@ -117,8 +117,15 @@ def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     assert result.report.spread_check["hf10_claim_status"] == "UNRESOLVED"
     assert result.report.spread_check["hf10_claim_state_by_predictor"]["M3"] == "PASS"
     saved = json.loads((result.artifact_path / "calibration_report.json").read_text(encoding="utf-8"))
-    assert saved["spread_check"]["hf10_claim_registry_hash"] == registry.claim_registry_hash
-    assert saved["spread_check"]["hf10_claim_status"] == "UNRESOLVED"
+    spread = saved["spread_check"]
+    assert spread["hf10_claim_registry_hash"] == registry.claim_registry_hash
+    assert spread["hf10_claim_status"] == "UNRESOLVED"
+    assert spread["hf10_information_set"] == info.to_dict()
+    assert spread["hf10_claim_registry"] == registry.to_dict()
+    assert spread["hf10_claims"] == [
+        claim.to_dict() for claim in sorted(registry.claims, key=lambda claim: (claim.predictor, claim.claim_id))
+    ]
+    assert spread["hf10_claim_state_by_predictor"] == {"M3": "PASS", "M7": "INCOMPARABLE"}
 
 
 def test_hf10_missing_claim_context_defaults_to_abstain(tmp_path: Path):
@@ -138,9 +145,14 @@ def test_hf10_missing_claim_context_defaults_to_abstain(tmp_path: Path):
     assert result.report.spread_check["hf10_claim_state_by_predictor"]["M3"] == "ABSTAIN"
     assert result.report.spread_check["hf10_information_set_hash"] is None
     assert result.report.spread_check["hf10_claim_registry_snapshot_hash"] is None
+    assert result.report.spread_check["hf10_information_set"] is None
+    assert result.report.spread_check["hf10_claim_registry"] is None
+    assert result.report.spread_check["hf10_claims"] == []
     saved = json.loads((result.artifact_path / "calibration_report.json").read_text(encoding="utf-8"))
     assert "hf10_information_set_hash" in saved["spread_check"]
     assert saved["spread_check"]["hf10_information_set_hash"] is None
+    assert "hf10_claims" in saved["spread_check"]
+    assert saved["spread_check"]["hf10_claims"] == []
 
 
 def test_hf10_rejects_missing_evidence_context(tmp_path: Path):
