@@ -10,12 +10,17 @@ from .calibration_artifacts import write_calibration_artifacts
 from .corpus_snapshot import CorpusSnapshot
 from .holdout import HoldoutExperiment
 from .identification_registry import MODEL_REGISTRY
-from .metric_contract import LabelProvenance, ProbabilityPredictor
+from .metric_contract import ProbabilityPredictor
 from .telemetry import TelemetryRow
 
 
 @dataclass(frozen=True, slots=True)
 class DiagnosticPredictors:
+    """Predictors supplied to the calibration diagnostic.
+
+    Controls-only execution is intentionally permitted. It validates the frozen
+    corpus -> metric contract -> artifact path before any candidate selector can run.
+    """
     controls: Mapping[str, ProbabilityPredictor]
     candidates: Mapping[str, ProbabilityPredictor]
 
@@ -23,8 +28,8 @@ class DiagnosticPredictors:
         overlap = set(self.controls) & set(self.candidates)
         if overlap:
             raise ValueError(f"predictor IDs cannot be both control and candidate: {sorted(overlap)}")
-        if not self.candidates:
-            raise ValueError("at least one candidate predictor is required")
+        if not self.controls and not self.candidates:
+            raise ValueError("at least one control or candidate predictor is required")
 
 
 @dataclass(frozen=True, slots=True)
