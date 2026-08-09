@@ -5,6 +5,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from .calibration import CalibrationDiagnostic, CalibrationReport
+from .corpus_snapshot import CorpusSnapshot
 from .experiment_config import DEFAULT_METRIC_WEIGHTS, FeatureDeclaration, TemporalCausalGate, TournamentConfig
 from .experiment_manifest import ExperimentManifest, corpus_fingerprint, provenance_fingerprint
 from .identification_registry import MODEL_REGISTRY, registry_fingerprint
@@ -134,14 +135,15 @@ class HoldoutExperiment:
         ece_reliability_behavior: str,
         model_id: str = "M3",
     ) -> CalibrationReport:
-        """Create calibration diagnostics using predictors only.
-
-        Every control and candidate is normalized, probability-validated, and
-        scored through the same MetricContract path. Pre-computed metric bundles
-        are intentionally rejected by the type/validation boundary.
-        """
-        split = self.split_rows(rows, model_id=model_id)
-        corpus_hash = corpus_fingerprint([r.to_mapping() for r in (*split.train, *split.validation, *split.test)])
+        """Create calibration diagnostics from a frozen corpus snapshot."""
+        snapshot = CorpusSnapshot.freeze([row.to_mapping() if isinstance(row, TelemetryRow) else dict(row) for row in rows])
+        snapshot.verify()
+        split = self.split_rows(snapshot.rows, model_id=model_id)
+        normalized_rows = tuple(r.to_mapping() for r in (*split.train, *split.validation, *split.test))
+        post_split_hash = corpus_fingerprint(normalized_rows)
+        if post_split_hash != snapshot.manifest_hash:
+            raise ValueError("corpus changed during calibration preparation")
+        corpus_hash = snapshot.manifest_hash
         label = self.label_provenance
         if label is None:
             raise ValueError("label_provenance is required before calibration report generation")
@@ -157,7 +159,7 @@ class HoldoutExperiment:
             corpus_manifest_hash=corpus_hash,
             label_provenance_hash=label_hash,
             metric_contract_hash=metric_hash,
-            rows=rows,
+            rows=snapshot.rows,
             controls=controls,
             candidates=candidates,
             inference_purity=inference_purity,
