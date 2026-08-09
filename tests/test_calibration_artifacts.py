@@ -62,6 +62,7 @@ def test_write_and_load_calibration_bundle(tmp_path: Path) -> None:
     assert loaded["calibration_report"]["calibration_hash"] == report.calibration_hash
     assert loaded["reliability_bins"]["_meta"]["n_bins"] == 2
     assert loaded["reliability_bins"]["predictors"][0]["bins"][0]["count"] == 3
+    assert loaded["reliability_bins"]["predictors"][0]["bins"][1]["count"] == 2
 
 
 def test_write_calibration_bundle_refuses_overwrite(tmp_path: Path) -> None:
