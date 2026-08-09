@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tiamat import HoldoutExperiment, InformationSet, Claim, ClaimRegistry, LabelProvenance, STATE_SPACE
+from tiamat import Claim, ClaimRegistry, DiagnosticPredictors, HoldoutExperiment, InformationSet, LabelProvenance, STATE_SPACE
 from tiamat.hf10_diagnostic import run_hf10_diagnostic
 
 
@@ -22,7 +22,6 @@ ROWS = (
 REGISTRY_SNAPSHOT_HASH = "d" * 64
 CORPUS_HASH = "a" * 64
 PROVENANCE_HASH = "b" * 64
-CLAIM_REGISTRY_HASH = "e" * 64
 
 
 def predictor(state: str):
@@ -54,6 +53,7 @@ def hf10_information_set() -> InformationSet:
 
 
 def hf10_claim_registry() -> ClaimRegistry:
+    info = hf10_information_set()
     return ClaimRegistry(
         registry_snapshot_hash=REGISTRY_SNAPSHOT_HASH,
         status="UNRESOLVED",
@@ -65,7 +65,7 @@ def hf10_claim_registry() -> ClaimRegistry:
                 predictor="M3",
                 path_seat="2_to_4",
                 timing_seat="PREC",
-                information_set_hash=hf10_information_set().information_set_hash,
+                information_set_hash=info.information_set_hash,
                 corpus_manifest_hash=CORPUS_HASH,
                 registry_snapshot_hash=REGISTRY_SNAPSHOT_HASH,
                 falsification_level=3,
@@ -79,7 +79,7 @@ def hf10_claim_registry() -> ClaimRegistry:
                 predictor="M7",
                 path_seat="4_to_4",
                 timing_seat="PREC",
-                information_set_hash=hf10_information_set().information_set_hash,
+                information_set_hash=info.information_set_hash,
                 corpus_manifest_hash=CORPUS_HASH,
                 registry_snapshot_hash=REGISTRY_SNAPSHOT_HASH,
                 falsification_level=3,
@@ -120,14 +120,14 @@ def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     assert saved["spread_check"]["hf10_claim_status"] == "UNRESOLVED"
 
 
-def test_hf10_rejects_missing_evidence_context():
+def test_hf10_rejects_missing_evidence_context(tmp_path: Path):
     with pytest.raises(ValueError, match="at least one control or candidate"):
         run_hf10_diagnostic(
             ROWS,
             experiment=experiment(),
             predictors=DiagnosticPredictors(controls={}, candidates={}),
             run_id="hf10-empty",
-            artifact_root=tmp_path if False else "/tmp",
+            artifact_root=tmp_path,
             inference_purity=True,
             ece_reliability_behavior="frozen claim court",
         )
