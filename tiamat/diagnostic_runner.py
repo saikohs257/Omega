@@ -55,6 +55,7 @@ def load_json_rows(path: str | Path) -> tuple[dict, ...]:
 
 def _hf10_metadata(
     *,
+    predictors: DiagnosticPredictors,
     information_set: InformationSet | None,
     claim_registry: ClaimRegistry | None,
 ) -> dict[str, object]:
@@ -94,10 +95,14 @@ def _hf10_metadata(
         claim_registry_payload = None
         claim_states = {}
 
-    # This index represents the frozen claim registry, not only predictors that
-    # happened to execute in this diagnostic. A registered INCOMPARABLE claim
-    # (such as M7 without a verified probability adapter) must remain visible.
-    per_predictor = dict(sorted(claim_states.items()))
+    # Preserve both dimensions: every executed predictor receives a state, and
+    # every frozen registry claim remains visible even when it was not executed.
+    predictor_ids = set(predictors.controls) | set(predictors.candidates)
+    all_ids = predictor_ids | set(claim_states)
+    per_predictor = {
+        model_id: claim_states.get(model_id, "ABSTAIN")
+        for model_id in sorted(all_ids)
+    }
     return {
         "hf10_information_set": information_set_payload,
         "hf10_information_set_hash": information_set_hash,
@@ -146,6 +151,7 @@ def run_diagnostic(
     snapshot.verify()
     spread_check = dict(report.spread_check)
     spread_check.update(_hf10_metadata(
+        predictors=predictors,
         information_set=information_set,
         claim_registry=claim_registry,
     ))
