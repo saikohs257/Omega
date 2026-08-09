@@ -8,7 +8,6 @@ import json
 from .calibration import CalibrationReport
 from .calibration_artifacts import write_calibration_artifacts
 from .corpus_snapshot import CorpusSnapshot
-from .experiment_manifest import canonical_hash
 from .hf10 import ClaimRegistry, InformationSet
 from .holdout import HoldoutExperiment
 from .identification_registry import MODEL_REGISTRY
@@ -63,14 +62,18 @@ def _hf10_metadata(
     """Build deterministic HF10 metadata for the canonical report path.
 
     Missing HF10 context is explicitly ABSTAIN. It never implies PASS.
+    The complete InformationSet and ClaimRegistry payloads are retained as
+    authoritative evidence; derived hashes/status maps are convenience indexes.
     """
     if information_set is not None:
         information_set.validate()
         information_set_hash: str | None = information_set.information_set_hash
-        registry_hash: str | None = information_set.registry_snapshot_hash
+        registry_snapshot_hash: str | None = information_set.registry_snapshot_hash
+        information_set_payload: dict[str, object] | None = information_set.to_dict()
     else:
         information_set_hash = None
-        registry_hash = None
+        registry_snapshot_hash = None
+        information_set_payload = None
 
     if claim_registry is not None:
         if information_set is not None and claim_registry.registry_snapshot_hash != information_set.registry_snapshot_hash:
@@ -78,21 +81,31 @@ def _hf10_metadata(
         claim_registry_hash: str | None = claim_registry.claim_registry_hash
         claim_status = claim_registry.status
         claim_rationale = claim_registry.rationale
-        claim_states = {claim.predictor: claim.status for claim in claim_registry.claims}
+        claims = sorted(
+            (claim.to_dict() for claim in claim_registry.claims),
+            key=lambda claim: (claim["predictor"], claim["claim_id"]),
+        )
+        claim_registry_payload: dict[str, object] | None = claim_registry.to_dict()
+        claim_states = {claim["predictor"]: claim["status"] for claim in claims}
     else:
         claim_registry_hash = None
         claim_status = "ABSTAIN"
         claim_rationale = "claim registry not provided"
+        claims = []
+        claim_registry_payload = None
         claim_states = {}
 
     predictor_ids = tuple(sorted(set(predictors.controls) | set(predictors.candidates)))
     per_predictor = {model_id: claim_states.get(model_id, claim_status) for model_id in predictor_ids}
     return {
+        "hf10_information_set": information_set_payload,
         "hf10_information_set_hash": information_set_hash,
-        "hf10_claim_registry_snapshot_hash": registry_hash,
+        "hf10_claim_registry": claim_registry_payload,
         "hf10_claim_registry_hash": claim_registry_hash,
+        "hf10_claim_registry_snapshot_hash": registry_snapshot_hash,
         "hf10_claim_status": claim_status,
         "hf10_claim_rationale": claim_rationale,
+        "hf10_claims": claims,
         "hf10_claim_state_by_predictor": per_predictor,
     }
 
