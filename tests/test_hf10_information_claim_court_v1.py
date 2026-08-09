@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from tiamat import Claim, ClaimRegistry, DiagnosticPredictors, HoldoutExperiment, InformationSet, LabelProvenance, STATE_SPACE
-from tiamat.hf10_diagnostic import run_hf10_diagnostic
+from tiamat.diagnostic_runner import run_diagnostic
 
 
 ROWS = (
@@ -95,7 +95,7 @@ def hf10_claim_registry() -> ClaimRegistry:
 def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     info = hf10_information_set()
     registry = hf10_claim_registry()
-    result = run_hf10_diagnostic(
+    result = run_diagnostic(
         ROWS,
         experiment=experiment(),
         predictors=DiagnosticPredictors(
@@ -112,17 +112,40 @@ def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     assert result.artifact_path.exists()
     assert result.report.decision in {"HOLD", "PROCEED"}
     assert result.report.spread_check["hf10_information_set_hash"] == info.information_set_hash
+    assert result.report.spread_check["hf10_claim_registry_snapshot_hash"] == REGISTRY_SNAPSHOT_HASH
     assert result.report.spread_check["hf10_claim_registry_hash"] == registry.claim_registry_hash
     assert result.report.spread_check["hf10_claim_status"] == "UNRESOLVED"
-    assert any(claim["claim_id"] == "CLAIM-M7" and claim["status"] == "INCOMPARABLE" for claim in result.report.spread_check["hf10_claims"])
+    assert result.report.spread_check["hf10_claim_state_by_predictor"]["M3"] == "PASS"
     saved = json.loads((result.artifact_path / "calibration_report.json").read_text(encoding="utf-8"))
     assert saved["spread_check"]["hf10_claim_registry_hash"] == registry.claim_registry_hash
     assert saved["spread_check"]["hf10_claim_status"] == "UNRESOLVED"
 
 
+def test_hf10_missing_claim_context_defaults_to_abstain(tmp_path: Path):
+    result = run_diagnostic(
+        ROWS,
+        experiment=experiment(),
+        predictors=DiagnosticPredictors(
+            controls={"uniform": lambda _row: {state: 1.0 / len(STATE_SPACE) for state in STATE_SPACE}},
+            candidates={"M3": predictor("P")},
+        ),
+        run_id="hf10-abstain",
+        artifact_root=tmp_path,
+        inference_purity=True,
+        ece_reliability_behavior="frozen claim court",
+    )
+    assert result.report.spread_check["hf10_claim_status"] == "ABSTAIN"
+    assert result.report.spread_check["hf10_claim_state_by_predictor"]["M3"] == "ABSTAIN"
+    assert result.report.spread_check["hf10_information_set_hash"] is None
+    assert result.report.spread_check["hf10_claim_registry_snapshot_hash"] is None
+    saved = json.loads((result.artifact_path / "calibration_report.json").read_text(encoding="utf-8"))
+    assert "hf10_information_set_hash" in saved["spread_check"]
+    assert saved["spread_check"]["hf10_information_set_hash"] is None
+
+
 def test_hf10_rejects_missing_evidence_context(tmp_path: Path):
     with pytest.raises(ValueError, match="at least one control or candidate"):
-        run_hf10_diagnostic(
+        run_diagnostic(
             ROWS,
             experiment=experiment(),
             predictors=DiagnosticPredictors(controls={}, candidates={}),
