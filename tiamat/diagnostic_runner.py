@@ -78,7 +78,7 @@ def _hf10_metadata(
         claim_registry_hash: str | None = claim_registry.claim_registry_hash
         claim_status = claim_registry.status
         claim_rationale = claim_registry.rationale
-        claim_states = {claim.claim_id: claim.status for claim in claim_registry.claims}
+        claim_states = {claim.predictor: claim.status for claim in claim_registry.claims}
     else:
         claim_registry_hash = None
         claim_status = "ABSTAIN"
