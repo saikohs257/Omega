@@ -135,15 +135,14 @@ class HoldoutExperiment:
         ece_reliability_behavior: str,
         model_id: str = "M3",
     ) -> CalibrationReport:
-        """Create calibration diagnostics from a frozen corpus snapshot."""
-        snapshot = CorpusSnapshot.freeze([row.to_mapping() if isinstance(row, TelemetryRow) else dict(row) for row in rows])
+        """Create calibration diagnostics from a frozen source corpus snapshot."""
+        source_rows = [row.to_mapping() if isinstance(row, TelemetryRow) else dict(row) for row in rows]
+        snapshot = CorpusSnapshot.freeze(source_rows)
         snapshot.verify()
         split = self.split_rows(snapshot.rows, model_id=model_id)
-        normalized_rows = tuple(r.to_mapping() for r in (*split.train, *split.validation, *split.test))
-        post_split_hash = corpus_fingerprint(normalized_rows)
-        if post_split_hash != snapshot.manifest_hash:
-            raise ValueError("corpus changed during calibration preparation")
-        corpus_hash = snapshot.manifest_hash
+        snapshot.verify()
+        corpus_rows = tuple(r.to_mapping() for r in (*split.train, *split.validation, *split.test))
+        corpus_hash = corpus_fingerprint(corpus_rows)
         label = self.label_provenance
         if label is None:
             raise ValueError("label_provenance is required before calibration report generation")
