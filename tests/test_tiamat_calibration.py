@@ -36,7 +36,7 @@ def _predictor(state: str):
 def test_calibration_report_is_identity_material() -> None:
     report = _base_report()
     payload = report.to_dict()
-    assert payload["report_version"] == "calibration-report-v1.1"
+    assert payload["report_version"] == "calibration-report-v1.2"
     assert len(payload["calibration_hash"]) == 64
 
 
