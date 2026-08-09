@@ -1,0 +1,34 @@
+{
+  "schema": "tiamat_research_family_registry_v1",
+  "runtime_authority": false,
+  "probability_authority": false,
+  "statuses": ["OBSERVED", "RESEARCH", "SHADOW", "CANDIDATE", "PROMOTED", "QUARANTINED", "INCOMPARABLE"],
+  "families": [
+    {"id":"SPLIT_ENTER_EXIT","status":"CANDIDATE","authority":false},
+    {"id":"EXIT_RELEASE_LATCH","status":"CANDIDATE","authority":false},
+    {"id":"PHASE_IMPEDANCE","status":"RESEARCH","authority":false},
+    {"id":"ENTER_TEMPLATE","status":"RESEARCH","authority":false},
+    {"id":"EVENT_QUALIFIER","status":"RESEARCH","authority":false},
+    {"id":"CHUG_GLOBAL","status":"RESEARCH","authority":false},
+    {"id":"CHUG_AGE_ROUTER","status":"SHADOW","authority":false},
+    {"id":"CHUG_CELL_FUSE","status":"CANDIDATE","authority":false},
+    {"id":"CHUG_RUNTIME_DRAFT","status":"SHADOW","authority":false},
+    {"id":"CURRENT_CMRR","status":"RESEARCH","authority":false},
+    {"id":"CIRCUIT_BATTERY","status":"RESEARCH","authority":false},
+    {"id":"TEMPLATE_SIMPLIFICATION","status":"RESEARCH","authority":false}
+  ],
+  "promotion_requires": [
+    "source_provenance",
+    "temporal_integrity",
+    "independent_chronological_replay",
+    "pocket_worse_both_analysis",
+    "null_control_comparison",
+    "probability_contract_if_tournament_candidate",
+    "explicit_authority_court"
+  ],
+  "forbidden": [
+    "local_score_alone_promotes_runtime_authority",
+    "reconstructed_runtime_claimed_as_original_source",
+    "research_families_collapsed_into_universal_burden_scalar"
+  ]
+}
