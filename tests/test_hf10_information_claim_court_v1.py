@@ -117,7 +117,6 @@ def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     assert result.report.spread_check["hf10_claim_status"] == "UNRESOLVED"
     assert result.report.spread_check["hf10_claim_state_by_predictor"] == {
         "M3": "PASS",
-        "M7": "INCOMPARABLE",
         "uniform": "ABSTAIN",
     }
     saved = json.loads((result.artifact_path / "calibration_report.json").read_text(encoding="utf-8"))
@@ -131,7 +130,6 @@ def test_hf10_accepts_frozen_claim_inputs_and_seals_court_state(tmp_path: Path):
     ]
     assert spread["hf10_claim_state_by_predictor"] == {
         "M3": "PASS",
-        "M7": "INCOMPARABLE",
         "uniform": "ABSTAIN",
     }
 
