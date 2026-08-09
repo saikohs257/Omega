@@ -48,6 +48,30 @@ def test_diagnostic_runner_uses_canonical_artifact_writer(tmp_path):
     assert result.report.decision == "HOLD"
 
 
+def test_controls_only_diagnostic_is_valid_and_never_proceeds(tmp_path):
+    result = run_diagnostic(
+        ROWS,
+        experiment=experiment(),
+        predictors=DiagnosticPredictors(
+            controls={"uniform": lambda _row: {state: 1.0 / len(STATE_SPACE) for state in STATE_SPACE}},
+            candidates={},
+        ),
+        run_id="controls-only",
+        artifact_root=tmp_path,
+        inference_purity=True,
+        ece_reliability_behavior="controls-only infrastructure validation; no candidate selection",
+    )
+    assert result.artifact_path.exists()
+    assert result.report.candidates == ()
+    assert result.report.decision == "HOLD"
+    assert result.report.spread_check["candidate_count"] == 0
+
+
+def test_diagnostic_runner_rejects_empty_predictor_set():
+    with pytest.raises(ValueError, match="at least one control or candidate"):
+        DiagnosticPredictors(controls={}, candidates={})
+
+
 def test_diagnostic_runner_rejects_impure_execution(tmp_path):
     with pytest.raises(ValueError, match="inference_purity"):
         run_diagnostic(
