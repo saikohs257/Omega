@@ -12,11 +12,11 @@ Every result is bound to the exact experiment identity and manifest identity. Re
 
 Only an explicitly `test`-scoped `ExperimentResult` may enter the final test spine. Development, validation, and holdout results cannot claim test authority through the result boundary.
 
-## Core organism
+## Canonical order
 
 Constitution -> Identity -> BentAxis -> Colony -> Runtime -> Evidence -> Experiment -> Atlas/TESSERACT -> Hypergraph -> Simplicial -> Sheaf -> TIAMAT -> ERK/Oracle -> Court -> E.N.D. -> Darwin's Pond -> bounded mutation -> L0 -> holdout/test firewall -> authority.
 
-## TIAMAT
+## TIAMAT boundary
 
 TIAMAT is the structural-dynamics layer. Its canonical runtime surface is:
 
@@ -33,6 +33,10 @@ TIAMAT is the structural-dynamics layer. Its canonical runtime surface is:
 TIAMAT must not be reduced to a probability scalar, and identification must not become a second runtime.
 
 Historical concepts such as SimpleShock, LiveDeficit, RecoveryWeakness_v1, hazard_raw/hazard_score, hinge, richer damage/recovery/residual-load/momentum equations, refractory thresholds, promotion thresholds, and hysteresis remain evidence-classified until source provenance plus deterministic implementation/tests justify promotion. See `docs/TIAMAT_CLAIM_LEDGER_V1.md` and `docs/TIAMAT_RECONCILIATION_V1.md`.
+
+## Topology sequencing
+
+Atlas/TESSERACT, Hypergraph, Simplicial Complex, and Sheaf are upstream of canonical TIAMAT promotion. Their current implementations remain subject to reconciliation; no topology approximation is promoted as recovered historical semantics without evidence.
 
 ## Verification order
 
