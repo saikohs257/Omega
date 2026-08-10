@@ -13,7 +13,6 @@ LABELS = (0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1)
 GOOD = tuple(0.18 if y == 0 else 0.82 for y in LABELS)
 MEDIUM = tuple(0.38 if y == 0 else 0.62 for y in LABELS)
 NEUTRAL = tuple(0.50 for _ in LABELS)
-BAD = tuple(0.82 if y == 0 else 0.18 for y in LABELS)
 SHIFTED = tuple(0.32 if i % 4 < 2 else 0.68 for i in range(len(LABELS)))
 
 
@@ -35,17 +34,17 @@ def test_noise_and_redundancy_do_not_displace_strong_signal() -> None:
     assert result.decision.selected_model_id in {"probe_signal", "probe_redundant"}
 
 
-def test_misleading_high_auc_is_blocked_by_calibration_evidence() -> None:
+def test_misleading_high_auc_is_penalized_for_poor_calibration() -> None:
     specs = (
         CandidateSpec("probe_good", ("good",)),
-        CandidateSpec("probe_overconfident", ("over",)),
+        CandidateSpec("probe_misleading", ("over",)),
     )
-    overconfident = tuple(0.001 if y == 0 else 0.999 for y in LABELS)
+    misleading = tuple(0.49 if y == 0 else 0.90 for y in LABELS)
     result = TournamentRunner(specs=specs).run_case(
         TournamentCase(
             name="calibration_conflict",
             labels=LABELS,
-            heldout_predictions={"probe_good": MEDIUM, "probe_overconfident": overconfident},
+            heldout_predictions={"probe_good": MEDIUM, "probe_misleading": misleading},
             max_size=2,
         )
     )
@@ -53,7 +52,7 @@ def test_misleading_high_auc_is_blocked_by_calibration_evidence() -> None:
     assert result.decision.selected_model_id == "probe_good"
 
 
-def test_regime_shift_can_remain_unresolved() -> None:
+def test_regime_shift_is_not_automatically_declared_resolved() -> None:
     specs = (
         CandidateSpec("probe_state", ("state",)),
         CandidateSpec("probe_path", ("path",)),
