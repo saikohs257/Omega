@@ -37,6 +37,16 @@ def _inverse(labels: tuple[int, ...]) -> tuple[float, ...]:
     return tuple(0.90 if not y else 0.10 for y in labels)
 
 
+def _regime_conflict(labels: tuple[int, ...]) -> tuple[float, ...]:
+    """Fit regime 1 correctly and regime 2 inversely, forcing global conflict."""
+    midpoint = len(labels) // 2
+    values: list[float] = []
+    for i, label in enumerate(labels):
+        correct = i < midpoint
+        values.append(0.90 if (label == 1) == correct else 0.10)
+    return tuple(values)
+
+
 def build_adversarial_worlds() -> tuple[AdversarialWorld, ...]:
     """Return deterministic worlds covering distinct failure modes."""
     y = _labels()
@@ -45,20 +55,14 @@ def build_adversarial_worlds() -> tuple[AdversarialWorld, ...]:
     weak = _weak_rank(y)
     inverse = _inverse(y)
 
-    # The first half carries one mechanism and the second half another.  A
+    # The first half carries one mechanism and the second half another. A
     # globally conflicting candidate should not be promoted merely for local fit.
-    regime_conflict = tuple(
-        0.90 if label else 0.10
-        if i < len(y) // 2
-        else 0.10 if label else 0.90
-        for i, label in enumerate(y)
-    )
+    regime_conflict = _regime_conflict(y)
 
     # Interaction-only: neither component has information by itself, while the
     # supplied joint hypothesis does.
     interaction = tuple(0.90 if label else 0.10 for label in y)
 
-    # Delayed signal: instantaneous proxy is weak; delayed proxy is strong.
     return (
         AdversarialWorld("clean_state", y, {"state": strong, "noise": neutral}, "state"),
         AdversarialWorld("auc_trap", y, {"state": weak, "noise": neutral}, "none"),
