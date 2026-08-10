@@ -37,8 +37,9 @@ class ModelMetrics:
     evaluated_n: int = 0
     score: float = 0.0
     calibration_error: float = 0.0
+    brier_skill: float = 0.0
     def __post_init__(self) -> None:
-        for name in ("auc", "brier", "log_loss", "stability", "score", "calibration_error"):
+        for name in ("auc", "brier", "log_loss", "stability", "score", "calibration_error", "brier_skill"):
             value = float(getattr(self, name))
             if not value == value or value in (float("inf"), float("-inf")): raise ValueError(f"{name} must be finite")
         if not 0.0 <= self.auc <= 1.0: raise ValueError("auc must be in [0, 1]")
@@ -53,6 +54,15 @@ def brier_score(probabilities: Sequence[float], labels: Sequence[int]) -> float:
     _check_lengths(probabilities, labels)
     if not probabilities: raise ValueError("at least one observation is required")
     return sum((float(p) - int(y)) ** 2 for p, y in zip(probabilities, labels)) / len(probabilities)
+
+def brier_skill_score(probabilities: Sequence[float], labels: Sequence[int]) -> float:
+    """Return improvement over the prevalence-only Brier baseline."""
+    _check_lengths(probabilities, labels)
+    if not probabilities: raise ValueError("at least one observation is required")
+    prevalence = sum(int(y) for y in labels) / len(labels)
+    baseline = prevalence * (1.0 - prevalence)
+    if baseline <= _EPS: return 0.0
+    return 1.0 - brier_score(probabilities, labels) / baseline
 
 def log_loss(probabilities: Sequence[float], labels: Sequence[int]) -> float:
     _check_lengths(probabilities, labels)
@@ -91,18 +101,18 @@ def calibration_error(probabilities: Sequence[float], labels: Sequence[int], *, 
             error += len(bucket) / n * abs(sum(p for p, _ in bucket) / len(bucket) - sum(y for _, y in bucket) / len(bucket))
     return error
 
-def composite_score(*, auc: float, brier: float, log_loss_value: float, stability: float, complexity: int, calibration_error_value: float = 0.0) -> float:
+def composite_score(*, auc: float, brier: float, log_loss_value: float, stability: float, complexity: int, calibration_error_value: float = 0.0, brier_skill: float = 0.0) -> float:
     complexity_penalty = 0.01 * max(0, complexity - 1)
-    return 0.35 * auc + 0.25 * (1.0 - brier) + 0.15 * (1.0 / (1.0 + log_loss_value)) + 0.15 * (1.0 - calibration_error_value) + 0.10 * stability - complexity_penalty
+    return 0.30 * auc + 0.20 * (1.0 - brier) + 0.15 * (1.0 / (1.0 + log_loss_value)) + 0.15 * (1.0 - calibration_error_value) + 0.10 * stability + 0.10 * max(0.0, brier_skill) - complexity_penalty
 
 def evaluate_candidate(spec: CandidateSpec, probabilities: Sequence[float], labels: Sequence[int], *, stability: float = 1.0) -> ModelMetrics:
-    auc = binary_auc(probabilities, labels); brier = brier_score(probabilities, labels); ll = log_loss(probabilities, labels); ece = calibration_error(probabilities, labels)
-    score = composite_score(auc=auc, brier=brier, log_loss_value=ll, stability=stability, complexity=spec.size, calibration_error_value=ece)
-    return ModelMetrics(spec.model_id, auc, brier, ll, stability, spec.size, len(labels), score, ece)
+    auc = binary_auc(probabilities, labels); brier = brier_score(probabilities, labels); ll = log_loss(probabilities, labels); ece = calibration_error(probabilities, labels); skill = brier_skill_score(probabilities, labels)
+    score = composite_score(auc=auc, brier=brier, log_loss_value=ll, stability=stability, complexity=spec.size, calibration_error_value=ece, brier_skill=skill)
+    return ModelMetrics(spec.model_id, auc, brier, ll, stability, spec.size, len(labels), score, ece, skill)
 
 def dominates(a: ModelMetrics, b: ModelMetrics) -> bool:
-    no_worse = a.auc >= b.auc and a.brier <= b.brier and a.log_loss <= b.log_loss and a.stability >= b.stability and a.calibration_error <= b.calibration_error and a.complexity <= b.complexity
-    strictly_better = a.auc > b.auc or a.brier < b.brier or a.log_loss < b.log_loss or a.stability > b.stability or a.calibration_error < b.calibration_error or a.complexity < b.complexity
+    no_worse = a.auc >= b.auc and a.brier <= b.brier and a.log_loss <= b.log_loss and a.stability >= b.stability and a.calibration_error <= b.calibration_error and a.brier_skill >= b.brier_skill and a.complexity <= b.complexity
+    strictly_better = a.auc > b.auc or a.brier < b.brier or a.log_loss < b.log_loss or a.stability > b.stability or a.calibration_error < b.calibration_error or a.brier_skill > b.brier_skill or a.complexity < b.complexity
     return no_worse and strictly_better
 
 def pareto_front(metrics: Iterable[ModelMetrics]) -> tuple[ModelMetrics, ...]:
@@ -118,18 +128,14 @@ class SelectionDecision:
     candidates: tuple[str, ...] = field(default_factory=tuple)
 
 class ModelSelector:
-    def __init__(self, *, min_auc: float = 0.5, max_brier: float = 0.25, min_stability: float = 0.0, max_calibration_error: float = 1.0) -> None:
-        self.min_auc = float(min_auc); self.max_brier = float(max_brier); self.min_stability = float(min_stability); self.max_calibration_error = float(max_calibration_error)
+    def __init__(self, *, min_auc: float = 0.5, max_brier: float = 0.25, min_stability: float = 0.0, max_calibration_error: float = 1.0, min_brier_skill: float = 0.05) -> None:
+        self.min_auc = float(min_auc); self.max_brier = float(max_brier); self.min_stability = float(min_stability); self.max_calibration_error = float(max_calibration_error); self.min_brier_skill = float(min_brier_skill)
     def select(self, metrics: Iterable[ModelMetrics]) -> SelectionDecision:
         items = tuple(metrics)
         if not items: return SelectionDecision("UNRESOLVED", None, 0.0, "no candidates evaluated")
-        # Equality at the evidence floor is not evidence. A chance-level AUC
-        # or baseline Brier score must not be promoted merely because it lands
-        # exactly on the configured threshold; strict gates preserve the
-        # unresolved state when the data contain no demonstrated signal.
-        eligible = tuple(m for m in items if m.auc > self.min_auc and m.brier < self.max_brier and m.stability > self.min_stability and m.calibration_error < self.max_calibration_error)
+        eligible = tuple(m for m in items if m.auc > self.min_auc and m.brier < self.max_brier and m.stability > self.min_stability and m.calibration_error < self.max_calibration_error and m.brier_skill >= self.min_brier_skill)
         if not eligible: return SelectionDecision("UNRESOLVED", None, 0.0, "no candidate passed minimum evidence gates")
-        front = pareto_front(eligible); best = max(front, key=lambda m: (m.score, m.auc, -m.brier, -m.log_loss, -m.complexity, m.model_id))
+        front = pareto_front(eligible); best = max(front, key=lambda m: (m.score, m.auc, m.brier_skill, -m.brier, -m.log_loss, -m.complexity, m.model_id))
         return SelectionDecision("SELECTED", best.model_id, best.score, "best eligible nondominated candidate by composite evidence score", tuple(m.model_id for m in front))
 
 def consensus(probabilities: Mapping[str, float], *, tolerance: float = 0.10) -> tuple[str, float, tuple[str, ...]]:
