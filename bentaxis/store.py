@@ -28,6 +28,8 @@ class BentAxisStore:
         return tuple(self._events)
 
     def append(self, event: Event) -> StoredEvent:
+        if not isinstance(event, Event):
+            raise TypeError("event must be an Event")
         record = StoredEvent(
             identity=Identity.calculate({"kind": event.kind, "payload": event.payload, "metadata": event.metadata}),
             event=event,
@@ -47,6 +49,17 @@ class BentAxisStore:
             if record.identity.digest == digest:
                 return record
         return None
+
+    def verify_integrity(self) -> bool:
+        """Verify identities, ordering, and the complete append-only hash chain."""
+        events = tuple(record.event for record in self._events)
+        if any(
+            record.identity.digest
+            != Identity.calculate({"kind": record.event.kind, "payload": record.event.payload, "metadata": record.event.metadata}).digest
+            for record in self._events
+        ):
+            return False
+        return self._chain.verify_events(events)
 
     def snapshot(self) -> dict[str, Any]:
         return {
