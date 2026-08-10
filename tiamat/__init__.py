@@ -10,11 +10,13 @@ from tiamat.modes import TiamatMode
 from tiamat.replay import replay
 from tiamat.state import TiamatState
 from tiamat.telemetry import CANONICAL_CONTROL_AXES, TelemetryAdapter, TelemetryRow, axes_for_model
+from tiamat.tournament import TournamentCase, TournamentResult, TournamentRunner
 from tiamat.transition import transition
 
 __all__ = [
     "CANDIDATE_FAMILIES", "CANDIDATE_FEATURES", "DEFAULT_CANDIDATE_MODELS", "CandidateSpec", "CandidateTrial",
-    "CombinationResult", "CombinationSearchReport", "run_combination_search", "select_evidence_frontier", "staged_combinations",
+    "CombinationResult", "CombinationSearchReport", "TournamentCase", "TournamentResult", "TournamentRunner",
+    "run_combination_search", "select_evidence_frontier", "staged_combinations",
     "CANONICAL_CONTROL_AXES", "CANONICAL_THRESHOLDS", "Decision", "GuardResult", "HOLDOUT_EXPERIMENT_VERSION",
     "HoldoutEvaluation", "HoldoutExperiment", "HoldoutSplit", "IDENTIFICATION_RUNNER_VERSION", "IdentificationRunner",
     "MODEL_REGISTRY", "ModelMetrics", "ModelSelector", "ModelSpec", "SelectionDecision", "TelemetryAdapter",
