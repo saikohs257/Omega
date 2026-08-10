@@ -12,17 +12,19 @@ from tiamat.tournament import TournamentCase, TournamentRunner
 LABELS = (0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1)
 GOOD = tuple(0.15 if y == 0 else 0.85 for y in LABELS)
 MEDIUM = tuple(0.35 if y == 0 else 0.65 for y in LABELS)
+CALIBRATED = tuple(0.08 if y == 0 else 0.92 for y in LABELS)
 NEUTRAL = tuple(0.50 for _ in LABELS)
 
 
 def run(predictions: dict[str, tuple[float, ...]], specs: tuple[CandidateSpec, ...] | None = None,
         *, min_auc: float = 0.60, max_brier: float = 0.25,
-        max_calibration_error: float = 1.0) -> object:
+        max_calibration_error: float = 1.0, min_brier_skill: float = 0.05) -> object:
     specs = specs or tuple(CandidateSpec(name, (name,)) for name in predictions)
     selector = ModelSelector(
         min_auc=min_auc,
         max_brier=max_brier,
         max_calibration_error=max_calibration_error,
+        min_brier_skill=min_brier_skill,
     )
     return TournamentRunner(specs=specs, selector=selector).run_case(
         TournamentCase(name="adversarial", labels=LABELS, heldout_predictions=predictions, max_size=4)
@@ -91,7 +93,7 @@ def test_calibration_gate_rejects_rank_correct_but_miscalibrated_model() -> None
         CandidateSpec("badcal", ("badcal",)),
     )
     badcal = tuple(0.49 if y == 0 else 0.99 for y in LABELS)
-    result = run({"cal": MEDIUM, "badcal": badcal}, specs, max_calibration_error=0.10)
+    result = run({"cal": CALIBRATED, "badcal": badcal}, specs, max_calibration_error=0.10)
     assert result.decision.selected_model_id == "cal"
 
 
