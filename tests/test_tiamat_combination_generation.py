@@ -21,7 +21,8 @@ def test_generation_is_deterministic_and_deduplicates_features() -> None:
     first = expand_specs(("path", "momentum", "path", "charge"), 2)
     second = expand_specs(("path", "momentum", "path", "charge"), 2)
     assert first == second
-    assert len(first) == 7
+    # Three unique features: 3 singleton + 3 pair combinations.
+    assert len(first) == 6
 
 
 def test_budget_never_generates_oversized_models() -> None:
