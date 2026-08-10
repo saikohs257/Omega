@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from bentaxis.identity import Identity
 from runtime.contracts import OutputContract
 from runtime.information_set import InformationSet
+from runtime.selection import SelectionThresholds
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,6 +16,7 @@ class ExperimentSpec:
     metric_contract: str
     output_contract: OutputContract
     implementation_id: str
+    selection_thresholds: SelectionThresholds = SelectionThresholds()
     experiment_id: str = ""
 
     def __post_init__(self) -> None:
@@ -26,6 +28,8 @@ class ExperimentSpec:
             "output_name": self.output_contract.name,
             "output_version": self.output_contract.version,
             "implementation_id": self.implementation_id,
+            "selection_thresholds": self.selection_thresholds.canonical_payload(),
+            "selection_thresholds_hash": self.selection_thresholds.selection_thresholds_hash,
         }
         object.__setattr__(self, "experiment_id", Identity.calculate(payload).digest)
 
