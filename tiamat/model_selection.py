@@ -123,7 +123,11 @@ class ModelSelector:
     def select(self, metrics: Iterable[ModelMetrics]) -> SelectionDecision:
         items = tuple(metrics)
         if not items: return SelectionDecision("UNRESOLVED", None, 0.0, "no candidates evaluated")
-        eligible = tuple(m for m in items if m.auc >= self.min_auc and m.brier <= self.max_brier and m.stability >= self.min_stability and m.calibration_error <= self.max_calibration_error)
+        # Equality at the evidence floor is not evidence. A chance-level AUC
+        # or baseline Brier score must not be promoted merely because it lands
+        # exactly on the configured threshold; strict gates preserve the
+        # unresolved state when the data contain no demonstrated signal.
+        eligible = tuple(m for m in items if m.auc > self.min_auc and m.brier < self.max_brier and m.stability > self.min_stability and m.calibration_error < self.max_calibration_error)
         if not eligible: return SelectionDecision("UNRESOLVED", None, 0.0, "no candidate passed minimum evidence gates")
         front = pareto_front(eligible); best = max(front, key=lambda m: (m.score, m.auc, -m.brier, -m.log_loss, -m.complexity, m.model_id))
         return SelectionDecision("SELECTED", best.model_id, best.score, "best eligible nondominated candidate by composite evidence score", tuple(m.model_id for m in front))
