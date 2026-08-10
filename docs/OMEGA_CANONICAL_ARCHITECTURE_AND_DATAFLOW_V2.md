@@ -10,9 +10,7 @@ CorpusIdentity -> InformationSet -> ExperimentSpec -> ProvenanceManifest -> Expe
 
 Every result is bound to the exact experiment and manifest identity. Result scope is explicit: `development`, `validation`, `holdout`, or `test`.
 
-The result boundary now enforces both links: the result's `experiment_id` must match the `ExperimentSpec`, its `manifest_id` must match the supplied `ProvenanceManifest`, and the manifest's corpus, information-set, hypothesis, implementation, and metric-contract identities must agree with the experiment.
-
-Only an explicitly `test`-scoped result may enter the final test spine. The test spine accepts immutable result identities and rejects non-test scopes; duplicate acceptance is idempotent. Development, validation, and holdout results cannot claim test authority.
+Only an explicitly `test`-scoped result may enter the final test spine. Development, validation, and holdout results cannot claim test authority.
 
 ## Canonical organism
 
@@ -44,3 +42,7 @@ Atlas/TESSERACT, Hypergraph, Simplicial Complex, and Sheaf remain upstream recon
 ## Research rule
 
 Never replace a missing layer with a convenient approximation. Preserve provenance and label partial, experimental, historical, or recovering concepts explicitly.
+
+## Gate C research note
+
+Atlas, Hypergraph, Simplicial, and Sheaf already exist as concrete library surfaces. TESSERACT remains the unresolved historical center and should be treated as evidence-backed archaeology rather than invented topology semantics.
