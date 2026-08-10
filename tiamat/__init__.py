@@ -1,4 +1,5 @@
 from tiamat.candidate_library import CANDIDATE_FAMILIES, CANDIDATE_FEATURES, DEFAULT_CANDIDATE_MODELS
+from tiamat.combination_search import CombinationResult, CombinationSearchReport, run_combination_search, select_evidence_frontier, staged_combinations
 from tiamat.engine import Decision, TiamatEngine
 from tiamat.guards import GuardResult, evaluate_guards
 from tiamat.holdout import HOLDOUT_EXPERIMENT_VERSION, HoldoutEvaluation, HoldoutExperiment, HoldoutSplit
@@ -13,6 +14,7 @@ from tiamat.transition import transition
 
 __all__ = [
     "CANDIDATE_FAMILIES", "CANDIDATE_FEATURES", "DEFAULT_CANDIDATE_MODELS", "CandidateSpec", "CandidateTrial",
+    "CombinationResult", "CombinationSearchReport", "run_combination_search", "select_evidence_frontier", "staged_combinations",
     "CANONICAL_CONTROL_AXES", "CANONICAL_THRESHOLDS", "Decision", "GuardResult", "HOLDOUT_EXPERIMENT_VERSION",
     "HoldoutEvaluation", "HoldoutExperiment", "HoldoutSplit", "IDENTIFICATION_RUNNER_VERSION", "IdentificationRunner",
     "MODEL_REGISTRY", "ModelMetrics", "ModelSelector", "ModelSpec", "SelectionDecision", "TelemetryAdapter",
