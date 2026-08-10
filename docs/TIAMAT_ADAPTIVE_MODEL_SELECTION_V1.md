@@ -2,11 +2,11 @@
 
 ## Purpose
 
-TIAMAT keeps a broad candidate-observable library while preventing feature proliferation from becoming canonical state. Candidate combinations are treated as competing explanations and are selected only from held-out evidence.
+TIAMAT keeps a broad candidate-observable library while preventing feature proliferation from becoming canonical state. Candidate combinations are competing explanations and are promoted only from held-out evidence.
 
 ## Candidate families
 
-- Core latent candidates: damage, charge, recovery, momentum, residual momentum.
+- Core latent: damage, charge, recovery, momentum, residual momentum.
 - Loading/context: forcing, baseline, pressure, tension, residual load, capacity, headroom.
 - Motion: velocity, acceleration, jerk, flow, phase velocity/acceleration, impulse.
 - Initial conditions: initial position, initial velocity, initial momentum, initial trajectory.
@@ -19,15 +19,30 @@ Presence in the library is **not** evidence that a quantity is canonical.
 ## Selection protocol
 
 1. Construct candidate models from the library.
-2. Fit or score candidates only on the training partition.
-3. Use validation data for model/threshold selection.
-4. Evaluate the selected candidates once on a sealed test/holdout partition.
-5. Report at minimum AUC, Brier score, log loss, stability, coverage and complexity.
+2. Fit/score candidates only on training data.
+3. Use validation data for model and threshold selection.
+4. Evaluate selected candidates once on a sealed holdout.
+5. Report AUC, Brier, log loss, calibration error, stability, coverage and complexity.
 6. Reject candidates that fail minimum evidence gates.
-7. Use Pareto dominance so a larger model cannot win merely by adding variables without improving evidence.
-8. Allow `UNRESOLVED` when no candidate passes.
-9. Maintain multiple nondominated candidates when useful; do not force a single winner when evidence is contested.
-10. Surface model disagreement as an observable diagnostic rather than hiding it.
+7. Use Pareto dominance across discrimination, calibration, stability and complexity.
+8. Use bounded staged combination search rather than an unbounded power set.
+9. Keep multiple nondominated candidates when useful; do not force a winner when evidence is contested.
+10. Surface model disagreement as a diagnostic and permit `UNRESOLVED`.
+
+## Combination search
+
+`tiamat/combination_search.py` provides deterministic bounded enumeration and evidence-frontier extraction. Prediction generation remains outside the search layer so train/validation/holdout separation can be enforced by the caller. A candidate that requires a combination larger than the configured search bound is rejected rather than silently approximated.
+
+## Metrics
+
+- **AUC:** ranking/discrimination; higher is better.
+- **Brier:** probabilistic accuracy/calibration; lower is better.
+- **Log loss:** confidence-sensitive probabilistic error; lower is better.
+- **Calibration error:** reliability of stated probabilities; lower is better.
+- **Stability:** resistance to perturbation/split/regime changes; higher is better.
+- **Complexity:** number of independent candidate axes; lower is preferred when evidence is otherwise equivalent.
+
+No single metric is sufficient for promotion.
 
 ## Consensus
 
@@ -35,7 +50,7 @@ Candidate models can emit probabilities for the same target. If their spread exc
 
 ## Authority boundary
 
-Model selection is an **experiment/evidence layer**. A selected candidate does not automatically redefine the canonical TIAMAT state vector. Promotion requires the existing provenance, replay, conformance, and governance gates.
+Model selection is an **experiment/evidence layer**. A selected candidate does not automatically redefine canonical TIAMAT state. Promotion requires existing provenance, replay, conformance and governance gates.
 
 ## Conceptual hypothesis under test
 
@@ -43,4 +58,4 @@ The current pseudocanonical hypothesis is that a compact latent core may include
 
 ## Required falsification
 
-The selection machinery must be tested against synthetic worlds where candidate quantities are alternately causal, redundant, nonlinear, irrelevant and noisy. It must recover causal candidates while refusing to promote irrelevant ones. This prevents the discovery process from becoming a feature-hallucination engine.
+The selection machinery must be tested against synthetic worlds where candidate quantities are alternately causal, redundant, nonlinear, irrelevant and noisy. It must recover causal candidates while refusing to promote irrelevant ones. This prevents discovery from becoming a feature-hallucination engine.
