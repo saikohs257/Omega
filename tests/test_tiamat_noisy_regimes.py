@@ -11,7 +11,7 @@ from tiamat.tournament import TournamentCase, TournamentRunner
 
 LABELS = (0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1)
 GOOD = tuple(0.18 if y == 0 else 0.82 for y in LABELS)
-MEDIUM = tuple(0.10 if y == 0 else 0.90 for y in LABELS)
+MEDIUM = tuple(0.08 if y == 0 else 0.92 for y in LABELS)
 NEUTRAL = tuple(0.50 for _ in LABELS)
 SHIFTED = tuple(0.32 if i % 4 < 2 else 0.68 for i in range(len(LABELS)))
 
