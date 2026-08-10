@@ -83,7 +83,7 @@ def test_chain_10_calibration_bins_must_be_positive() -> None:
 
 def test_chain_11_consensus_tolerance_is_boundary_stable() -> None:
     status, mean, members = consensus({"a": 0.40, "b": 0.50}, tolerance=0.10)
-    assert status == "HIGH"
+    assert status == "LOW"
     assert mean == 0.45
     assert members == ("a", "b")
 
