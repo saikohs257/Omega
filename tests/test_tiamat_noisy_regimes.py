@@ -6,12 +6,12 @@ not historical TIAMAT claims.
 """
 from __future__ import annotations
 
-from tiamat.model_selection import CandidateSpec
+from tiamat.model_selection import CandidateSpec, ModelSelector
 from tiamat.tournament import TournamentCase, TournamentRunner
 
 LABELS = (0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1)
 GOOD = tuple(0.18 if y == 0 else 0.82 for y in LABELS)
-MEDIUM = tuple(0.38 if y == 0 else 0.62 for y in LABELS)
+MEDIUM = tuple(0.10 if y == 0 else 0.90 for y in LABELS)
 NEUTRAL = tuple(0.50 for _ in LABELS)
 SHIFTED = tuple(0.32 if i % 4 < 2 else 0.68 for i in range(len(LABELS)))
 
@@ -34,13 +34,16 @@ def test_noise_and_redundancy_do_not_displace_strong_signal() -> None:
     assert result.decision.selected_model_id in {"probe_signal", "probe_redundant"}
 
 
-def test_misleading_high_auc_is_penalized_for_poor_calibration() -> None:
+def test_high_auc_but_poor_calibration_is_gated_out() -> None:
     specs = (
         CandidateSpec("probe_good", ("good",)),
         CandidateSpec("probe_misleading", ("over",)),
     )
-    misleading = tuple(0.49 if y == 0 else 0.90 for y in LABELS)
-    result = TournamentRunner(specs=specs).run_case(
+    misleading = tuple(0.49 if y == 0 else 0.99 for y in LABELS)
+    result = TournamentRunner(
+        selector=ModelSelector(max_calibration_error=0.10),
+        specs=specs,
+    ).run_case(
         TournamentCase(
             name="calibration_conflict",
             labels=LABELS,
@@ -50,6 +53,7 @@ def test_misleading_high_auc_is_penalized_for_poor_calibration() -> None:
     )
     assert result.decision.status == "SELECTED"
     assert result.decision.selected_model_id == "probe_good"
+    assert "probe_misleading" not in result.decision.candidates
 
 
 def test_regime_shift_is_not_automatically_declared_resolved() -> None:
