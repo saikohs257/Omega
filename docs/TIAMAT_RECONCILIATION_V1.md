@@ -1,10 +1,10 @@
 # TIAMAT Reconciliation V1
 
-> Status: evidence-backed reconciliation map. TIAMAT is canonical as a deterministic structural-state subsystem, while historical equations and research features remain separately classified until source-backed promotion.
+> Status: evidence-backed reconciliation map. TIAMAT is canonical as a deterministic structural-state subsystem; historical equations and research features remain separately classified until source-backed promotion.
 
 ## Gate B dependency
 
-The experiment boundary is now explicit through `CorpusIdentity -> InformationSet -> ExperimentSpec -> ProvenanceManifest -> ExperimentResult`. Result scope is explicit and only `test` scope is eligible for the final test spine.
+The experiment boundary is explicit through `CorpusIdentity -> InformationSet -> ExperimentSpec -> ProvenanceManifest -> ExperimentResult`. Result scope is explicit and only `test` scope is eligible for the final test spine.
 
 ## Canonical runtime surface
 
@@ -20,33 +20,15 @@ The experiment boundary is now explicit through `CorpusIdentity -> InformationSe
 
 ## Historical items requiring reconciliation
 
-- SimpleShock
-- LiveDeficit
-- RecoveryWeakness_v1
-- hazard_raw / hazard_score
-- hinge
-- richer damage update law
-- richer recovery update law
-- residual-load update law
-- momentum update law
-- refractory thresholds
-- promotion thresholds
-- hysteresis rules
-
-These are not promoted to runtime authority from memory or notes alone. Each requires source provenance plus deterministic implementation and conformance tests.
+SimpleShock, LiveDeficit, RecoveryWeakness_v1, hazard_raw/hazard_score, hinge, richer damage/recovery/residual-load/momentum laws, refractory thresholds, promotion thresholds, and hysteresis rules are not promoted to runtime authority from memory or notes alone. Each requires source provenance plus deterministic implementation and conformance tests.
 
 ## Probability boundary
 
-Historical TIAMAT diagnostic outputs are `INCOMPARABLE` to a probability-only contract unless an explicit, validated probability projection exists. No wrapper may silently relabel a diagnostic score as probability.
+Historical TIAMAT diagnostic outputs are `INCOMPARABLE` to a probability-only contract unless an explicit validated probability projection exists. No wrapper may silently relabel a diagnostic score as probability.
 
-## Reconciliation order
+## Promotion rule
 
-1. Freeze evidence labels.
-2. Tie each claim to exact source/code/test evidence.
-3. Preserve observed/derived/inferred/hypothesized/falsified/unresolved distinctions.
-4. Promote only strongly supported deterministic pieces.
-5. Run replay, identification, and temporal holdout conformance.
-6. Keep experimental branches outside runtime authority until conformance is established.
+A historical claim can become canonical only when its source artifact is identified, its epistemic classification is recorded, its deterministic implementation is tested, and replay/holdout behavior is conformance-checked.
 
 ## Current conclusion
 
