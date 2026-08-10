@@ -2,6 +2,10 @@
 
 > Status: evidence-backed reconciliation map. TIAMAT is canonical as a deterministic structural-state subsystem, while historical equations and research features remain separately classified until source-backed promotion.
 
+## Gate B dependency
+
+The experiment boundary is now explicit through `CorpusIdentity -> InformationSet -> ExperimentSpec -> ProvenanceManifest -> ExperimentResult`. Result scope is explicit and only `test` scope is eligible for the final test spine.
+
 ## Canonical runtime surface
 
 - Seven legal modes: Q, P, E, C, H, R, Rf.
@@ -13,18 +17,6 @@
 - One transition law shared by live and replay paths.
 - Canonical state projection.
 - M0-M7 identification registry with M7 permanent control.
-
-## Evidence classification
-
-Recovered material is divided into:
-
-1. observed inputs;
-2. derived observables;
-3. latent-state claims;
-4. controller behavior;
-5. historical/experimental diagnostics.
-
-The canonical claim ledger is `docs/TIAMAT_CLAIM_LEDGER_V1.md`.
 
 ## Historical items requiring reconciliation
 
