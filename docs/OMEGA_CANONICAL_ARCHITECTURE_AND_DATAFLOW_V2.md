@@ -10,7 +10,9 @@ CorpusIdentity -> InformationSet -> ExperimentSpec -> ProvenanceManifest -> Expe
 
 Every result is bound to the exact experiment and manifest identity. Result scope is explicit: `development`, `validation`, `holdout`, or `test`.
 
-Only an explicitly `test`-scoped result may enter the final test spine. Development, validation, and holdout results cannot claim test authority.
+The result boundary now enforces both links: the result's `experiment_id` must match the `ExperimentSpec`, its `manifest_id` must match the supplied `ProvenanceManifest`, and the manifest's corpus, information-set, hypothesis, implementation, and metric-contract identities must agree with the experiment.
+
+Only an explicitly `test`-scoped result may enter the final test spine. The test spine accepts immutable result identities and rejects non-test scopes; duplicate acceptance is idempotent. Development, validation, and holdout results cannot claim test authority.
 
 ## Canonical organism
 
