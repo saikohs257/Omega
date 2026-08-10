@@ -30,5 +30,7 @@ jobs:
           python -m pip install -e '.[test]'
       - name: Import package surface
         run: python -c "import atlas, bentaxis, colony, court, erk, hypergraph, omega, oracle, runtime, sheaf, simplicial, tiamat, end, pond"
-      - name: Run tests
+      - name: Run TIAMAT focused tests
+        run: python -m pytest -q tests/test_tiamat_*.py
+      - name: Run full test suite
         run: python -m pytest -q
