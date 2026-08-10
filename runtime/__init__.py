@@ -1,4 +1,5 @@
 from runtime.constitutional_record import ConstitutionalRecord
+from runtime.contracts import PreflightResult, PreflightStatus, ProbabilityContract
 from runtime.events import Event
 from runtime.evidence import CorpusIdentity, MetricContract
 from runtime.operators import AnnotateOperator, IdentityOperator, Operator
@@ -16,6 +17,9 @@ __all__ = [
     "IdentityOperator",
     "MetricContract",
     "Operator",
+    "PreflightResult",
+    "PreflightStatus",
+    "ProbabilityContract",
     "ReplayEngine",
     "ReplayOperator",
     "ReplayRegistry",
