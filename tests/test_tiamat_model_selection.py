@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from tiamat.model_selection import (
-    CandidateSpec, ModelMetrics, ModelSelector, binary_auc, brier_score, calibration_error,
+    CandidateSpec, ModelMetrics, ModelSelector, binary_auc, brier_score, brier_skill_score, calibration_error,
     consensus, dominates, evaluate_candidate, log_loss, pareto_front,
 )
 
@@ -13,6 +13,7 @@ def test_metrics_have_expected_direction() -> None:
     assert binary_auc(good, labels) == pytest.approx(1.0)
     assert binary_auc(bad, labels) == pytest.approx(0.0)
     assert brier_score(good, labels) < brier_score(bad, labels)
+    assert brier_skill_score(good, labels) > 0.0
     assert log_loss(good, labels) < log_loss(bad, labels)
 
 
@@ -22,6 +23,7 @@ def test_calibration_error_and_evaluation() -> None:
     assert calibration_error(probabilities, labels) < 0.10
     assert metric.calibration_error < 0.10
     assert metric.brier < 0.05
+    assert metric.brier_skill > 0.80
 
 
 def test_complexity_penalty() -> None:
@@ -32,30 +34,30 @@ def test_complexity_penalty() -> None:
 
 
 def test_pareto_front_rejects_dominated_candidate() -> None:
-    strong = ModelMetrics("strong", 0.90, 0.10, 0.20, 1.0, 3, 100, 0.90)
-    weak = ModelMetrics("weak", 0.85, 0.15, 0.30, 0.9, 5, 100, 0.70)
+    strong = ModelMetrics("strong", 0.90, 0.10, 0.20, 1.0, 3, 100, 0.90, 0.05, 0.60)
+    weak = ModelMetrics("weak", 0.85, 0.15, 0.30, 0.9, 5, 100, 0.70, 0.10, 0.40)
     assert [m.model_id for m in pareto_front([strong, weak])] == ["strong"]
     assert dominates(strong, weak)
 
 
 def test_selector_can_select_best_eligible_candidate() -> None:
     metrics = [
-        ModelMetrics("D", 0.82, 0.15, 0.40, 0.95, 1, 100, 0.75),
-        ModelMetrics("DQV", 0.90, 0.08, 0.25, 0.98, 3, 100, 0.88),
-        ModelMetrics("ALL", 0.91, 0.09, 0.26, 0.70, 20, 100, 0.50),
+        ModelMetrics("D", 0.82, 0.15, 0.40, 0.95, 1, 100, 0.75, 0.05, 0.40),
+        ModelMetrics("DQV", 0.90, 0.08, 0.25, 0.98, 3, 100, 0.88, 0.04, 0.68),
+        ModelMetrics("ALL", 0.91, 0.09, 0.26, 0.70, 20, 100, 0.50, 0.08, 0.64),
     ]
     decision = ModelSelector(min_auc=0.80, max_brier=0.20).select(metrics)
     assert decision.status == "SELECTED" and decision.selected_model_id == "DQV"
 
 
 def test_selector_refuses_to_force_a_bad_model() -> None:
-    decision = ModelSelector(min_auc=0.60, max_brier=0.25).select([ModelMetrics("bad", 0.52, 0.49, 0.69, 0.40, 4, 50, 0.20)])
+    decision = ModelSelector(min_auc=0.60, max_brier=0.25).select([ModelMetrics("bad", 0.52, 0.49, 0.69, 0.40, 4, 50, 0.20, 0.20, 0.0)])
     assert decision.status == "UNRESOLVED" and decision.selected_model_id is None
 
 
 def test_selector_can_gate_calibration() -> None:
-    good = ModelMetrics("good", 0.90, 0.10, 0.20, 0.95, 3, 100, 0.80, 0.05)
-    overconfident = ModelMetrics("over", 0.95, 0.10, 0.20, 0.95, 2, 100, 0.85, 0.30)
+    good = ModelMetrics("good", 0.90, 0.10, 0.20, 0.95, 3, 100, 0.80, 0.05, 0.60)
+    overconfident = ModelMetrics("over", 0.95, 0.10, 0.20, 0.95, 2, 100, 0.85, 0.30, 0.60)
     decision = ModelSelector(min_auc=0.80, max_brier=0.20, max_calibration_error=0.10).select([good, overconfident])
     assert decision.selected_model_id == "good"
 
