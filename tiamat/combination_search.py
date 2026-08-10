@@ -73,20 +73,38 @@ def run_combination_search(
     Prediction generation/fitting intentionally lives outside this function so
     callers can enforce train/validation/test separation before evidence enters
     the selector.
+
+    Feature order is descriptive rather than semantic: a candidate declaring
+    ``(damage, charge, momentum)`` must match the same combination declared as
+    ``(damage, momentum, charge)``.  The bounded search therefore compares
+    feature *sets* when deciding whether a supplied model is within the size
+    budget, while preserving the declared order in the resulting CandidateSpec.
     """
     from .model_selection import evaluate_candidate
 
     evaluated: list[CombinationResult] = []
     rejected: list[str] = []
-    allowed = set(staged_combinations(tuple(f for s in specs for f in s.features), max_size=max_size))
+    allowed = {
+        frozenset(combo)
+        for combo in staged_combinations(tuple(f for s in specs for f in s.features), max_size=max_size)
+    }
     for spec in specs:
-        if tuple(spec.features) not in allowed:
+        if frozenset(spec.features) not in allowed:
             rejected.append(spec.model_id)
             continue
         probabilities = heldout_predictions.get(spec.model_id)
         if probabilities is None:
             rejected.append(spec.model_id)
             continue
-        metric = evaluate_candidate(spec, probabilities, labels, stability=(stability or {}).get(spec.model_id, 1.0))
+        metric = evaluate_candidate(
+            spec,
+            probabilities,
+            labels,
+            stability=(stability or {}).get(spec.model_id, 1.0),
+        )
         evaluated.append(CombinationResult(spec, metric))
-    return CombinationSearchReport(tuple(evaluated), select_evidence_frontier(evaluated), tuple(sorted(rejected)))
+    return CombinationSearchReport(
+        tuple(evaluated),
+        select_evidence_frontier(evaluated),
+        tuple(sorted(rejected)),
+    )
