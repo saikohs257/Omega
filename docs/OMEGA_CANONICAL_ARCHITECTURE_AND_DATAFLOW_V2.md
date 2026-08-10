@@ -7,14 +7,10 @@
 The evidence-to-result boundary is now explicit:
 
 ```text
-CorpusIdentity
-  -> InformationSet
-  -> ExperimentSpec
-  -> ProvenanceManifest
-  -> ExperimentResult
+CorpusIdentity -> InformationSet -> ExperimentSpec -> ProvenanceManifest -> ExperimentResult
 ```
 
-Every result is bound to the exact experiment identity and manifest identity. Result scope is explicit: `development`, `validation`, `holdout`, or `test`.
+Every result is bound to the exact experiment identity and manifest identity. Result scope is explicit: development, validation, holdout, or test.
 
 Only an explicitly `test`-scoped `ExperimentResult` may enter the final test spine. Development, validation, and holdout results cannot claim test authority through the result boundary.
 
@@ -28,59 +24,39 @@ Omega is not one model. It is a layered organism.
 
 Each layer must feed the next without collapsing its semantics into the next layer’s job.
 
-- **Identity** identifies.
-- **BentAxis** preserves provenance and canonical bytes.
-- **Colony** schedules and executes worker rounds.
-- **Atlas / Hypergraph / Simplicial / Sheaf** transform state into progressively richer structural representations.
-- **TIAMAT** models structural dynamics and mode transitions.
-- **ERK** evaluates evidence/risk/kernel semantics.
-- **Oracle** challenges claims and generates adversarial pressure.
-- **Court** adjudicates survival versus failure under the experiment contract.
-- **E.N.D.** diagnoses failure.
-- **Darwin’s Pond** preserves failed lineages and proposes bounded descendants.
+- Identity identifies.
+- BentAxis preserves provenance and canonical bytes.
+- Colony schedules and executes worker rounds.
+- Atlas / Hypergraph / Simplicial / Sheaf transform state into progressively richer structural representations.
+- TIAMAT models structural dynamics and mode transitions.
+- ERK evaluates evidence/risk/kernel semantics.
+- Oracle challenges claims and generates adversarial pressure.
+- Court adjudicates survival versus failure under the experiment contract.
+- E.N.D. diagnoses failure.
+- Darwin’s Pond preserves failed lineages and proposes bounded descendants.
 
-A component may feed multiple downstream layers, but each downstream layer must keep its own authority boundary.
+## Canonical order
 
-## Canonical order of the organism
+Constitution -> Identity -> BentAxis -> Colony -> Runtime -> Evidence -> Experiment -> Atlas/TESSERACT -> Hypergraph -> Simplicial -> Sheaf -> TIAMAT -> ERK -> Oracle -> Court -> E.N.D. -> Darwin's Pond -> bounded mutation -> L0 -> holdout/test firewall -> authority.
 
-1. **Constitution**
-2. **Identity / canonical bytes**
-3. **BentAxis**
-4. **Colony**
-5. **Runtime kernel**
-6. **Evidence / corpus / information set**
-7. **Experiment contract**
-8. **Atlas / TESSERACT**
-9. **Hypergraph**
-10. **Simplicial complex**
-11. **Sheaf**
-12. **TIAMAT**
-13. **ERK**
-14. **Oracle**
-15. **Court**
-16. **E.N.D.**
-17. **Darwin’s Pond**
-18. **Bounded mutation / descendant generation**
-19. **L0 re-entry**
-20. **Holdout / test-spine firewall / final authority**
+## TIAMAT boundary
 
-## What feeds what
+TIAMAT consumes structural context, local compatibility, temporal memory, and evidence trajectories. Its canonical runtime surface is:
 
-The established feed order remains:
+- M3 primary state `[B,V,D]`
+- optional temporal state `tau_D`, `tau_mode`
+- derived recovery, pressure, momentum, residual load
+- explicit guard evaluation
+- legal mode transition table
+- shared live/replay transition function
+- canonical state projection
+- M0-M7 identification registry with M7 permanent control
 
-```text
-Constitution -> Identity -> BentAxis -> Runtime/Evidence
- -> Experiment -> Atlas/TESSERACT -> Hypergraph
- -> Simplicial -> Sheaf -> TIAMAT -> ERK/Oracle
- -> Court -> E.N.D. -> Darwin’s Pond -> L0
- -> Holdout/Test firewall -> Authority
-```
+TIAMAT must not be reduced to a probability scalar and identification must not become a second runtime.
 
-TIAMAT consumes structural context and evidence trajectories. Its canonical runtime surface is the M3 `[B,V,D]` state with optional `tau_D` and `tau_mode`, derived recovery/pressure/momentum/residual-load observables, explicit guards, legal transitions, and shared live/replay transition logic.
+## Archaeological boundary
 
-## Present modules
-
-The repository contains the canonical substrate/runtime layers plus the current TIAMAT, ERK, Oracle, Court, topology, and failure-analysis components. The remaining archaeological work is to reconcile partial implementations with historical evidence rather than invent substitutes.
+Historical concepts including SimpleShock, LiveDeficit, RecoveryWeakness_v1, hazard_raw/hazard_score, hinge, richer damage/recovery/residual-load/momentum laws, refractory thresholds, promotion thresholds, and hysteresis remain evidence-classified until source provenance and deterministic tests justify promotion.
 
 ## Verification order
 
@@ -89,7 +65,7 @@ The repository contains the canonical substrate/runtime layers plus the current 
 3. Runtime replay determinism
 4. Evidence/experiment/result boundary
 5. Test-spine firewall
-6. Atlas / hypergraph / simplicial / sheaf consistency
+6. Atlas / Hypergraph / Simplicial / Sheaf consistency
 7. TIAMAT structural dynamics
 8. ERK / Oracle / Court boundaries
 9. E.N.D. failure diagnosis
@@ -97,13 +73,4 @@ The repository contains the canonical substrate/runtime layers plus the current 
 
 ## Explicit research rule
 
-Never replace a missing layer with a convenient approximation unless the approximation is clearly labeled as partial or experimental.
-
-Every missing item should be tagged as one of:
-
-- PRESENT
-- PARTIAL
-- MISSING
-- MISPLACED
-- OBSOLETE
-- RECOVERING
+Never replace a missing layer with a convenient approximation unless the approximation is clearly labeled as partial or experimental. Missing concepts are tagged PRESENT, PARTIAL, MISSING, MISPLACED, OBSOLETE, or RECOVERING.
