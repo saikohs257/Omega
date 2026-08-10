@@ -16,31 +16,19 @@ Only an explicitly `test`-scoped `ExperimentResult` may enter the final test spi
 
 Constitution -> Identity -> BentAxis -> Colony -> Runtime -> Evidence -> Experiment -> Atlas/TESSERACT -> Hypergraph -> Simplicial -> Sheaf -> TIAMAT -> ERK/Oracle -> Court -> E.N.D. -> Darwin's Pond -> bounded mutation -> L0 -> holdout/test firewall -> authority.
 
-## TIAMAT boundary
+## TIAMAT
 
-TIAMAT is the structural-dynamics layer. Its canonical runtime surface is:
+TIAMAT is the structural-dynamics layer with seven legal modes, M3 `[B,V,D]`, optional temporal memory, derived observables, explicit guard precedence, legal transitions, shared live/replay transition logic, canonical projection, and an M0-M7 identification registry with M7 permanent control.
 
-- seven legal modes Q/P/E/C/H/R/Rf;
-- M3 primary state `[B,V,D]`;
-- optional `tau_D`, `tau_mode` temporal memory;
-- recovery, pressure, momentum, residual-load derived observables;
-- explicit guard evaluation and precedence;
-- legal transition table;
-- shared live/replay transition logic;
-- canonical state projection;
-- M0-M7 identification registry with M7 permanent control.
-
-TIAMAT must not be reduced to a probability scalar, and identification must not become a second runtime.
-
-Historical concepts such as SimpleShock, LiveDeficit, RecoveryWeakness_v1, hazard_raw/hazard_score, hinge, richer damage/recovery/residual-load/momentum equations, refractory thresholds, promotion thresholds, and hysteresis remain evidence-classified until source provenance plus deterministic implementation/tests justify promotion. See `docs/TIAMAT_CLAIM_LEDGER_V1.md` and `docs/TIAMAT_RECONCILIATION_V1.md`.
+Historical SimpleShock, LiveDeficit, RecoveryWeakness_v1, hazard_raw/hazard_score, hinge, richer state-update equations, refractory thresholds, promotion thresholds, and hysteresis remain evidence-classified until source provenance plus deterministic tests justify promotion. Historical diagnostic outputs remain `INCOMPARABLE` to probability-only evaluation unless a validated probability projection exists.
 
 ## Topology sequencing
 
-Atlas/TESSERACT, Hypergraph, Simplicial Complex, and Sheaf are upstream of canonical TIAMAT promotion. Their current implementations remain subject to reconciliation; no topology approximation is promoted as recovered historical semantics without evidence.
+Atlas/TESSERACT, Hypergraph, Simplicial Complex, and Sheaf remain upstream reconciliation targets. No approximation is promoted as recovered historical semantics without evidence.
 
 ## Verification order
 
-1. Identity and canonical bytes
+1. Identity/canonical bytes
 2. BentAxis provenance/history
 3. Runtime replay determinism
 4. Evidence/experiment/result boundary
@@ -53,4 +41,4 @@ Atlas/TESSERACT, Hypergraph, Simplicial Complex, and Sheaf are upstream of canon
 
 ## Research rule
 
-Never replace a missing layer with a convenient approximation. Label partial, experimental, historical, or recovering concepts explicitly and preserve their provenance.
+Never replace a missing layer with a convenient approximation. Preserve provenance and label partial, experimental, historical, or recovering concepts explicitly.
