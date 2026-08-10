@@ -1,5 +1,6 @@
 from runtime.constitutional_record import ConstitutionalRecord
 from runtime.events import Event
+from runtime.evidence import CorpusIdentity, MetricContract
 from runtime.operators import AnnotateOperator, IdentityOperator, Operator
 from runtime.replay import ReplayEngine, ReplayResult
 from runtime.replay_registry import ReplayOperator, ReplayRegistry
@@ -10,8 +11,10 @@ from runtime.workers import Worker, WorkerTrace
 __all__ = [
     "AnnotateOperator",
     "ConstitutionalRecord",
+    "CorpusIdentity",
     "Event",
     "IdentityOperator",
+    "MetricContract",
     "Operator",
     "ReplayEngine",
     "ReplayOperator",
