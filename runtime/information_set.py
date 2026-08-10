@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from bentaxis.identity import Identity
+from runtime.evidence import CorpusIdentity
 
 
 @dataclass(frozen=True, slots=True)
 class InformationSet:
-    """Immutable description of what information an experiment is allowed to see."""
+    """Immutable description of exactly what information an experiment may see."""
 
     corpus_id: str
     feature_names: tuple[str, ...] = ()
@@ -18,6 +19,26 @@ class InformationSet:
     exclusions: tuple[str, ...] = ()
     schema_version: str = "information-set-v1"
     information_set_id: str = ""
+
+    @classmethod
+    def from_corpus(
+        cls,
+        corpus: CorpusIdentity,
+        *,
+        feature_names: tuple[str, ...] = (),
+        label_name: str = "",
+        cutoff: str = "",
+        source_ids: tuple[str, ...] = (),
+        exclusions: tuple[str, ...] = (),
+    ) -> InformationSet:
+        return cls(
+            corpus_id=corpus.corpus_id,
+            feature_names=feature_names,
+            label_name=label_name,
+            cutoff=cutoff,
+            source_ids=source_ids or corpus.source_ids,
+            exclusions=exclusions,
+        )
 
     def __post_init__(self) -> None:
         payload: Mapping[str, Any] = {
