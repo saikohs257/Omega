@@ -1,6 +1,6 @@
 # Omega Canonical Architecture and Dataflow V2
 
-> Status: architecture reconciliation draft with Gate B evidence/result boundary frozen.
+> Status: architecture reconciliation draft; Gate B boundary and authority sequencing locked.
 
 ## Gate B boundary
 
@@ -8,11 +8,11 @@
 CorpusIdentity -> InformationSet -> ExperimentSpec -> ProvenanceManifest -> ExperimentResult
 ```
 
-Every result is bound to the exact experiment identity and manifest identity. Result scope is explicit: `development`, `validation`, `holdout`, or `test`.
+Every result is bound to the exact experiment and manifest identity. Result scope is explicit: `development`, `validation`, `holdout`, or `test`.
 
-Only an explicitly `test`-scoped `ExperimentResult` may enter the final test spine. Development, validation, and holdout results cannot claim test authority through the result boundary.
+Only an explicitly `test`-scoped result may enter the final test spine. Development, validation, and holdout results cannot claim test authority.
 
-## Canonical order
+## Canonical organism
 
 Constitution -> Identity -> BentAxis -> Colony -> Runtime -> Evidence -> Experiment -> Atlas/TESSERACT -> Hypergraph -> Simplicial -> Sheaf -> TIAMAT -> ERK/Oracle -> Court -> E.N.D. -> Darwin's Pond -> bounded mutation -> L0 -> holdout/test firewall -> authority.
 
