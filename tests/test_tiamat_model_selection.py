@@ -3,45 +3,38 @@ from __future__ import annotations
 import pytest
 
 from tiamat.model_selection import (
-    CandidateSpec,
-    ModelMetrics,
-    ModelSelector,
-    binary_auc,
-    brier_score,
-    consensus,
-    dominates,
-    evaluate_candidate,
-    log_loss,
-    pareto_front,
+    CandidateSpec, ModelMetrics, ModelSelector, binary_auc, brier_score, calibration_error,
+    consensus, dominates, evaluate_candidate, log_loss, pareto_front,
 )
 
 
 def test_metrics_have_expected_direction() -> None:
-    labels = [0, 0, 1, 1]
-    good = [0.05, 0.10, 0.90, 0.95]
-    bad = [0.95, 0.90, 0.10, 0.05]
+    labels = [0, 0, 1, 1]; good = [0.05, 0.10, 0.90, 0.95]; bad = [0.95, 0.90, 0.10, 0.05]
     assert binary_auc(good, labels) == pytest.approx(1.0)
     assert binary_auc(bad, labels) == pytest.approx(0.0)
     assert brier_score(good, labels) < brier_score(bad, labels)
     assert log_loss(good, labels) < log_loss(bad, labels)
 
 
-def test_candidate_evaluation_and_complexity_penalty() -> None:
-    labels = [0, 0, 1, 1]
-    spec_small = CandidateSpec("DQV", ("damage", "charge", "velocity"))
-    spec_large = CandidateSpec("ALL", tuple(f"x{i}" for i in range(12)))
-    small = evaluate_candidate(spec_small, [0.1, 0.2, 0.8, 0.9], labels)
-    large = evaluate_candidate(spec_large, [0.1, 0.2, 0.8, 0.9], labels)
-    assert small.auc == pytest.approx(1.0)
-    assert small.brier < 0.05
+def test_calibration_error_and_evaluation() -> None:
+    labels = [0, 0, 1, 1]; probabilities = [0.05, 0.10, 0.90, 0.95]
+    metric = evaluate_candidate(CandidateSpec("DQV", ("damage", "charge", "velocity")), probabilities, labels)
+    assert calibration_error(probabilities, labels) < 0.10
+    assert metric.calibration_error < 0.10
+    assert metric.brier < 0.05
+
+
+def test_complexity_penalty() -> None:
+    labels = [0, 0, 1, 1]; p = [0.1, 0.2, 0.8, 0.9]
+    small = evaluate_candidate(CandidateSpec("DQV", ("damage", "charge", "velocity")), p, labels)
+    large = evaluate_candidate(CandidateSpec("ALL", tuple(f"x{i}" for i in range(12))), p, labels)
     assert large.score < small.score
 
 
 def test_pareto_front_rejects_dominated_candidate() -> None:
     strong = ModelMetrics("strong", 0.90, 0.10, 0.20, 1.0, 3, 100, 0.90)
     weak = ModelMetrics("weak", 0.85, 0.15, 0.30, 0.9, 5, 100, 0.70)
-    front = pareto_front([strong, weak])
-    assert [m.model_id for m in front] == ["strong"]
+    assert [m.model_id for m in pareto_front([strong, weak])] == ["strong"]
     assert dominates(strong, weak)
 
 
@@ -52,25 +45,27 @@ def test_selector_can_select_best_eligible_candidate() -> None:
         ModelMetrics("ALL", 0.91, 0.09, 0.26, 0.70, 20, 100, 0.50),
     ]
     decision = ModelSelector(min_auc=0.80, max_brier=0.20).select(metrics)
-    assert decision.status == "SELECTED"
-    assert decision.selected_model_id == "DQV"
+    assert decision.status == "SELECTED" and decision.selected_model_id == "DQV"
 
 
 def test_selector_refuses_to_force_a_bad_model() -> None:
-    metrics = [ModelMetrics("bad", 0.52, 0.49, 0.69, 0.40, 4, 50, 0.20)]
-    decision = ModelSelector(min_auc=0.60, max_brier=0.25).select(metrics)
-    assert decision.status == "UNRESOLVED"
-    assert decision.selected_model_id is None
+    decision = ModelSelector(min_auc=0.60, max_brier=0.25).select([ModelMetrics("bad", 0.52, 0.49, 0.69, 0.40, 4, 50, 0.20)])
+    assert decision.status == "UNRESOLVED" and decision.selected_model_id is None
+
+
+def test_selector_can_gate_calibration() -> None:
+    good = ModelMetrics("good", 0.90, 0.10, 0.20, 0.95, 3, 100, 0.80, 0.05)
+    overconfident = ModelMetrics("over", 0.95, 0.10, 0.20, 0.95, 2, 100, 0.85, 0.30)
+    decision = ModelSelector(min_auc=0.80, max_brier=0.20, max_calibration_error=0.10).select([good, overconfident])
+    assert decision.selected_model_id == "good"
 
 
 def test_consensus_surfaces_disagreement() -> None:
     status, mean, models = consensus({"core": 0.90, "path": 0.45, "coupling": 0.80}, tolerance=0.10)
-    assert status == "CONTESTED"
-    assert mean == pytest.approx((0.90 + 0.45 + 0.80) / 3)
+    assert status == "CONTESTED" and mean == pytest.approx((0.90 + 0.45 + 0.80) / 3)
     assert models == ("core", "coupling", "path")
 
 
 def test_consensus_allows_agreement() -> None:
     status, mean, _ = consensus({"a": 0.80, "b": 0.84, "c": 0.82}, tolerance=0.10)
-    assert status == "HIGH"
-    assert mean == pytest.approx(0.82)
+    assert status == "HIGH" and mean == pytest.approx(0.82)
