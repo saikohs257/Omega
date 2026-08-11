@@ -7,12 +7,11 @@ in every world/variant/pairwise matchup.
 """
 from __future__ import annotations
 
-from itertools import combinations
-
 from .adversarial_worlds import build_adversarial_worlds
 from .model_selection import CandidateSpec, ModelMetrics, evaluate_candidate
 from .tournament_lab import run_adversarial_tournament
 from .tournament_round2 import run_round_two
+from .tournament_round3 import audit_segments, run_round_three
 
 
 def _metric_line(metric: ModelMetrics) -> str:
@@ -25,17 +24,11 @@ def _metric_line(metric: ModelMetrics) -> str:
     )
 
 
-def _metrics(labels: tuple[int, ...], predictions: dict[str, tuple[float, ...]]) -> tuple[ModelMetrics, ...]:
-    return tuple(
-        evaluate_candidate(CandidateSpec(name, (name,)), values, labels)
-        for name, values in predictions.items()
-    )
-
-
 def render_full_audit() -> str:
     worlds = build_adversarial_worlds()
     lab = run_adversarial_tournament()
     round2 = run_round_two()
+    round3 = run_round_three()
     lines: list[str] = ["TIAMAT COMPLETE TOURNAMENT EVIDENCE AUDIT", ""]
 
     lines.append("=== ROUND 1: EVERY WORLD / EVERY CANDIDATE ===")
@@ -53,7 +46,7 @@ def render_full_audit() -> str:
     for audit in round2.audits:
         lines.append(
             f"WORLD {audit.world} | target={audit.candidate} | passed={audit.passed} "
-            f"delay={audit.delayed_status}"
+            f"delay={audit.delayed_status} failed={','.join(audit.failed) or '-'}"
         )
         for variant, metrics in audit.variant_metrics:
             lines.append(f"  VARIANT {variant}")
@@ -61,22 +54,37 @@ def render_full_audit() -> str:
                 lines.append("    " + _metric_line(metric))
 
     lines.append("")
-    lines.append("=== ROUND 3: EVERY SURVIVOR PAIR / EVERY WORLD ===")
-    survivors = tuple(sorted(set(round2.survivors)))
-    for a, b in combinations(survivors, 2):
-        lines.append(f"MATCH {a} vs {b}")
-        for world in worlds:
-            if a not in world.predictions or b not in world.predictions:
-                lines.append(f"  WORLD {world.name} | unresolved=missing_candidate")
-                continue
-            ma = evaluate_candidate(CandidateSpec(a, (a,)), world.predictions[a], world.labels)
-            mb = evaluate_candidate(CandidateSpec(b, (b,)), world.predictions[b], world.labels)
-            key_a = (ma.score, ma.auc, ma.brier_skill, -ma.brier, -ma.log_loss, -ma.complexity)
-            key_b = (mb.score, mb.auc, mb.brier_skill, -mb.brier, -mb.log_loss, -mb.complexity)
-            winner = a if key_a > key_b else b if key_b > key_a else "TIE"
-            lines.append(f"  WORLD {world.name} | winner={winner}")
-            lines.append("    " + _metric_line(ma))
-            lines.append("    " + _metric_line(mb))
+    lines.append("=== ROUND 3: COMMON HELD-OUT PANEL / EVERY SURVIVOR ===")
+    lines.append(
+        "comparison_order=Brier,LogLoss,AUC,CalibrationError,Complexity "
+        f"survivors={len(round3.survivors)}"
+    )
+    lines.append("survivors=" + ",".join(round3.survivors))
+    for candidate in round3.survivors:
+        # Use the exact common-panel evaluator that determines the tournament.
+        from .tournament_round3 import _common_panel, _metrics
+        labels, panel, _ = _common_panel()
+        metric = _metrics(candidate, panel[candidate], labels)
+        lines.append("  " + _metric_line(metric))
+
+    lines.append("ROUND 3 SEGMENTS")
+    for row in audit_segments():
+        lines.append(
+            f"  SEGMENT {row.segment} CANDIDATE {row.candidate}: "
+            f"auc={row.auc:.6f} brier={row.brier:.6f} log_loss={row.log_loss:.6f} "
+            f"calibration_error={row.calibration_error:.6f} brier_skill={row.brier_skill:.6f} "
+            f"complexity={row.complexity}"
+        )
+
+    lines.append("ROUND 3 HEAD-TO-HEAD")
+    for match in round3.matches:
+        lines.append(
+            f"MATCH {match.a} vs {match.b}: {match.a_wins}-{match.b_wins}, "
+            f"ties={match.ties}, unresolved={match.unresolved}"
+        )
+
+    lines.append("RANKING")
+    lines.extend(f"{name}: {score}" for name, score in round3.ranking)
 
     lines.append("")
     lines.append("=== ROUND 2 SUMMARY ===")
