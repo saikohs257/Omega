@@ -44,10 +44,15 @@ def auc(y: tuple[int, ...], p: tuple[float, ...]) -> float:
 
 
 def empirical_metrics(world: ExpandedWorld) -> tuple[EmpiricalMetric, ...]:
-    rows = []
-    for component, predictions in world.predictions.items():
-        rows.append(EmpiricalMetric(component, brier(world.labels, predictions), log_loss(world.labels, predictions), auc(world.labels, predictions)))
-    return tuple(rows)
+    return tuple(
+        EmpiricalMetric(
+            component,
+            brier(world.labels, predictions),
+            log_loss(world.labels, predictions),
+            auc(world.labels, predictions),
+        )
+        for component, predictions in world.predictions.items()
+    )
 
 
 def best_components(metrics: tuple[EmpiricalMetric, ...], tol: float = 1e-9) -> tuple[str, ...]:
@@ -55,7 +60,13 @@ def best_components(metrics: tuple[EmpiricalMetric, ...], tol: float = 1e-9) -> 
         return ()
     ordered = sorted(metrics, key=lambda m: (m.brier, m.log_loss, -m.auc, m.component))
     best = ordered[0]
-    return tuple(m.component for m in ordered if abs(m.brier - best.brier) <= tol and abs(m.log_loss - best.log_loss) <= tol and abs(m.auc - best.auc) <= tol)
+    return tuple(
+        m.component
+        for m in ordered
+        if abs(m.brier - best.brier) <= tol
+        and abs(m.log_loss - best.log_loss) <= tol
+        and abs(m.auc - best.auc) <= tol
+    )
 
 
 def selector_topk(world: ExpandedWorld, k: int = 3) -> tuple[str, ...]:
@@ -63,11 +74,14 @@ def selector_topk(world: ExpandedWorld, k: int = 3) -> tuple[str, ...]:
 
 
 def evaluate_world(world: ExpandedWorld, *, k: int = 3) -> dict[str, object]:
-    ranked = rank_candidates(world.mechanisms)
-    topk = tuple(item.component for item in ranked[:k])
-    metrics = empirical_metrics(world)
-    winners = best_components(metrics)
     known = "unknown" not in world.mechanisms
+    ranked = rank_candidates(world.mechanisms) if known else ()
+    topk = tuple(item.component for item in ranked[:k])
+    # An unknown world has no empirical mechanism winner by definition. Its
+    # prediction target is abstention, so never report raw component metrics as
+    # a misleading "winner" for selector evaluation.
+    metrics = empirical_metrics(world) if known else ()
+    winners = best_components(metrics) if known else ()
     return {
         "known": known,
         "abstained": not ranked,
