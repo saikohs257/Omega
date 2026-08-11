@@ -37,7 +37,7 @@ def test_full_dynamics_surface_is_deterministic_and_bounded() -> None:
     assert 0.0 < shock_a < 1.0
     deficit = live_deficit_update(0.5, -1.0, shock_a, 0.0)
     assert 0.0 < deficit < 1.0
-    assert residual_load(0.8, 0.2) == 0.6
+    assert math.isclose(residual_load(0.8, 0.2), 0.6, rel_tol=0.0, abs_tol=1e-12)
     assert 0.0 < hazard_score(2.0) < 1.0
 
 
