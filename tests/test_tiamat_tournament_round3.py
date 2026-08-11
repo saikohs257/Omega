@@ -1,0 +1,13 @@
+from tiamat.tournament_round3 import run_round_three, render
+
+
+def test_round_three_is_deterministic_and_ranked() -> None:
+    first = run_round_three()
+    second = run_round_three()
+    assert first == second
+    assert len(first.survivors) >= 1
+    assert all(len(match.a) > 0 and len(match.b) > 0 for match in first.matches)
+    assert all(match.a != match.b for match in first.matches)
+    assert first.ranking == tuple(sorted(first.ranking, key=lambda item: (-item[1], item[0])))
+    text = render(first)
+    assert "TIAMAT TOURNAMENT ROUND 3 — HEAD TO HEAD" in text
