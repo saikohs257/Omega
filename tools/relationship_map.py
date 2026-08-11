@@ -42,13 +42,12 @@ def _interaction(a: np.ndarray, b: np.ndarray, y: np.ndarray) -> tuple[str, np.n
     return relation, interaction_feature(a, b, relation)
 
 
-def _directional_gap(a: np.ndarray, b: np.ndarray, y: np.ndarray, relation: str) -> float:
+def _directional_gap(a: np.ndarray, b: np.ndarray, relation: str, y: np.ndarray) -> float:
     """Measure temporal ordering, not commutative operand ordering.
 
-    Positive means past-a/current-b scores better than past-b/current-a.
-    The final row is excluded because it has no future destination.
+    Positive means a(t) with b(t+1) predicts y better than b(t) with a(t+1).
     """
-    if len(a) < 3:
+    if len(a) < 3 or len(a) != len(b) or len(y) != len(a):
         return 0.0
     a_t, b_t = a[:-1], b[:-1]
     a_next, b_next = a[1:], b[1:]
@@ -67,7 +66,7 @@ def map_relationships(signals: Mapping[str, Iterable[float]], labels: Iterable[i
         la, lb = _auc(y, _normalize(a)), _auc(y, _normalize(b))
         relation, joint = _interaction(a, b, y)
         ji = _auc(y, joint)
-        directional = _directional_gap(a, b, y, relation)
+        directional = _directional_gap(a, b, relation, y)
         lag = np.roll(b, 1)
         lag_gain = _auc(y, interaction_feature(a, lag, relation)) - ji
         inv_score = _auc(y, interaction_feature(a, -b, relation))
