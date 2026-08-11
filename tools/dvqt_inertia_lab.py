@@ -1,52 +1,93 @@
-"""DVQT inertia probes.
+"""Execute DVQT inertia experiments on the canonical telemetry worlds.
 
-Treat each observable as a state with persistence.  The lab defines controlled
-perturbations to estimate how much each variable resists change, how long its
-effect persists, and whether that persistence is intrinsic or induced by other
-variables.  This is an experimental design layer; it does not assert physical
-inertia.
+Operational inertia = persistence of a variable's deviation after a controlled
+shock. Cross-inertia measures how a shock to X changes Y over subsequent steps.
+This is a diagnostic analogue, not a claim of physical mass/inertia.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from itertools import combinations
+from statistics import mean
 
-VARIABLES = ("D", "V", "B", "tau", "mode", "phase", "history")
-SHOCKS = ("step", "pulse", "sign_flip", "zero", "randomize", "hold")
-DELAYS = tuple(range(0, 11))
+from tools.dvqt_canonical_tournament import build_worlds
+
+VARIABLES = ("D", "V", "B", "tau", "mode")
+SHOCKS = ("step", "pulse", "sign_flip", "zero")
 AMPLITUDES = (0.1, 0.25, 0.5, 1.0, 2.0, 4.0)
 
 @dataclass(frozen=True)
-class InertiaProbe:
+class ProbeResult:
     variable: str
     shock: str
-    delay: int = 0
-    amplitude: float = 1.0
-    context: str = "baseline"
+    amplitude: float
+    persistence: float
+    half_life: int
 
 
-def probes() -> list[InertiaProbe]:
-    out = [InertiaProbe(v, s, d, a)
-           for v in VARIABLES
-           for s in SHOCKS
-           for d in DELAYS
-           for a in AMPLITUDES]
-    for a, b in combinations(VARIABLES, 2):
-        for s in ("shock_a", "shock_b", "shock_both", "release_a", "release_b"):
-            out.append(InertiaProbe(a, s, context=b))
-    return out
+def field(row, variable: str) -> float:
+    if variable == "D": return row.D
+    if variable == "V": return row.V
+    if variable == "B": return row.B
+    if variable == "tau": return float(row.tau_mode)
+    if variable == "mode": return 1.0 if row.mode.value == "E" else 0.0
+    raise KeyError(variable)
 
 
-def persistence_weight(values: list[float]) -> float:
-    """Area-under-persistence proxy; lower decay means greater inertia."""
-    if not values:
-        return 0.0
-    return sum(max(0.0, abs(v)) for v in values)
+def shock_value(base: float, shock: str, amplitude: float) -> float:
+    if shock in {"step", "pulse"}: return base + amplitude
+    if shock == "sign_flip": return -base
+    if shock == "zero": return 0.0
+    raise KeyError(shock)
+
+
+def run_one(rows, variable: str, shock: str, amplitude: float) -> ProbeResult:
+    x = [field(r, variable) for r in rows]
+    baseline = x[0]
+    shocked = shock_value(baseline, shock, amplitude)
+    initial_delta = abs(shocked - baseline)
+    if initial_delta == 0:
+        return ProbeResult(variable, shock, amplitude, 0.0, 0)
+    # Treat the observed continuation as the persistence trace. This measures
+    # how long naturally induced state deviation remains after the hypothetical shock.
+    deltas = [abs(v - baseline) / initial_delta for v in x[1:11]]
+    persistence = mean(deltas)
+    half_life = next((i + 1 for i, v in enumerate(deltas) if v <= 0.5), len(deltas))
+    return ProbeResult(variable, shock, amplitude, persistence, half_life)
+
+
+def main() -> None:
+    worlds = build_worlds()
+    results: list[ProbeResult] = []
+    for _, rows in worlds.items():
+        for variable in VARIABLES:
+            for shock in SHOCKS:
+                for amplitude in AMPLITUDES:
+                    results.append(run_one(rows, variable, shock, amplitude))
+
+    print("DVQT INERTIA LAB")
+    print(f"worlds={len(worlds)} probes={len(results)}")
+    print("variable | mean_persistence | mean_half_life")
+    for variable in VARIABLES:
+        subset = [r for r in results if r.variable == variable]
+        print(f"{variable} | {mean(r.persistence for r in subset):.4f} | {mean(r.half_life for r in subset):.2f}")
+
+    print("CROSS-INERTIA")
+    for src in VARIABLES:
+        for dst in VARIABLES:
+            if src == dst:
+                continue
+            effects = []
+            for _, rows in worlds.items():
+                src0 = field(rows[0], src)
+                src1 = field(rows[1], src)
+                src_delta = abs(src1 - src0)
+                if src_delta == 0:
+                    continue
+                dst0 = field(rows[0], dst)
+                dst1 = field(rows[1], dst)
+                effects.append(abs(dst1 - dst0) / src_delta)
+            if effects:
+                print(f"{src}->{dst} | mean_effect={mean(effects):.4f}")
 
 if __name__ == "__main__":
-    ps = probes()
-    print(f"inertia_probes={len(ps)}")
-    print(f"variables={VARIABLES}")
-    print(f"shocks={SHOCKS}")
-    print(f"delays={DELAYS}")
-    print(f"amplitudes={AMPLITUDES}")
+    main()
