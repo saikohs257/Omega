@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -28,6 +30,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[test]'
+      - name: Print tested revision
+        run: |
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          git rev-parse HEAD
+          git status --short
       - name: Import package surface
         run: python -c "import atlas, bentaxis, colony, court, erk, hypergraph, omega, oracle, runtime, sheaf, simplicial, tiamat, end, pond"
       - name: Run TIAMAT focused tests
