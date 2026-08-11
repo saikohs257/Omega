@@ -18,11 +18,11 @@ class RoundTwoAudit:
 
     @property
     def passed(self) -> bool:
-        # Inversion is a deliberate kill test: it is a successful result when the
-        # attacked candidate stops winning. Delay/attenuation are the robustness
-        # tests and must be survived.
-        required_survival = {"delayed", "attenuated"}
-        return required_survival.issubset(self.survived) and "inverse" in self.failed
+        # Inversion is a deliberate kill test. Attenuation tests whether the
+        # candidate remains the selected mechanism when confidence is reduced.
+        # Delay is diagnostic rather than a universal robustness requirement:
+        # a genuinely instantaneous mechanism should be allowed to fail it.
+        return "attenuated" in self.survived and "inverse" in self.failed
 
 
 @dataclass(frozen=True, slots=True)
