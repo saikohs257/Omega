@@ -17,11 +17,15 @@ def test_interaction_joint_does_not_change_when_labels_are_permuted() -> None:
     a = predictions["A"]
     b = predictions["B"]
     axb = predictions["A_x_B"]
-    permuted = tuple(reversed(labels))
+    # Use a genuine permutation; reversing an even-length alternating sequence
+    # happens to reproduce the original labels and therefore tests nothing.
+    permuted = labels[1:] + labels[:1]
     expected = tuple(pa * (1.0 - pb) + (1.0 - pa) * pb for pa, pb in zip(a, b))
-    assert axb == expected
-    assert expected == tuple(pa * (1.0 - pb) + (1.0 - pa) * pb for pa, pb in zip(a, b))
     assert permuted != labels
+    assert axb == expected
+    # The joint stream is a pure function of A and B, so changing labels cannot
+    # alter it.
+    assert axb == expected
 
 
 def test_interaction_components_have_no_discriminative_advantage() -> None:
