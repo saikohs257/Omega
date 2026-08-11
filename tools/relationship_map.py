@@ -1,4 +1,4 @@
-"""Measure pair relationships, directionality, lag, and regime sensitivity."""
+"""Measure pair relationships, temporal directionality, lag, and regime sensitivity."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -42,6 +42,21 @@ def _interaction(a: np.ndarray, b: np.ndarray, y: np.ndarray) -> tuple[str, np.n
     return relation, interaction_feature(a, b, relation)
 
 
+def _directional_gap(a: np.ndarray, b: np.ndarray, y: np.ndarray, relation: str) -> float:
+    """Measure temporal ordering, not commutative operand ordering.
+
+    Positive means past-a/current-b scores better than past-b/current-a.
+    The final row is excluded because it has no future destination.
+    """
+    if len(a) < 3:
+        return 0.0
+    a_t, b_t = a[:-1], b[:-1]
+    a_next, b_next = a[1:], b[1:]
+    forward = interaction_feature(a_t, b_next, relation)
+    reverse = interaction_feature(b_t, a_next, relation)
+    return float(_auc(y[1:], forward) - _auc(y[1:], reverse))
+
+
 def map_relationships(signals: Mapping[str, Iterable[float]], labels: Iterable[int], *, phase: Iterable[float] | None = None) -> tuple[RelationshipResult, ...]:
     y = np.asarray(labels, dtype=int)
     arrays = {k: np.asarray(v, dtype=float) for k, v in signals.items()}
@@ -52,18 +67,18 @@ def map_relationships(signals: Mapping[str, Iterable[float]], labels: Iterable[i
         la, lb = _auc(y, _normalize(a)), _auc(y, _normalize(b))
         relation, joint = _interaction(a, b, y)
         ji = _auc(y, joint)
-        reverse = _auc(y, interaction_feature(b, a, relation))
+        directional = _directional_gap(a, b, y, relation)
         lag = np.roll(b, 1)
         lag_gain = _auc(y, interaction_feature(a, lag, relation)) - ji
         inv_score = _auc(y, interaction_feature(a, -b, relation))
         attenuation_score = _auc(y, interaction_feature(a, 0.5 + 0.5 * b, relation))
         phase_gain = (_phase_auc(y, joint, phase_arr) - ji) if phase_arr is not None else 0.0
-        out.append(RelationshipResult(left, right, la, lb, ji, ji - max(la, lb), reverse - ji, lag_gain, inv_score - ji, attenuation_score - ji, phase_gain, relation))
+        out.append(RelationshipResult(left, right, la, lb, ji, ji - max(la, lb), directional, lag_gain, inv_score - ji, attenuation_score - ji, phase_gain, relation))
     return tuple(sorted(out, key=lambda r: (-r.interaction_gain, -abs(r.reverse_gap), -abs(r.lag_gain))))
 
 
 def format_report(results: Iterable[RelationshipResult]) -> str:
-    rows = ["RELATIONSHIP MAP", "pair | AUC(L) | AUC(R) | interaction | gain | reverse_gap | lag_gain | inversion_gain | attenuation_gain | phase_gain | relation"]
+    rows = ["RELATIONSHIP MAP", "pair | AUC(L) | AUC(R) | interaction | gain | directional_gap | lag_gain | inversion_gain | attenuation_gain | phase_gain | relation"]
     for r in results:
         rows.append(f"{r.left}+{r.right} | {r.left_auc:.4f} | {r.right_auc:.4f} | {r.interaction_auc:.4f} | {r.interaction_gain:.4f} | {r.reverse_gap:.4f} | {r.lag_gain:.4f} | {r.inversion_gain:.4f} | {r.attenuation_gain:.4f} | {r.phase_gain:.4f} | {r.relation}")
     return "\n".join(rows)
