@@ -11,18 +11,19 @@ from typing import Mapping, Sequence
 
 from .candidate_library import DEFAULT_CANDIDATE_MODELS
 from .combination_search import CombinationSearchReport, run_combination_search
-from .model_selection import ModelSelector, SelectionDecision
+from .model_selection import CandidateSpec, ModelSelector, SelectionDecision
 
 
 @dataclass(frozen=True, slots=True)
 class TournamentCase:
-    """One held-out scenario to score against the candidate library."""
+    """One held-out scenario to score against an explicit candidate library."""
 
     name: str
     labels: tuple[int, ...]
     heldout_predictions: Mapping[str, Sequence[float]]
     stability: Mapping[str, float] = field(default_factory=dict)
     max_size: int = 4
+    specs: tuple[CandidateSpec, ...] = DEFAULT_CANDIDATE_MODELS
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -31,6 +32,10 @@ class TournamentCase:
             raise ValueError("labels must be non-empty")
         if self.max_size < 1:
             raise ValueError("max_size must be positive")
+        if not self.specs:
+            raise ValueError("specs must be non-empty")
+        if len({spec.model_id for spec in self.specs}) != len(self.specs):
+            raise ValueError("candidate model IDs must be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,14 +54,15 @@ class TournamentResult:
 
 @dataclass(frozen=True, slots=True)
 class TournamentRunner:
-    """Deterministic bounded search runner over the candidate library."""
+    """Deterministic bounded search runner over a case's candidate library."""
 
     selector: ModelSelector = field(default_factory=ModelSelector)
-    specs: tuple = DEFAULT_CANDIDATE_MODELS
+    specs: tuple[CandidateSpec, ...] = DEFAULT_CANDIDATE_MODELS
 
     def run_case(self, case: TournamentCase) -> TournamentResult:
+        specs = case.specs if case.specs != DEFAULT_CANDIDATE_MODELS else self.specs
         report = run_combination_search(
-            self.specs,
+            specs,
             case.heldout_predictions,
             case.labels,
             stability=case.stability,
