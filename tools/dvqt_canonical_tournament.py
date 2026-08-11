@@ -5,26 +5,26 @@ from tiamat.modes import TiamatMode
 from tiamat.telemetry import TelemetryRow
 
 
+def _features(seed: int, i: int) -> tuple[float, float, float, float]:
+    d = ((i * 17 + seed * 7) % 100) / 100.0
+    v = ((i * 29 + seed * 11) % 100) / 100.0
+    b = ((i * 43 + seed * 13) % 100) / 100.0
+    tau = float((i * 19 + seed) % 12)
+    return d, v, b, tau
+
+
+def _target(d: float, v: float, b: float) -> TiamatMode:
+    score = 0.45 * d + 0.35 * v + 0.20 * b
+    return TiamatMode.EXCITATION if score >= 0.50 else TiamatMode.PRECURSOR
+
+
 def _rows(seed: int, n: int = 96) -> list[TelemetryRow]:
     rows: list[TelemetryRow] = []
+    previous_mode = TiamatMode.PRECURSOR
     for i in range(n):
-        d = ((i * 17 + seed * 7) % 100) / 100.0
-        v = ((i * 29 + seed * 11) % 100) / 100.0
-        b = ((i * 43 + seed * 13) % 100) / 100.0
-        tau = float((i * 19 + seed) % 12)
-        # The target is generated from D/V/B only. tau_mode and current mode
-        # are deliberately non-causal, so the reduction can be tested honestly.
-        score = 0.45 * d + 0.35 * v + 0.20 * b
-        nxt = TiamatMode.EXCITATION if score >= 0.50 else TiamatMode.PRECURSOR
-        rows.append(
-            TelemetryRow(D=d, V=v, B=b, tau_mode=tau,
-                         mode=TiamatMode.PRECURSOR, model_id="M3")
-        )
-        # Store the realized target as the next row's mode while preserving
-        # the next row's independent state values.
-        if i + 1 < n:
-            rows[-1] = TelemetryRow(D=d, V=v, B=b, tau_mode=tau,
-                                    mode=nxt, model_id="M3")
+        d, v, b, tau = _features(seed, i)
+        rows.append(TelemetryRow(D=d, V=v, B=b, tau_mode=tau, mode=previous_mode, model_id="M3"))
+        previous_mode = _target(d, v, b)
     return rows
 
 
