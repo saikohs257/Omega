@@ -23,7 +23,13 @@ class WorldExpectation:
 
 def world_to_case(world: AdversarialWorld, *, max_size: int = 4) -> tuple[TournamentCase, WorldExpectation]:
     """Hide the world mechanism and expose only ordinary candidate evidence."""
-    specs = tuple(CandidateSpec(model_id=name, features=(name,)) for name in world.predictions)
+    specs = tuple(
+        CandidateSpec(
+            model_id=name,
+            features=("A", "B") if name == "A_x_B" else (name,),
+        )
+        for name in world.predictions
+    )
     predictions = {spec.model_id: world.predictions[spec.model_id] for spec in specs}
     case = TournamentCase(
         name=world.name,
