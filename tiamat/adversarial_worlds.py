@@ -59,8 +59,11 @@ def _interaction_world(n: int = 20) -> tuple[tuple[int, ...], dict[str, tuple[fl
     b_state = tuple((i // 2) % 2 for i in range(n))
     labels = tuple(a ^ b for a, b in zip(a_state, b_state))
 
-    a = tuple(0.90 if value else 0.10 for value in a_state)
-    b = tuple(0.90 if value else 0.10 for value in b_state)
+    # Use high-confidence component probabilities while preserving zero marginal
+    # information.  The XOR composition is therefore strongly informative without
+    # ever consulting the labels.
+    a = tuple(0.95 if value else 0.05 for value in a_state)
+    b = tuple(0.95 if value else 0.05 for value in b_state)
     # P(A xor B) under the two component probabilities.
     axb = tuple(pa * (1.0 - pb) + (1.0 - pa) * pb for pa, pb in zip(a, b))
     return labels, {"A": a, "B": b, "A_x_B": axb}
