@@ -44,6 +44,8 @@ jobs:
         run: python -m tiamat.tournament_scorecard
       - name: Run TIAMAT tournament report
         run: python -m tiamat.tournament_report
+      - name: Run TIAMAT complete evidence audit
+        run: python -m tiamat.tournament_full_audit
       - name: Run TIAMAT tournament round 2
         run: python -m tiamat.tournament_round2
       - name: Run TIAMAT tournament round 3
