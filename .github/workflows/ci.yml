@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, research/dvqt-reduction]
   pull_request:
   workflow_dispatch:
 
@@ -58,6 +58,8 @@ jobs:
         run: python -m tools.dvqt_b_fingerprint
       - name: Run DVQT intervention audit
         run: python -m tools.dvqt_intervention_audit
+      - name: Run DVQT inertia lab
+        run: python -m tools.dvqt_inertia_lab
       - name: Run DVQT canonical tournament
         run: python -m tools.dvqt_canonical_tournament
       - name: Run DVQT relational reverse-engineering lab
