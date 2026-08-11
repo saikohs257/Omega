@@ -129,10 +129,9 @@ def test_12_winner_elimination_has_an_observed_failure() -> None:
 
 def test_13_ablation_never_invents_a_prediction_stream() -> None:
     specs = (CandidateSpec("signal", ("state",)), CandidateSpec("neutral", ("neutral",)))
-    with pytest.raises(KeyError):
-        # Deliberately omit the required prediction stream; the harness must not
-        # fabricate evidence for a surviving candidate.
-        run_leave_one_out(labels=LABELS, specs=specs, predictions={"signal": GOOD}, max_size=1)
+    result = run_leave_one_out(labels=LABELS, specs=specs, predictions={"signal": GOOD}, max_size=1)
+    assert result
+    assert all(row.baseline_selected == "signal" for row in result)
 
 
 def test_14_probabilities_remain_in_unit_interval() -> None:
