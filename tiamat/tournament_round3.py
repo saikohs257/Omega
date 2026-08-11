@@ -1,4 +1,15 @@
-"""Head-to-head tournament for candidates surviving Round 2."""
+"""Head-to-head tournament for candidates surviving Round 2.
+
+Frozen comparison policy:
+1. Brier score (lower is better).
+2. Log loss (lower is better).
+3. AUC (higher is better).
+4. Calibration error (lower is better).
+5. Complexity (lower is better).
+
+Differences inside the practical-equivalence tolerances are treated as ties;
+we do not manufacture a winner from insignificant decimal differences.
+"""
 from __future__ import annotations
 
 from collections import Counter
@@ -7,6 +18,14 @@ from dataclasses import dataclass
 from .adversarial_worlds import build_adversarial_worlds
 from .model_selection import CandidateSpec, evaluate_candidate
 from .tournament_round2 import run_round_two
+
+# Frozen practical-equivalence tolerances. These are intentionally explicit so
+# the tournament cannot silently change its decision rule through tuple ordering.
+BRIER_TOLERANCE = 1e-3
+LOG_LOSS_TOLERANCE = 1e-3
+AUC_TOLERANCE = 1e-3
+CALIBRATION_TOLERANCE = 1e-3
+COMPLEXITY_TOLERANCE = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,35 +39,65 @@ class HeadToHead:
 
 
 @dataclass(frozen=True, slots=True)
+class PairMetrics:
+    candidate: str
+    brier: float
+    log_loss: float
+    auc: float
+    calibration_error: float
+    brier_skill: float
+    complexity: float
+
+
+@dataclass(frozen=True, slots=True)
 class RoundThreeResult:
     survivors: tuple[str, ...]
     matches: tuple[HeadToHead, ...]
     ranking: tuple[tuple[str, int], ...]
 
 
-def _winner_for_pair(a: str, b: str, world) -> tuple[str | None, bool]:
-    """Score both candidates directly on the same world.
+def _pair_metrics(candidate: str, world) -> PairMetrics:
+    spec = CandidateSpec(candidate, (candidate,))
+    metrics = evaluate_candidate(spec, world.predictions[candidate], world.labels)
+    return PairMetrics(
+        candidate=candidate,
+        brier=metrics.brier,
+        log_loss=metrics.log_loss,
+        auc=metrics.auc,
+        calibration_error=metrics.calibration_error,
+        brier_skill=metrics.brier_skill,
+        complexity=metrics.complexity,
+    )
 
-    Returns (winner, unresolved). This deliberately bypasses the tournament
-    selector: the selector is allowed to return UNRESOLVED when a single model
-    does not clear absolute evidence gates, but a head-to-head round asks a
-    different question — which of two available mechanisms scores better on
-    identical held-out evidence.
-    """
+
+def _winner_for_pair(a: str, b: str, world) -> tuple[str | None, bool]:
+    """Compare two available mechanisms using the frozen evidence hierarchy."""
     if a not in world.predictions or b not in world.predictions:
         return None, True
-    specs = (
-        CandidateSpec(a, (a,)),
-        CandidateSpec(b, (b,)),
-    )
-    metrics_a = evaluate_candidate(specs[0], world.predictions[a], world.labels)
-    metrics_b = evaluate_candidate(specs[1], world.predictions[b], world.labels)
-    key_a = (metrics_a.score, metrics_a.auc, metrics_a.brier_skill, -metrics_a.brier, -metrics_a.log_loss, -metrics_a.complexity)
-    key_b = (metrics_b.score, metrics_b.auc, metrics_b.brier_skill, -metrics_b.brier, -metrics_b.log_loss, -metrics_b.complexity)
-    if key_a > key_b:
-        return a, False
-    if key_b > key_a:
-        return b, False
+
+    left = _pair_metrics(a, world)
+    right = _pair_metrics(b, world)
+
+    # Brier is primary: lower is better. If practically tied, proceed.
+    if abs(left.brier - right.brier) > BRIER_TOLERANCE:
+        return (a if left.brier < right.brier else b), False
+
+    # Log loss is second: lower is better.
+    if abs(left.log_loss - right.log_loss) > LOG_LOSS_TOLERANCE:
+        return (a if left.log_loss < right.log_loss else b), False
+
+    # AUC is third: higher is better.
+    if abs(left.auc - right.auc) > AUC_TOLERANCE:
+        return (a if left.auc > right.auc else b), False
+
+    # Calibration is fourth: lower is better.
+    if abs(left.calibration_error - right.calibration_error) > CALIBRATION_TOLERANCE:
+        return (a if left.calibration_error < right.calibration_error else b), False
+
+    # Only complexity remains. Equal complexity means a genuine tie.
+    if abs(left.complexity - right.complexity) > COMPLEXITY_TOLERANCE:
+        return (a if left.complexity < right.complexity else b), False
+
     return None, False
 
 
@@ -82,7 +131,12 @@ def run_round_three() -> RoundThreeResult:
 
 def render(result: RoundThreeResult | None = None) -> str:
     result = result or run_round_three()
-    lines = ["TIAMAT TOURNAMENT ROUND 3 — HEAD TO HEAD", f"survivors={len(result.survivors)}"]
+    lines = [
+        "TIAMAT TOURNAMENT ROUND 3 — HEAD TO HEAD",
+        "comparison_order=Brier,LogLoss,AUC,CalibrationError,Complexity",
+        f"tolerances=brier:{BRIER_TOLERANCE},log_loss:{LOG_LOSS_TOLERANCE},auc:{AUC_TOLERANCE},calibration:{CALIBRATION_TOLERANCE}",
+        f"survivors={len(result.survivors)}",
+    ]
     lines.extend(f"{name}: {score}" for name, score in result.ranking)
     for match in result.matches:
         lines.append(
