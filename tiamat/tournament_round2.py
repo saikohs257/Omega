@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .adversarial_elimination import eliminate_winner
+from .model_selection import ModelMetrics
 from .tournament_lab import run_adversarial_tournament
 from .world_lab import build_world_lab
 
@@ -15,13 +16,13 @@ class RoundTwoAudit:
     survived: tuple[str, ...]
     failed: tuple[str, ...]
     expected_kills: tuple[str, ...]
+    delayed_status: str
+    variant_metrics: tuple[tuple[str, tuple[ModelMetrics, ...]], ...]
 
     @property
     def passed(self) -> bool:
-        # Inversion is a deliberate kill test. Attenuation tests whether the
-        # candidate remains the selected mechanism when confidence is reduced.
-        # Delay is diagnostic rather than a universal robustness requirement:
-        # a genuinely instantaneous mechanism should be allowed to fail it.
+        # Inversion is a deliberate kill test. Attenuation is the robustness
+        # gate. Delay is diagnostic and can never eliminate a candidate.
         return "attenuated" in self.survived and "inverse" in self.failed
 
 
@@ -64,6 +65,8 @@ def run_round_two() -> RoundTwoResult:
             survived=result.survived,
             failed=result.failed,
             expected_kills=("inverse",),
+            delayed_status=result.delayed_status,
+            variant_metrics=tuple((a.variant, a.metrics) for a in result.audits),
         )
         audits.append(item)
         if item.passed:
@@ -75,6 +78,16 @@ def run_round_two() -> RoundTwoResult:
         stressed=len(audits),
         survivors=tuple(sorted(set(survivors))),
         audits=tuple(audits),
+    )
+
+
+def _metric_line(metric: ModelMetrics) -> str:
+    return (
+        f"    {metric.model_id}: auc={metric.auc:.6f} brier={metric.brier:.6f} "
+        f"log_loss={metric.log_loss:.6f} stability={metric.stability:.6f} "
+        f"calibration_error={metric.calibration_error:.6f} "
+        f"brier_skill={metric.brier_skill:.6f} complexity={metric.complexity} "
+        f"score={metric.score:.6f} n={metric.evaluated_n}"
     )
 
 
@@ -90,8 +103,16 @@ def render(result: RoundTwoResult | None = None) -> str:
     ]
     for audit in result.audits:
         lines.append(
-            f"{audit.world}: {audit.candidate} "
-            f"survived={','.join(audit.survived) or '-'} "
-            f"expected_kill=inverse"
+            f"WORLD {audit.world} | candidate={audit.candidate} | "
+            f"passed={audit.passed} | delayed={audit.delayed_status}"
         )
+        for variant, metrics in audit.variant_metrics:
+            lines.append(f"  VARIANT {variant}")
+            for metric in metrics:
+                lines.append(_metric_line(metric))
+    lines.append("SURVIVORS=" + ",".join(result.survivors))
     return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    print(render())
