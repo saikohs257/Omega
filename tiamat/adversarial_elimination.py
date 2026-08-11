@@ -72,6 +72,10 @@ def eliminate_winner(
       * inverse is an intentional kill test and should dislodge the target;
       * attenuated is the robustness gate and must retain the target;
       * delayed is diagnostic only. It is recorded but cannot fail the candidate.
+
+    ``failed`` therefore contains only gate-bearing variants. A failed delayed
+    selection remains visible through ``delayed_status`` and ``audits`` without
+    contaminating the Round-2 pass/fail accounting.
     """
     variants = make_variants(predictions, winner)
     runner = TournamentRunner(selector=selector or ModelSelector(), specs=tuple(specs))
@@ -97,8 +101,9 @@ def eliminate_winner(
                 metrics=metrics,
             )
         )
-        if result.decision.selected_model_id == winner:
+        selected = result.decision.selected_model_id == winner
+        if selected:
             survived.append(variant.name)
-        else:
+        elif variant.name != "delayed":
             failed.append(variant.name)
     return EliminationResult(winner, variants, tuple(audits), tuple(survived), tuple(failed))
