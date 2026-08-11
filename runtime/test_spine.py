@@ -7,10 +7,12 @@ from runtime.experiment_result import ExperimentResult
 
 class TestSpineViolation(PermissionError):
     """Raised when adaptive components attempt to access the locked test spine."""
+    __test__ = False
 
 
 @dataclass(frozen=True, slots=True)
 class TestSpine:
+    __test__ = False
     spine_id: str
     locked: bool = True
     result_ids: tuple[str, ...] = ()
