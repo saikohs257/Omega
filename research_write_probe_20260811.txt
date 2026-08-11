@@ -1,1 +1,0 @@
-Temporary write-access probe. This file is intentionally created on the research branch only to verify autonomous GitHub write capability.
