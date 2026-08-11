@@ -8,7 +8,7 @@ from tiamat.engine import TiamatEngine
 def test_tiamat_can_approve_and_reject() -> None:
     engine = TiamatEngine()
     allow = engine.execute({"state": "base"}, {"allow": True, "mode": "open"})
-    deny = engine.execute({"state": "base"}, {"allow": False, "mode": "closed"})
+    deny = engine.execute({"state": "base"}, {"allow": False})
     assert allow.approved is True
     assert allow.state["mode"] == "Q"
     assert deny.approved is False
