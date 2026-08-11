@@ -1,25 +1,23 @@
-"""Execute DVQT inertia experiments on the canonical telemetry worlds.
+"""DVQT inertia lab.
 
-Operational inertia = persistence of a variable's deviation after a controlled
-shock. Cross-inertia measures how a shock to X changes Y over subsequent steps.
-This is a diagnostic analogue, not a claim of physical mass/inertia.
+Inertia is measured from observed trajectories, not by pretending a shock
+changed future rows.  We report persistence/autocorrelation decay and
+cross-lag response.  This is a diagnostic analogue, not physical inertia.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from statistics import mean
+from math import sqrt
 
 from tools.dvqt_canonical_tournament import build_worlds
 
 VARIABLES = ("D", "V", "B", "tau", "mode")
-SHOCKS = ("step", "pulse", "sign_flip", "zero")
-AMPLITUDES = (0.1, 0.25, 0.5, 1.0, 2.0, 4.0)
+MAX_LAG = 10
 
 @dataclass(frozen=True)
-class ProbeResult:
+class InertiaSummary:
     variable: str
-    shock: str
-    amplitude: float
     persistence: float
     half_life: int
 
@@ -33,61 +31,58 @@ def field(row, variable: str) -> float:
     raise KeyError(variable)
 
 
-def shock_value(base: float, shock: str, amplitude: float) -> float:
-    if shock in {"step", "pulse"}: return base + amplitude
-    if shock == "sign_flip": return -base
-    if shock == "zero": return 0.0
-    raise KeyError(shock)
+def corr_at_lag(values: list[float], lag: int) -> float:
+    if lag <= 0 or len(values) <= lag + 1:
+        return 0.0
+    a, b = values[:-lag], values[lag:]
+    ma, mb = mean(a), mean(b)
+    da = [x - ma for x in a]
+    db = [x - mb for x in b]
+    den = sqrt(sum(x*x for x in da) * sum(x*x for x in db))
+    return (sum(x*y for x, y in zip(da, db)) / den) if den else 0.0
 
 
-def run_one(rows, variable: str, shock: str, amplitude: float) -> ProbeResult:
-    x = [field(r, variable) for r in rows]
-    baseline = x[0]
-    shocked = shock_value(baseline, shock, amplitude)
-    initial_delta = abs(shocked - baseline)
-    if initial_delta == 0:
-        return ProbeResult(variable, shock, amplitude, 0.0, 0)
-    # Treat the observed continuation as the persistence trace. This measures
-    # how long naturally induced state deviation remains after the hypothetical shock.
-    deltas = [abs(v - baseline) / initial_delta for v in x[1:11]]
-    persistence = mean(deltas)
-    half_life = next((i + 1 for i, v in enumerate(deltas) if v <= 0.5), len(deltas))
-    return ProbeResult(variable, shock, amplitude, persistence, half_life)
+def summarize(rows, variable: str) -> InertiaSummary:
+    values = [field(r, variable) for r in rows]
+    ac = [max(0.0, corr_at_lag(values, lag)) for lag in range(1, MAX_LAG + 1)]
+    persistence = mean(ac)
+    half_life = next((lag for lag, value in enumerate(ac, 1) if value <= 0.5), MAX_LAG)
+    return InertiaSummary(variable, persistence, half_life)
+
+
+def cross_lag(rows, src: str, dst: str, lag: int) -> float:
+    x = [field(r, src) for r in rows]
+    y = [field(r, dst) for r in rows]
+    if lag <= 0 or len(x) <= lag + 1:
+        return 0.0
+    return corr_at_lag(x, lag) if src == dst else _cross_corr(x[:-lag], y[lag:])
+
+
+def _cross_corr(a: list[float], b: list[float]) -> float:
+    ma, mb = mean(a), mean(b)
+    da = [x - ma for x in a]
+    db = [x - mb for x in b]
+    den = sqrt(sum(x*x for x in da) * sum(x*x for x in db))
+    return (sum(x*y for x, y in zip(da, db)) / den) if den else 0.0
 
 
 def main() -> None:
     worlds = build_worlds()
-    results: list[ProbeResult] = []
-    for _, rows in worlds.items():
-        for variable in VARIABLES:
-            for shock in SHOCKS:
-                for amplitude in AMPLITUDES:
-                    results.append(run_one(rows, variable, shock, amplitude))
-
     print("DVQT INERTIA LAB")
-    print(f"worlds={len(worlds)} probes={len(results)}")
-    print("variable | mean_persistence | mean_half_life")
+    print(f"worlds={len(worlds)}")
+    print("variable | mean_positive_autocorrelation | mean_half_life")
     for variable in VARIABLES:
-        subset = [r for r in results if r.variable == variable]
-        print(f"{variable} | {mean(r.persistence for r in subset):.4f} | {mean(r.half_life for r in subset):.2f}")
+        summaries = [summarize(rows, variable) for rows in worlds.values()]
+        print(f"{variable} | {mean(s.persistence for s in summaries):.4f} | {mean(s.half_life for s in summaries):.2f}")
 
-    print("CROSS-INERTIA")
+    print("CROSS-LAG RESPONSE (source -> destination, lag 1..10)")
     for src in VARIABLES:
         for dst in VARIABLES:
             if src == dst:
                 continue
-            effects = []
-            for _, rows in worlds.items():
-                src0 = field(rows[0], src)
-                src1 = field(rows[1], src)
-                src_delta = abs(src1 - src0)
-                if src_delta == 0:
-                    continue
-                dst0 = field(rows[0], dst)
-                dst1 = field(rows[1], dst)
-                effects.append(abs(dst1 - dst0) / src_delta)
-            if effects:
-                print(f"{src}->{dst} | mean_effect={mean(effects):.4f}")
+            vals = [abs(cross_lag(rows, src, dst, lag)) for rows in worlds.values() for lag in range(1, MAX_LAG + 1)]
+            if vals:
+                print(f"{src}->{dst} | mean_abs_cross_lag={mean(vals):.4f}")
 
 if __name__ == "__main__":
     main()
