@@ -28,7 +28,6 @@ jobs:
           echo "ref=${GITHUB_REF}"
           echo "sha=${GITHUB_SHA}"
           echo "checked_out=$(git rev-parse HEAD)"
-          git status --short --branch
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -39,26 +38,22 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[test]'
           python -m pip install 'numpy>=1.26,<3'
-      - name: Verify scientific test dependencies
-        run: python -c "import numpy; import pytest; print(f'numpy={numpy.__version__}'); print(f'pytest={pytest.__version__}')"
+      - name: Verify dependencies
+        run: python -c "import numpy; import pytest; print(numpy.__version__, pytest.__version__)"
       - name: Import package surface
         run: python -c "import atlas, bentaxis, colony, court, erk, hypergraph, omega, oracle, runtime, sheaf, simplicial, tiamat, end, pond"
-      - name: Run TIAMAT tournament scorecard
-        run: python -m tiamat.tournament_scorecard
-      - name: Run TIAMAT tournament report
-        run: python -m tiamat.tournament_report
-      - name: Run TIAMAT complete evidence audit
-        run: python -m tiamat.tournament_full_audit
-      - name: Run TIAMAT tournament round 2
-        run: python -m tiamat.tournament_round2
-      - name: Run TIAMAT tournament round 3
-        run: python -m tiamat.tournament_round3
-      - name: Run TIAMAT expanded world lab
-        run: python -m tiamat.expanded_world_report
-      - name: Run TIAMAT expanded selector scorecard
-        run: python -m tiamat.expanded_selector_scorecard
-      - name: Run TIAMAT adaptive mechanism discovery
-        run: python -m tiamat.adaptive_mechanism_report
+      - name: Run TIAMAT scorecards
+        run: |
+          python -m tiamat.tournament_scorecard
+          python -m tiamat.tournament_report
+          python -m tiamat.tournament_full_audit
+          python -m tiamat.tournament_round2
+          python -m tiamat.tournament_round3
+          python -m tiamat.expanded_world_report
+          python -m tiamat.expanded_selector_scorecard
+          python -m tiamat.adaptive_mechanism_report
+      - name: Run exhaustive DVQT relationship matrix
+        run: python -m tools.dvqt_relationship_matrix
       - name: Run DVQT canonical tournament
         run: python -m tools.dvqt_canonical_tournament
       - name: Run DVQT relational reverse-engineering lab
