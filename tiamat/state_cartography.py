@@ -55,14 +55,18 @@ def future_distance(
     start: int,
     horizon: int = 4,
 ) -> float:
-    """Compare future state trajectories from a common current-time index."""
+    """Compare future observable values from a common current-time index.
+
+    Derived velocity/acceleration are intentionally excluded so historical
+    offsets do not leak into the future comparison through the EMA filters.
+    """
     if start < 0 or start >= len(fingerprints_a) or start >= len(fingerprints_b):
         raise ValueError("start must fall inside both trajectories")
     end = min(start + horizon + 1, len(fingerprints_a), len(fingerprints_b))
     if end <= start + 1:
         return 0.0
     pairs = zip(fingerprints_a[start + 1 : end], fingerprints_b[start + 1 : end])
-    values = [distance(x, y) for x, y in pairs]
+    values = [abs(x.value - y.value) for x, y in pairs]
     return sum(values) / len(values)
 
 
