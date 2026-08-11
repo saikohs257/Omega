@@ -54,6 +54,8 @@ jobs:
           python -m tiamat.adaptive_mechanism_report
       - name: Run exhaustive DVQT relationship matrix
         run: python -m tools.dvqt_relationship_matrix
+      - name: Run B fingerprint probe plan
+        run: python -m tools.dvqt_b_fingerprint
       - name: Run DVQT canonical tournament
         run: python -m tools.dvqt_canonical_tournament
       - name: Run DVQT relational reverse-engineering lab
