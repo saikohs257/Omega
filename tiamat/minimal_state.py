@@ -18,7 +18,7 @@ class AblationResult:
     classification: str
 
 
-def classify_ablation(baseline: TournamentCase, ablated: TournamentCase) -> str:
+def classify_ablation(baseline, ablated) -> str:
     """Classify whether removing one feature changes the observed decision."""
     b = baseline.decision
     a = ablated.decision
@@ -38,12 +38,22 @@ def run_leave_one_out(
     features = tuple(dict.fromkeys(f for spec in specs for f in spec.features))
     runner = TournamentRunner(specs=tuple(specs))
     baseline = runner.run_case(
-        TournamentCase("baseline", tuple(labels), dict(predictions), max_size, tuple(specs))
+        TournamentCase(
+            name="baseline",
+            labels=tuple(labels),
+            heldout_predictions=dict(predictions),
+            max_size=max_size,
+            specs=tuple(specs),
+        )
     )
     results: list[AblationResult] = []
     for feature in features:
         ablated_specs = tuple(
-            CandidateSpec(spec.model_id, tuple(f for f in spec.features if f != feature), family=spec.family)
+            CandidateSpec(
+                spec.model_id,
+                tuple(f for f in spec.features if f != feature),
+                family=spec.family,
+            )
             for spec in specs
             if any(f != feature for f in spec.features)
         )
@@ -53,7 +63,13 @@ def run_leave_one_out(
             if spec.model_id in predictions
         }
         ablated = TournamentRunner(specs=ablated_specs).run_case(
-            TournamentCase(f"ablate:{feature}", tuple(labels), ablated_predictions, max_size, ablated_specs)
+            TournamentCase(
+                name=f"ablate:{feature}",
+                labels=tuple(labels),
+                heldout_predictions=ablated_predictions,
+                max_size=max_size,
+                specs=ablated_specs,
+            )
         )
         results.append(
             AblationResult(
