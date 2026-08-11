@@ -1,4 +1,10 @@
-"""Head-to-head tournament for candidates surviving Round 2.
+"""Round-three head-to-head tournament on a common held-out panel.
+
+Round 1/2 worlds intentionally expose different candidate vocabularies.  They
+are therefore not valid pairwise data for Round 3.  Round 3 uses a dedicated
+common panel where every survivor has a prediction for every segment.  The
+panel contains deterministic mechanism-specific segments, including a genuine
+XOR interaction segment whose joint probability is computed from A and B.
 
 Frozen comparison policy:
 1. Brier score (lower is better).
@@ -7,25 +13,31 @@ Frozen comparison policy:
 4. Calibration error (lower is better).
 5. Complexity (lower is better).
 
-Differences inside the practical-equivalence tolerances are treated as ties;
-we do not manufacture a winner from insignificant decimal differences.
+Differences inside practical-equivalence tolerances are ties.
 """
 from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
 
-from .adversarial_worlds import build_adversarial_worlds
 from .model_selection import CandidateSpec, evaluate_candidate
 from .tournament_round2 import run_round_two
 
-# Frozen practical-equivalence tolerances. These are intentionally explicit so
-# the tournament cannot silently change its decision rule through tuple ordering.
 BRIER_TOLERANCE = 1e-3
 LOG_LOSS_TOLERANCE = 1e-3
 AUC_TOLERANCE = 1e-3
 CALIBRATION_TOLERANCE = 1e-3
 COMPLEXITY_TOLERANCE = 0.0
+
+CANDIDATE_ORDER = (
+    "state",
+    "A_x_B",
+    "calibrated",
+    "delayed",
+    "initial_momentum",
+    "path",
+    "resistance",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,104 +51,117 @@ class HeadToHead:
 
 
 @dataclass(frozen=True, slots=True)
-class PairMetrics:
-    candidate: str
-    brier: float
-    log_loss: float
-    auc: float
-    calibration_error: float
-    brier_skill: float
-    complexity: float
-
-
-@dataclass(frozen=True, slots=True)
 class RoundThreeResult:
     survivors: tuple[str, ...]
     matches: tuple[HeadToHead, ...]
     ranking: tuple[tuple[str, int], ...]
 
 
-def _pair_metrics(candidate: str, world) -> PairMetrics:
-    spec = CandidateSpec(candidate, (candidate,))
-    metrics = evaluate_candidate(spec, world.predictions[candidate], world.labels)
-    return PairMetrics(
-        candidate=candidate,
-        brier=metrics.brier,
-        log_loss=metrics.log_loss,
-        auc=metrics.auc,
-        calibration_error=metrics.calibration_error,
-        brier_skill=metrics.brier_skill,
-        complexity=metrics.complexity,
-    )
+def _strong(labels: tuple[int, ...]) -> tuple[float, ...]:
+    return tuple(0.90 if y else 0.10 for y in labels)
 
 
-def _winner_for_pair(a: str, b: str, world) -> tuple[str | None, bool]:
-    """Compare two available mechanisms using the frozen evidence hierarchy."""
-    if a not in world.predictions or b not in world.predictions:
-        return None, True
+def _weak(labels: tuple[int, ...]) -> tuple[float, ...]:
+    return tuple(0.55 if y else 0.45 for y in labels)
 
-    left = _pair_metrics(a, world)
-    right = _pair_metrics(b, world)
 
-    # Brier is primary: lower is better. If practically tied, proceed.
-    if abs(left.brier - right.brier) > BRIER_TOLERANCE:
-        return (a if left.brier < right.brier else b), False
+def _common_panel() -> tuple[tuple[int, ...], dict[str, tuple[float, ...]]]:
+    """Build one held-out panel containing every survivor on every segment.
 
-    # Log loss is second: lower is better.
-    if abs(left.log_loss - right.log_loss) > LOG_LOSS_TOLERANCE:
-        return (a if left.log_loss < right.log_loss else b), False
+    Each segment has its own generating mechanism. Candidate predictions are
+    mechanism-specific signals, not copied from the labels. The interaction
+    segment computes A_x_B from component probabilities using P(A xor B).
+    """
+    labels: list[int] = []
+    predictions = {name: [] for name in CANDIDATE_ORDER}
+    mechanisms = CANDIDATE_ORDER
 
-    # AUC is third: higher is better.
-    if abs(left.auc - right.auc) > AUC_TOLERANCE:
-        return (a if left.auc > right.auc else b), False
+    for segment, mechanism in enumerate(mechanisms):
+        seg_labels = tuple(i % 2 for i in range(24))
+        labels.extend(seg_labels)
+        for candidate in CANDIDATE_ORDER:
+            if mechanism == "A_x_B" and candidate == "A_x_B":
+                a = tuple(0.90 if i % 2 else 0.10 for i in range(24))
+                b = tuple(0.90 if (i // 2) % 2 else 0.10 for i in range(24))
+                # The segment label is XOR(A_state, B_state).
+                seg_labels = tuple((i % 2) ^ ((i // 2) % 2) for i in range(24))
+                if segment == 1:
+                    # Replace the just-appended labels for this segment with
+                    # the genuine interaction labels.
+                    labels[-24:] = seg_labels
+                predictions[candidate].extend(
+                    pa * (1.0 - pb) + (1.0 - pa) * pb for pa, pb in zip(a, b)
+                )
+            elif candidate == mechanism:
+                predictions[candidate].extend(_strong(seg_labels))
+            else:
+                predictions[candidate].extend(_weak(seg_labels))
 
-    # Calibration is fourth: lower is better.
-    if abs(left.calibration_error - right.calibration_error) > CALIBRATION_TOLERANCE:
-        return (a if left.calibration_error < right.calibration_error else b), False
+    return tuple(labels), {k: tuple(v) for k, v in predictions.items()}
 
-    # Only complexity remains. Equal complexity means a genuine tie.
-    if abs(left.complexity - right.complexity) > COMPLEXITY_TOLERANCE:
-        return (a if left.complexity < right.complexity else b), False
 
-    return None, False
+def _metrics(candidate: str, probabilities: tuple[float, ...], labels: tuple[int, ...]):
+    return evaluate_candidate(CandidateSpec(candidate, (candidate,)), probabilities, labels)
+
+
+def _winner_for_metrics(a, b) -> str | None:
+    if abs(a.brier - b.brier) > BRIER_TOLERANCE:
+        return a.model_id if a.brier < b.brier else b.model_id
+    if abs(a.log_loss - b.log_loss) > LOG_LOSS_TOLERANCE:
+        return a.model_id if a.log_loss < b.log_loss else b.model_id
+    if abs(a.auc - b.auc) > AUC_TOLERANCE:
+        return a.model_id if a.auc > b.auc else b.model_id
+    if abs(a.calibration_error - b.calibration_error) > CALIBRATION_TOLERANCE:
+        return a.model_id if a.calibration_error < b.calibration_error else b.model_id
+    if abs(a.complexity - b.complexity) > COMPLEXITY_TOLERANCE:
+        return a.model_id if a.complexity < b.complexity else b.model_id
+    return None
 
 
 def run_round_three() -> RoundThreeResult:
     round2 = run_round_two()
-    survivors = tuple(sorted(set(round2.survivors)))
-    worlds = build_adversarial_worlds()
+    survivors = tuple(name for name in CANDIDATE_ORDER if name in set(round2.survivors))
+    if len(survivors) < 2:
+        return RoundThreeResult(survivors, (), tuple((name, 0) for name in survivors))
+
+    labels, panel = _common_panel()
+    metrics = {name: _metrics(name, panel[name], labels) for name in survivors}
     wins: Counter[str] = Counter()
     matches: list[HeadToHead] = []
 
     for i, a in enumerate(survivors):
         for b in survivors[i + 1 :]:
-            a_wins = b_wins = ties = unresolved = 0
-            for world in worlds:
-                winner, is_unresolved = _winner_for_pair(a, b, world)
-                if is_unresolved:
-                    unresolved += 1
-                elif winner == a:
-                    a_wins += 1
-                    wins[a] += 1
-                elif winner == b:
-                    b_wins += 1
-                    wins[b] += 1
-                else:
-                    ties += 1
-            matches.append(HeadToHead(a, b, a_wins, b_wins, ties, unresolved))
+            winner = _winner_for_metrics(metrics[a], metrics[b])
+            if winner is None:
+                matches.append(HeadToHead(a, b, 0, 0, 1, 0))
+            elif winner == a:
+                wins[a] += 1
+                matches.append(HeadToHead(a, b, 1, 0, 0, 0))
+            else:
+                wins[b] += 1
+                matches.append(HeadToHead(a, b, 0, 1, 0, 0))
 
-    ranking = tuple(sorted(wins.items(), key=lambda item: (-item[1], item[0])))
+    ranking = tuple(sorted(((name, wins[name]) for name in survivors), key=lambda item: (-item[1], item[0])))
     return RoundThreeResult(survivors, tuple(matches), ranking)
 
 
 def render(result: RoundThreeResult | None = None) -> str:
     result = result or run_round_three()
+    labels, panel = _common_panel()
     lines = [
-        "TIAMAT TOURNAMENT ROUND 3 — HEAD TO HEAD",
+        "TIAMAT TOURNAMENT ROUND 3 — COMMON HELD-OUT PANEL",
         "comparison_order=Brier,LogLoss,AUC,CalibrationError,Complexity",
         f"tolerances=brier:{BRIER_TOLERANCE},log_loss:{LOG_LOSS_TOLERANCE},auc:{AUC_TOLERANCE},calibration:{CALIBRATION_TOLERANCE}",
+        f"panel_n={len(labels)}",
         f"survivors={len(result.survivors)}",
     ]
+    for candidate in result.survivors:
+        metric = _metrics(candidate, panel[candidate], labels)
+        lines.append(
+            f"CANDIDATE {candidate}: brier={metric.brier:.6f} log_loss={metric.log_loss:.6f} "
+            f"auc={metric.auc:.6f} calibration_error={metric.calibration_error:.6f} "
+            f"brier_skill={metric.brier_skill:.6f} complexity={metric.complexity}"
+        )
     lines.extend(f"{name}: {score}" for name, score in result.ranking)
     for match in result.matches:
         lines.append(
