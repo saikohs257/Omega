@@ -27,6 +27,16 @@ def classify_ablation(baseline, ablated) -> str:
     return "REDUNDANT"
 
 
+def _case(name, labels, predictions, max_size, specs):
+    return TournamentCase(
+        name=name,
+        labels=tuple(labels),
+        heldout_predictions=predictions,
+        max_size=max_size,
+        specs=tuple(specs),
+    )
+
+
 def run_leave_one_out(
     *,
     labels: Sequence[int],
@@ -34,17 +44,11 @@ def run_leave_one_out(
     predictions: Mapping[str, Sequence[float]],
     max_size: int = 4,
 ) -> tuple[AblationResult, ...]:
-    """Compare the full candidate against versions with one feature removed."""
+    """Compare the full candidate library against versions with one feature removed."""
     features = tuple(dict.fromkeys(f for spec in specs for f in spec.features))
-    runner = TournamentRunner(specs=tuple(specs))
-    baseline = runner.run_case(
-        TournamentCase(
-            name="baseline",
-            labels=tuple(labels),
-            heldout_predictions=dict(predictions),
-            max_size=max_size,
-            specs=tuple(specs),
-        )
+    baseline_specs = tuple(specs)
+    baseline = TournamentRunner(specs=baseline_specs).run_case(
+        _case("baseline", labels, dict(predictions), max_size, baseline_specs)
     )
     results: list[AblationResult] = []
     for feature in features:
@@ -63,12 +67,12 @@ def run_leave_one_out(
             if spec.model_id in predictions
         }
         ablated = TournamentRunner(specs=ablated_specs).run_case(
-            TournamentCase(
-                name=f"ablate:{feature}",
-                labels=tuple(labels),
-                heldout_predictions=ablated_predictions,
-                max_size=max_size,
-                specs=ablated_specs,
+            _case(
+                f"ablate:{feature}",
+                labels,
+                ablated_predictions,
+                max_size,
+                ablated_specs,
             )
         )
         results.append(
