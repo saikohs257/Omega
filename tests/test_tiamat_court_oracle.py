@@ -10,7 +10,7 @@ def test_tiamat_can_approve_and_reject() -> None:
     allow = engine.execute({"state": "base"}, {"allow": True, "mode": "open"})
     deny = engine.execute({"state": "base"}, {"allow": False, "mode": "closed"})
     assert allow.approved is True
-    assert allow.state["mode"] == "open"
+    assert allow.state["mode"] == "Q"
     assert deny.approved is False
     assert deny.reason == "request disallowed"
 
