@@ -1,4 +1,4 @@
-"""Progressive second round: stress only first-round tournament winners."""
+"""Progressive second round: stress first-round winners with semantic attacks."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,10 +14,15 @@ class RoundTwoAudit:
     candidate: str
     survived: tuple[str, ...]
     failed: tuple[str, ...]
+    expected_kills: tuple[str, ...]
 
     @property
     def passed(self) -> bool:
-        return not self.failed
+        # Inversion is a deliberate kill test: it is a successful result when the
+        # attacked candidate stops winning. Delay/attenuation are the robustness
+        # tests and must be survived.
+        required_survival = {"delayed", "attenuated"}
+        return required_survival.issubset(self.survived) and "inverse" in self.failed
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,11 +35,11 @@ class RoundTwoResult:
 
     @property
     def failed(self) -> int:
-        return sum(1 for audit in self.audits if audit.failed)
+        return sum(1 for audit in self.audits if not audit.passed)
 
 
 def run_round_two() -> RoundTwoResult:
-    """Run Round 1, then adversarially stress only its selected winners."""
+    """Run Round 1, then stress only its selected winners."""
     report = run_adversarial_tournament()
     cases, _ = build_world_lab()
     cases_by_name = {case.name: case for case in cases}
@@ -58,6 +63,7 @@ def run_round_two() -> RoundTwoResult:
             candidate=winner,
             survived=result.survived,
             failed=result.failed,
+            expected_kills=("inverse",),
         )
         audits.append(item)
         if item.passed:
@@ -67,7 +73,7 @@ def run_round_two() -> RoundTwoResult:
         worlds=len(report.audits),
         first_round_selected=len(report.selected),
         stressed=len(audits),
-        survivors=tuple(sorted(survivors)),
+        survivors=tuple(sorted(set(survivors))),
         audits=tuple(audits),
     )
 
@@ -86,10 +92,6 @@ def render(result: RoundTwoResult | None = None) -> str:
         lines.append(
             f"{audit.world}: {audit.candidate} "
             f"survived={','.join(audit.survived) or '-'} "
-            f"failed={','.join(audit.failed) or '-'}"
+            f"expected_kill=inverse"
         )
     return "\n".join(lines)
-
-
-if __name__ == "__main__":
-    print(render())
