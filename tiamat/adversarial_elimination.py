@@ -31,7 +31,7 @@ def make_variants(predictions: Mapping[str, Sequence[float]], target: str) -> tu
     base = {k: tuple(v) for k, v in predictions.items()}
     target_values = base[target]
     inverted = tuple(_clip(1.0 - p) for p in target_values)
-    delayed = tuple(target_values[0],) + tuple(target_values[:-1]) if target_values else ()
+    delayed = (target_values[0],) + tuple(target_values[:-1]) if target_values else ()
     noisy = tuple(_clip(0.5 + 0.55 * (p - 0.5)) for p in target_values)
     return (
         EliminationVariant("inverse", {**base, target: inverted}),
