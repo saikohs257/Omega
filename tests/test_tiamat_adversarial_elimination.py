@@ -19,6 +19,8 @@ def test_winner_elimination_reports_survival_and_failure() -> None:
         max_size=1,
     )
     assert result.candidate_id == "winner"
-    assert set(result.survived) | set(result.failed) == {"inverse", "delayed", "attenuated"}
+    # Delayed is diagnostic-only and therefore belongs in neither gate set.
+    assert set(result.survived) | set(result.failed) == {"inverse", "attenuated"}
     assert set(result.survived).isdisjoint(result.failed)
     assert result.failed
+    assert result.delayed_status == "FAILED"
