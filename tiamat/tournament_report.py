@@ -1,9 +1,17 @@
-"""Auditable tournament report and survivor extraction for TIAMAT labs."""
+"""Auditable tournament report with complete per-world evidence metrics."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .model_selection import ModelMetrics
 from .tournament_lab import run_adversarial_tournament
+
+
+@dataclass(frozen=True, slots=True)
+class MetricRow:
+    world: str
+    candidate: str
+    metrics: ModelMetrics
 
 
 @dataclass(frozen=True, slots=True)
@@ -13,6 +21,7 @@ class TournamentRow:
     selected: str | None
     expected: str
     expectation_met: bool
+    metrics: tuple[MetricRow, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,27 +43,50 @@ class TournamentReport:
 
 def build_report() -> TournamentReport:
     lab = run_adversarial_tournament()
-    return TournamentReport(
-        rows=tuple(
-            TournamentRow(
-                world=a.expectation.world_name,
-                status=a.result.decision.status,
-                selected=a.result.decision.selected_model_id,
-                expected=a.expectation.truth_mechanism,
-                expectation_met=a.expectation_met,
-            )
-            for a in lab.audits
+    rows: list[TournamentRow] = []
+    for audit in lab.audits:
+        metric_rows = tuple(
+            MetricRow(audit.expectation.world_name, result.spec.model_id, result.metrics)
+            for result in audit.result.report.evaluated
         )
+        rows.append(
+            TournamentRow(
+                world=audit.expectation.world_name,
+                status=audit.result.decision.status,
+                selected=audit.result.decision.selected_model_id,
+                expected=audit.expectation.truth_mechanism,
+                expectation_met=audit.expectation_met,
+                metrics=metric_rows,
+            )
+        )
+    return TournamentReport(tuple(rows))
+
+
+def _metric_line(metric: ModelMetrics) -> str:
+    return (
+        f"  {metric.model_id}: auc={metric.auc:.6f} brier={metric.brier:.6f} "
+        f"log_loss={metric.log_loss:.6f} stability={metric.stability:.6f} "
+        f"calibration_error={metric.calibration_error:.6f} "
+        f"brier_skill={metric.brier_skill:.6f} complexity={metric.complexity} "
+        f"score={metric.score:.6f} n={metric.evaluated_n}"
     )
 
 
 def render_report(report: TournamentReport | None = None) -> str:
     report = report or build_report()
-    lines = ["TIAMAT TOURNAMENT REPORT", "world | status | selected | expected | pass"]
-    lines.extend(
-        f"{row.world} | {row.status} | {row.selected or '-'} | {row.expected} | {row.expectation_met}"
-        for row in report.rows
-    )
-    lines.append("survivors=" + ",".join(report.survivors))
-    lines.append("failures=" + str(len(report.failures)))
+    lines = ["TIAMAT TOURNAMENT REPORT — FULL EVIDENCE", ""]
+    for row in report.rows:
+        lines.append(
+            f"WORLD {row.world} | status={row.status} | selected={row.selected or '-'} "
+            f"| expected={row.expected} | pass={row.expectation_met}"
+        )
+        for metric in row.metrics:
+            lines.append(_metric_line(metric.metrics))
+    lines.append("")
+    lines.append("SURVIVORS=" + ",".join(report.survivors))
+    lines.append("FAILURES=" + str(len(report.failures)))
     return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    print(render_report())
