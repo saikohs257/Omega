@@ -15,4 +15,7 @@ def test_round_two_records_deliberate_kill_and_attenuation_separately() -> None:
 def test_round_two_delay_is_diagnostic_only() -> None:
     result = run_round_two()
     for audit in result.audits:
-        assert "delayed" in audit.survived or "delayed" in audit.failed
+        # Delay is recorded separately and cannot affect the Round-2 gate.
+        assert "delayed" not in audit.survived
+        assert "delayed" not in audit.failed
+        assert audit.delayed_status in {"SURVIVED", "FAILED", "NOT_RUN"}
