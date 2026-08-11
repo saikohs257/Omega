@@ -10,5 +10,5 @@ def test_directional_gap_detects_temporal_ordering():
     b[0] = rng.normal()
     b[1:] = a[:-1] + 0.05 * rng.normal(size=299)
     y = (b > np.median(b)).astype(int)
-    gap = _directional_gap(a, b, y, "multiplicative")
+    gap = _directional_gap(a, b, "multiplicative", y)
     assert abs(gap) > 0.02
