@@ -8,6 +8,7 @@ def test_collision_with_B_variation_is_reported():
     rows = [
         TelemetryRow(B=0.0, V=0.4, D=0.2, mode=TiamatMode.PRECURSOR, tau_mode=3.0),
         TelemetryRow(B=0.0, V=0.4, D=0.2, mode=TiamatMode.PRECURSOR, tau_mode=3.0),
+        TelemetryRow(B=1.0, V=0.4, D=0.2, mode=TiamatMode.PRECURSOR, tau_mode=3.0),
         TelemetryRow(B=1.0, V=0.4, D=0.2, mode=TiamatMode.EXCITATION, tau_mode=3.0),
     ]
     collisions = find_projection_collisions(rows)
@@ -20,6 +21,7 @@ def test_world_summary_separates_B_explained_from_unexplained():
     world = [
         TelemetryRow(B=0.0, V=0.4, D=0.2, mode=TiamatMode.PRECURSOR, tau_mode=3.0),
         TelemetryRow(B=0.0, V=0.4, D=0.2, mode=TiamatMode.PRECURSOR, tau_mode=3.0),
+        TelemetryRow(B=1.0, V=0.4, D=0.2, mode=TiamatMode.PRECURSOR, tau_mode=3.0),
         TelemetryRow(B=1.0, V=0.4, D=0.2, mode=TiamatMode.EXCITATION, tau_mode=3.0),
     ]
     summary = analyze_worlds({"fixture": world})
