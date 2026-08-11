@@ -12,7 +12,6 @@ from itertools import combinations
 from typing import Iterable, Mapping
 
 import numpy as np
-from sklearn.metrics import log_loss, roc_auc_score
 
 
 @dataclass(frozen=True)
@@ -30,9 +29,30 @@ class InteractionResult:
 
 
 def _auc(y: np.ndarray, score: np.ndarray) -> float:
-    if np.unique(y).size < 2:
+    """Compute ROC AUC with sklearn-compatible tie handling using NumPy only."""
+    y = np.asarray(y, dtype=int)
+    score = np.asarray(score, dtype=float)
+    positives = y == 1
+    negatives = y == 0
+    n_pos = int(positives.sum())
+    n_neg = int(negatives.sum())
+    if n_pos == 0 or n_neg == 0:
         return 0.5
-    return float(roc_auc_score(y, score))
+
+    # Average ranks for ties; equivalent to the Mann-Whitney formulation of AUC.
+    order = np.argsort(score, kind="mergesort")
+    sorted_scores = score[order]
+    ranks = np.empty(score.size, dtype=float)
+    start = 0
+    while start < score.size:
+        end = start + 1
+        while end < score.size and sorted_scores[end] == sorted_scores[start]:
+            end += 1
+        ranks[order[start:end]] = (start + 1 + end) / 2.0
+        start = end
+
+    positive_rank_sum = float(ranks[positives].sum())
+    return (positive_rank_sum - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
 
 
 def _normalize(x: np.ndarray) -> np.ndarray:
