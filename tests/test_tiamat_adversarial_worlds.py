@@ -99,7 +99,7 @@ def test_redundant_observables_have_deterministic_tie_break() -> None:
 
 
 @pytest.mark.parametrize(
-    (world_name, expected),
+    ("world_name", "expected"),
     (
         ("path_signal", "path"),
         ("momentum_signal", "initial_momentum"),
