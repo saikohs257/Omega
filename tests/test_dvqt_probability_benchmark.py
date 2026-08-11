@@ -9,6 +9,8 @@ def rows():
         TelemetryRow(D=0.1, V=0.8, B=1.0, mode=TiamatMode.EXCITATION, tau_mode=2.0),
         TelemetryRow(D=0.1, V=0.8, B=1.0, mode=TiamatMode.PRECURSOR, tau_mode=2.0),
         TelemetryRow(D=0.1, V=0.8, B=1.0, mode=TiamatMode.EXCITATION, tau_mode=2.0),
+        TelemetryRow(D=0.1, V=0.8, B=1.0, mode=TiamatMode.PRECURSOR, tau_mode=2.0),
+        TelemetryRow(D=0.1, V=0.8, B=1.0, mode=TiamatMode.EXCITATION, tau_mode=2.0),
     ]
 
 
