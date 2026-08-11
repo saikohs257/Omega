@@ -1,5 +1,6 @@
 from tiamat.candidate_library import CANDIDATE_FAMILIES, CANDIDATE_FEATURES, DEFAULT_CANDIDATE_MODELS
 from tiamat.combination_search import CombinationResult, CombinationSearchReport, run_combination_search, select_evidence_frontier, staged_combinations
+from tiamat.dynamics import DynamicsSnapshot, hazard_score, live_deficit_update, logit, residual_load, robust_z, sigmoid, simple_shock
 from tiamat.engine import Decision, TiamatEngine
 from tiamat.guards import GuardResult, evaluate_guards
 from tiamat.holdout import HOLDOUT_EXPERIMENT_VERSION, HoldoutEvaluation, HoldoutExperiment, HoldoutSplit
@@ -16,11 +17,12 @@ from tiamat.transition import transition
 __all__ = [
     "CANDIDATE_FAMILIES", "CANDIDATE_FEATURES", "DEFAULT_CANDIDATE_MODELS", "CandidateSpec", "CandidateTrial",
     "CombinationResult", "CombinationSearchReport", "TournamentCase", "TournamentResult", "TournamentRunner",
-    "run_combination_search", "select_evidence_frontier", "staged_combinations",
+    "DynamicsSnapshot", "run_combination_search", "select_evidence_frontier", "staged_combinations",
     "CANONICAL_CONTROL_AXES", "CANONICAL_THRESHOLDS", "Decision", "GuardResult", "HOLDOUT_EXPERIMENT_VERSION",
     "HoldoutEvaluation", "HoldoutExperiment", "HoldoutSplit", "IDENTIFICATION_RUNNER_VERSION", "IdentificationRunner",
     "MODEL_REGISTRY", "ModelMetrics", "ModelSelector", "ModelSpec", "SelectionDecision", "TelemetryAdapter",
     "TelemetryRow", "TiamatEngine", "TiamatMode", "TiamatState", "TournamentReport", "axes_for_model",
     "binary_auc", "brier_score", "composite_score", "consensus", "evaluate_candidate", "evaluate_guards",
-    "log_loss", "model", "pareto_front", "replay", "transition",
+    "hazard_score", "live_deficit_update", "log_loss", "logit", "model", "pareto_front", "replay",
+    "residual_load", "robust_z", "sigmoid", "simple_shock", "transition",
 ]
