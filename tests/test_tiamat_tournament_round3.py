@@ -8,6 +8,11 @@ def test_round_three_is_deterministic_and_ranked() -> None:
     assert len(first.survivors) >= 1
     assert all(len(match.a) > 0 and len(match.b) > 0 for match in first.matches)
     assert all(match.a != match.b for match in first.matches)
+    assert all(match.unresolved == 0 for match in first.matches)
     assert first.ranking == tuple(sorted(first.ranking, key=lambda item: (-item[1], item[0])))
     text = render(first)
-    assert "TIAMAT TOURNAMENT ROUND 3 — HEAD TO HEAD" in text
+    assert "TIAMAT TOURNAMENT ROUND 3 — COMMON HELD-OUT PANEL" in text
+    assert "panel_n=" in text
+    assert "brier=" in text
+    assert "log_loss=" in text
+    assert "auc=" in text
