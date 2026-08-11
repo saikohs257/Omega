@@ -9,6 +9,8 @@ from tiamat.identification_runner import CandidateTrial, IDENTIFICATION_RUNNER_V
 from tiamat.model_selection import CandidateSpec, ModelMetrics, ModelSelector, SelectionDecision, brier_score, binary_auc, composite_score, consensus, evaluate_candidate, log_loss, pareto_front
 from tiamat.modes import TiamatMode
 from tiamat.replay import replay
+from tiamat.reduced_shadow import ReducedShadow, ReducedState
+from tiamat.disagreement_ledger import DisagreementRecord, ReplayReport, blind_replay
 from tiamat.state import TiamatState
 from tiamat.telemetry import CANONICAL_CONTROL_AXES, TelemetryAdapter, TelemetryRow, axes_for_model
 from tiamat.tournament import TournamentCase, TournamentResult, TournamentRunner
@@ -24,5 +26,6 @@ __all__ = [
     "TelemetryRow", "TiamatEngine", "TiamatMode", "TiamatState", "TournamentReport", "axes_for_model",
     "binary_auc", "brier_score", "composite_score", "consensus", "evaluate_candidate", "evaluate_guards",
     "hazard_score", "live_deficit_update", "log_loss", "logit", "model", "pareto_front", "replay",
-    "residual_load", "robust_z", "sigmoid", "simple_shock", "transition",
+    "residual_load", "robust_z", "sigmoid", "simple_shock", "transition", "ReducedShadow", "ReducedState",
+    "DisagreementRecord", "ReplayReport", "blind_replay",
 ]
