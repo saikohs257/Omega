@@ -14,20 +14,26 @@ PROJECTIONS = (
     ("DV+B", ("D", "V", "B")),
 )
 
+
+def _label(row: TelemetryRow) -> int:
+    return int(row.mode.value == "E")
+
+
 def _probabilities(rows: Sequence[TelemetryRow], fields: Sequence[str]):
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
     pairs = list(zip(rows, rows[1:]))
     for current, nxt in pairs:
-        buckets[tuple(getattr(current, f) for f in fields)].append(1 if nxt.mode.value == "EXCITATION" else 0)
+        buckets[tuple(getattr(current, f) for f in fields)].append(_label(nxt))
     probabilities, labels = [], []
     for current, nxt in pairs:
         outcomes = buckets[tuple(getattr(current, f) for f in fields)]
         if len(outcomes) < 2:
             continue
-        y = 1 if nxt.mode.value == "EXCITATION" else 0
+        y = _label(nxt)
         probabilities.append((sum(outcomes) - y) / (len(outcomes) - 1))
         labels.append(y)
     return probabilities, labels
+
 
 def pr_auc(probabilities: Sequence[float], labels: Sequence[int]) -> float:
     positives = sum(labels)
@@ -37,13 +43,16 @@ def pr_auc(probabilities: Sequence[float], labels: Sequence[int]) -> float:
     tp = fp = 0
     previous_recall = area = 0.0
     for _, y in ordered:
-        if y: tp += 1
-        else: fp += 1
+        if y:
+            tp += 1
+        else:
+            fp += 1
         recall = tp / positives
         precision = tp / (tp + fp)
         area += (recall - previous_recall) * precision
         previous_recall = recall
     return area
+
 
 def benchmark(worlds: Mapping[str, Sequence[TelemetryRow]]) -> dict[str, Any]:
     out = {}
