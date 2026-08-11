@@ -21,5 +21,5 @@ def test_leave_one_out_identifies_essential_and_redundant_features() -> None:
     by_feature = {item.feature: item for item in result}
     assert set(by_feature) == {"damage", "momentum", "neutral"}
     assert by_feature["momentum"].classification == "REDUNDANT"
-    assert by_feature["damage"].classification == "REDUNDANT"
+    assert by_feature["damage"].classification == "ESSENTIAL"
     assert by_feature["neutral"].classification == "REDUNDANT"
