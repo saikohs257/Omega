@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any, Mapping, Sequence
 
 from .modes import TiamatMode
+from .state import TiamatState
 from .telemetry import TelemetryAdapter, TelemetryRow
 from .transition import transition
 
@@ -63,14 +64,9 @@ def reduce_row(row: TelemetryRow) -> ReducedState:
     return ReducedState(D=row.D, V=row.V, q=row.mode, tau=row.tau_mode)
 
 
-def _transition_from_reduced(state: ReducedState, row: TelemetryRow) -> ReducedState:
-    """Apply the existing transition law using only D, V, q, tau plus row forcing evidence.
-
-    This is intentionally conservative: it reuses the existing transition law rather
-    than creating a second set of guards. Fields outside D/V/q/tau are not supplied.
-    """
-    evidence = {"D": state.D, "V": state.V, "tau_mode": state.tau}
-    next_state = transition(row.to_state().__class__(
+def _transition_from_reduced(state: ReducedState) -> ReducedState:
+    """Apply the existing transition law while exposing only D, V, q and tau."""
+    reduced_state = TiamatState(
         B=0.0,
         V=state.V,
         D=state.D,
@@ -78,7 +74,9 @@ def _transition_from_reduced(state: ReducedState, row: TelemetryRow) -> ReducedS
         tau_mode=state.tau,
         mode=state.q,
         model_id="DVQT",
-    ), evidence)
+    )
+    evidence = {"D": state.D, "V": state.V, "tau_mode": state.tau}
+    next_state = transition(reduced_state, evidence)
     return ReducedState(next_state.D, next_state.V, next_state.mode, next_state.tau_mode)
 
 
@@ -99,7 +97,7 @@ def compare(rows: Sequence[Mapping[str, Any] | TelemetryRow], *, adapter: Teleme
     last_reduced_transition: int | None = None
 
     for index, (before, observed) in enumerate(zip(normalized, normalized[1:]), start=1):
-        predicted = _transition_from_reduced(reduced, before)
+        predicted = _transition_from_reduced(reduced)
         full_transition = observed.mode is not before.mode
         reduced_transition = predicted.q is not before.mode
         if full_transition:
@@ -125,6 +123,6 @@ def compare(rows: Sequence[Mapping[str, Any] | TelemetryRow], *, adapter: Teleme
                 tau=observed.tau_mode,
                 full_state=observed.to_mapping(),
             ))
-        reduced = ReducedState(observed.D, observed.V, observed.mode, observed.tau_mode)
+        reduced = reduce_row(observed)
 
     return DVQTEvaluation(DVQT_EXPERIMENT_VERSION, len(normalized), agreements, tuple(disagreements))
