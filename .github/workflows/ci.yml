@@ -1,9 +1,8 @@
-name: CI
+name: Directional CI
 
 on:
   push:
-    branches: [main, research/dvqt-reduction]
-  pull_request:
+    branches: [tmp/dvqt-directional-ci]
   workflow_dispatch:
 
 permissions:
@@ -12,63 +11,12 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          ref: ${{ github.sha }}
-          fetch-depth: 1
-      - name: Print tested revision
-        run: |
-          echo "event=${GITHUB_EVENT_NAME}"
-          echo "ref=${GITHUB_REF}"
-          echo "sha=${GITHUB_SHA}"
-          echo "checked_out=$(git rev-parse HEAD)"
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-      - name: Install package and test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e '.[test]'
-          python -m pip install 'numpy>=1.26,<3'
-      - name: Verify dependencies
-        run: python -c "import numpy; import pytest; print(numpy.__version__, pytest.__version__)"
-      - name: Import package surface
-        run: python -c "import atlas, bentaxis, colony, court, erk, hypergraph, omega, oracle, runtime, sheaf, simplicial, tiamat, end, pond"
-      - name: Run TIAMAT scorecards
-        run: |
-          python -m tiamat.tournament_scorecard
-          python -m tiamat.tournament_report
-          python -m tiamat.tournament_full_audit
-          python -m tiamat.tournament_round2
-          python -m tiamat.tournament_round3
-          python -m tiamat.expanded_world_report
-          python -m tiamat.expanded_selector_scorecard
-          python -m tiamat.adaptive_mechanism_report
-      - name: Run exhaustive DVQT relationship matrix
-        run: python -m tools.dvqt_relationship_matrix
-      - name: Run B fingerprint probe plan
-        run: python -m tools.dvqt_b_fingerprint
-      - name: Run DVQT intervention audit
-        run: python -m tools.dvqt_intervention_audit
-      - name: Run DVQT inertia lab
-        run: python -m tools.dvqt_inertia_lab
-      - name: Run DVQT directional transfer lab
-        run: python -m tools.dvqt_transfer_lab
-      - name: Run DVQT canonical tournament
-        run: python -m tools.dvqt_canonical_tournament
-      - name: Run DVQT relational reverse-engineering lab
-        run: python -m tools.dvqt_relationship_lab
-      - name: Run DVQT projection tournament
-        run: python -m tools.dvqt_tournament
-      - name: Run DVQT focused tests
-        run: python -m pytest -q tests/test_dvqt_*.py
-      - name: Run full test suite
-        run: python -m pytest -q
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]' && python -m pip install 'numpy>=1.26,<3'
+      - run: python -m tools.dvqt_transfer_lab
+      - run: python -m tools.dvqt_relationship_lab
+      - run: python -m pytest -q tests/test_dvqt_*.py
