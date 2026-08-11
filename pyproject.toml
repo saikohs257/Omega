@@ -27,6 +27,7 @@ include = [
   "sheaf*",
   "simplicial*",
   "tiamat*",
+  "tools*",
 ]
 
 [tool.pytest.ini_options]
