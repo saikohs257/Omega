@@ -1,9 +1,9 @@
 """Deterministic laboratory adapter from adversarial worlds to tournaments.
 
 The laboratory keeps the hidden generating mechanism outside the selector while
-converting each synthetic world into a normal held-out TournamentCase. This
-makes the same tournament path testable across clean, deceptive, conflicting,
-and interaction worlds.
+converting each synthetic world into a normal held-out TournamentCase. Each world
+also carries its explicit candidate vocabulary so the tournament cannot silently
+substitute the production candidate library for the blinded laboratory world.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class WorldExpectation:
 
 
 def world_to_case(world: AdversarialWorld, *, max_size: int = 4) -> tuple[TournamentCase, WorldExpectation]:
-    """Hide the world mechanism and expose only ordinary candidate evidence."""
+    """Hide the world mechanism while preserving its explicit candidate set."""
     specs = tuple(
         CandidateSpec(
             model_id=name,
@@ -36,6 +36,7 @@ def world_to_case(world: AdversarialWorld, *, max_size: int = 4) -> tuple[Tourna
         labels=world.labels,
         heldout_predictions=predictions,
         max_size=max_size,
+        specs=specs,
     )
     return case, WorldExpectation(world.name, world.truth_mechanism, tuple(spec.model_id for spec in specs))
 
