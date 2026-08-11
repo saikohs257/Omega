@@ -39,3 +39,13 @@ def test_fingerprint_similarity_is_current_only():
     a = fingerprint((0.0, 1.0, 2.0, 3.0))
     b = fingerprint((0.0, 1.0, 2.0, 3.0))
     assert current_distance(a[-1], b[-1]) == 0.0
+
+
+def test_divergence_summary_keeps_zero_consistency_as_valid_evidence():
+    a, b = _fixture()
+    summary = summarize(
+        analyze(a, b, similarity_threshold=0.01, divergence_threshold=0.5)
+    )
+    # Zero consistent pairs is meaningful for a deliberately divergence-only
+    # fixture; the forensic report must not turn that into a test failure.
+    assert summary["consistent_futures"] == 0
