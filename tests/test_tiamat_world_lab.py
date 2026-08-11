@@ -30,6 +30,9 @@ def test_world_lab_tournament_respects_known_and_unknown_worlds() -> None:
     assert by_name["calibration_deception"].decision.status == "SELECTED"
     assert by_name["calibration_deception"].decision.selected_model_id == "calibrated"
 
+    assert by_name["interaction_only"].decision.status == "SELECTED"
+    assert by_name["interaction_only"].decision.selected_model_id == "A_x_B"
+
     assert by_name["delayed_trajectory"].decision.selected_model_id == "delayed"
     assert by_name["path_signal"].decision.selected_model_id == "path"
     assert by_name["momentum_signal"].decision.selected_model_id == "initial_momentum"
