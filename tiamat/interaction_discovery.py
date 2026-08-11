@@ -70,7 +70,11 @@ def interaction_feature(a: np.ndarray, b: np.ndarray, relation: str) -> np.ndarr
     if relation == "and":
         return a * b
     if relation == "xor":
-        return np.abs(a - b)
+        # XOR is a discrete relationship: whether exactly one normalized
+        # component is on the high side of the decision boundary.  Using the
+        # continuous distance |a-b| weakens the canonical XOR world because
+        # values from opposite quadrants are not ordered uniformly by distance.
+        return ((a > 0.5) ^ (b > 0.5)).astype(float)
     if relation == "threshold":
         return ((a > 0.5) & (b > 0.5)).astype(float)
     if relation == "conditional":
