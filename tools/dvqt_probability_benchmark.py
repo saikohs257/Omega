@@ -16,6 +16,11 @@ PROJECTIONS = (
 
 
 def _label(row: TelemetryRow) -> int:
+    # Prefer an explicit held-out target when supplied by a corpus adapter.
+    # Otherwise retain the original telemetry convention of next-mode E.
+    target = row.extras.get("target")
+    if target is not None:
+        return int(bool(target))
     return int(row.mode.value == "E")
 
 
