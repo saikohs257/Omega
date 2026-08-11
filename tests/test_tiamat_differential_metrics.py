@@ -18,6 +18,7 @@ from tiamat.model_selection import (
 LABELS = tuple(i % 2 for i in range(20))
 PERFECT = tuple(0.9 if y else 0.1 for y in LABELS)
 WEAK = tuple(0.51 if y else 0.49 for y in LABELS)
+CALIBRATED = (0.50,) * len(LABELS)
 INVERSE = tuple(0.9 if not y else 0.1 for y in LABELS)
 
 
@@ -32,18 +33,18 @@ def test_chain_02_inverse_signal_has_negative_skill() -> None:
 
 def test_chain_03_calibration_is_a_distinct_axis_from_ranking() -> None:
     perfect_ece = calibration_error(PERFECT, LABELS)
-    weak_ece = calibration_error(WEAK, LABELS)
-    assert perfect_ece != weak_ece
-    assert weak_ece < perfect_ece
+    calibrated_ece = calibration_error(CALIBRATED, LABELS)
+    assert perfect_ece != calibrated_ece
+    assert calibrated_ece < perfect_ece
 
 
 def test_chain_04_pareto_front_keeps_non_dominated_tradeoffs() -> None:
     strong = evaluate_candidate(CandidateSpec("strong", ("state",)), PERFECT, LABELS)
-    weak = evaluate_candidate(CandidateSpec("weak", ("proxy",)), WEAK, LABELS)
+    calibrated = evaluate_candidate(CandidateSpec("calibrated", ("calibration",)), CALIBRATED, LABELS)
     inverse = evaluate_candidate(CandidateSpec("inverse", ("wrong",)), INVERSE, LABELS)
-    front = {metric.model_id for metric in pareto_front((strong, weak, inverse))}
+    front = {metric.model_id for metric in pareto_front((strong, calibrated, inverse))}
     assert "strong" in front
-    assert "weak" in front
+    assert "calibrated" in front
     assert "inverse" not in front
 
 
@@ -90,7 +91,7 @@ def test_chain_11_consensus_tolerance_is_boundary_stable() -> None:
 
 def test_chain_12_candidate_order_does_not_change_pareto_front() -> None:
     strong = evaluate_candidate(CandidateSpec("strong", ("state",)), PERFECT, LABELS)
-    weak = evaluate_candidate(CandidateSpec("weak", ("proxy",)), WEAK, LABELS)
-    front_a = tuple(m.model_id for m in pareto_front((strong, weak)))
-    front_b = tuple(m.model_id for m in pareto_front((weak, strong)))
+    calibrated = evaluate_candidate(CandidateSpec("calibrated", ("calibration",)), CALIBRATED, LABELS)
+    front_a = tuple(m.model_id for m in pareto_front((strong, calibrated)))
+    front_b = tuple(m.model_id for m in pareto_front((calibrated, strong)))
     assert front_a == front_b
