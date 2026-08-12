@@ -1,7 +1,8 @@
 """Permanent TIAMAT identification registry.
 
-Registry entries are experiment IDs, not conclusions. M3 is the primary
-candidate; V6 remains the permanent control arm.
+Registry entries are experiment IDs, not conclusions. M3 is the historical
+primary candidate; V6 remains the permanent control arm. M8 is the explicit
+minimal-state shadow candidate and deliberately does not replace M3.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ MODEL_REGISTRY = MappingProxyType({
     "M5": ModelSpec("M5", ("B", "V", "D", "tau_D", "tau_M"), "temporal-memory candidate"),
     "M6": ModelSpec("M6", ("B", "V", "D", "tau_D", "tau_M", "Phi"), "cross-axis candidate"),
     "M7": ModelSpec("M7", "V6_control", "permanent V6 control"),
+    "M8": ModelSpec("M8", ("D", "V", "tau_mode", "mode"), "explicit D,V,q,tau shadow candidate"),
 })
 
 DYNAMICS_REGISTRY = MappingProxyType({
