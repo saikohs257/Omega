@@ -7,12 +7,12 @@ from tools.relationship_map import _directional_gap, map_relationships
 
 
 def test_directional_gap_detects_temporal_order_not_operand_order():
-    a = np.zeros(24)
-    b = np.zeros(24)
-    y = np.zeros(24, dtype=int)
-    a[4:14] = 1.0
-    b[5:15] = 1.0
-    y[5:15] = 1
+    a = np.zeros(12)
+    b = np.zeros(12)
+    y = np.zeros(12, dtype=int)
+    a[4] = 1.0
+    b[5] = 1.0
+    y[4] = 1
 
     gap = _directional_gap(a, b, "and", y)
     assert gap > 0.20
