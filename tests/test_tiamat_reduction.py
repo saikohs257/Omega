@@ -1,3 +1,4 @@
+from tiamat.identification_registry import MODEL_REGISTRY
 from tiamat.modes import TiamatMode
 from tiamat.reduction import ReducedState, replay_shadow, replay_transition_shadow
 from tiamat.state import TiamatState
@@ -12,6 +13,12 @@ def test_reduced_state_contains_only_d_v_q_tau() -> None:
         "q": TiamatMode.RELAXATION.value,
         "tau": 4.0,
     }
+
+
+def test_m8_registry_is_explicitly_minimal_and_does_not_replace_m3() -> None:
+    assert MODEL_REGISTRY["M8"].state == ("D", "V", "tau_mode", "mode")
+    assert MODEL_REGISTRY["M8"].role == "explicit D,V,q,tau shadow candidate"
+    assert MODEL_REGISTRY["M3"].state == ("B", "V", "D")
 
 
 def test_shadow_replay_is_observational_and_does_not_change_canonical_modes() -> None:
