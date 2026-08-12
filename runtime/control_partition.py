@@ -53,4 +53,7 @@ def preflight_controls(
             valid.append(predictor_id)
         else:
             incomparable.append(PredictorPreflight(predictor_id, result))
-    return ControlsPartition(tuple(sorted(valid)), tuple(incomparable))
+    return ControlsPartition(
+        tuple(sorted(valid)),
+        tuple(sorted(incomparable, key=lambda item: item.predictor_id)),
+    )
