@@ -30,8 +30,8 @@ def test_shadow_replay_is_observational_and_does_not_change_canonical_modes() ->
     result = replay_shadow(rows)
     assert result.agreement_rate == 1.0
     assert result.disagreements == ()
-    assert result.rows[-1].full_transition == "PRECURSOR->EXCITATION"
-    assert result.rows[-1].reduced_transition == "PRECURSOR->EXCITATION"
+    assert result.rows[-1].full_transition == "P->E"
+    assert result.rows[-1].reduced_transition == "P->E"
 
 
 def test_transition_shadow_exposes_only_reduced_state() -> None:
