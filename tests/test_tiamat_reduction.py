@@ -23,9 +23,9 @@ def test_m8_registry_is_explicitly_minimal_and_does_not_replace_m3() -> None:
 
 def test_shadow_replay_is_observational_and_does_not_change_canonical_modes() -> None:
     rows = (
-        {"timestamp": "t0", "D": 0.1, "V": 0.0, "mode": "QUIESCENT"},
-        {"timestamp": "t1", "D": 0.2, "V": 0.2, "mode": "PRECURSOR"},
-        {"timestamp": "t2", "D": 0.3, "V": 0.3, "mode": "EXCITATION"},
+        {"timestamp": "t0", "D": 0.1, "V": 0.0, "mode": "Q"},
+        {"timestamp": "t1", "D": 0.2, "V": 0.2, "mode": "P"},
+        {"timestamp": "t2", "D": 0.3, "V": 0.3, "mode": "E"},
     )
     result = replay_shadow(rows)
     assert result.agreement_rate == 1.0
