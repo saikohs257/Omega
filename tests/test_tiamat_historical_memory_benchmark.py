@@ -30,6 +30,20 @@ def test_memory_benchmark_does_not_inspect_targets():
     assert with_targets == without_targets
 
 
+def test_memory_resets_at_explicit_run_boundary():
+    rows = [
+        {"strict_run_id": "r1", "run_age_h_live": 1, "live_up_pressure_proxy": 0.2, "LiveDeficit": 0.8},
+        {"strict_run_id": "r1", "run_age_h_live": 2, "live_up_pressure_proxy": 0.5, "LiveDeficit": 0.7},
+        {"strict_run_id": "r2", "run_age_h_live": 1, "live_up_pressure_proxy": 0.9, "LiveDeficit": 0.2},
+    ]
+    comparisons = compare_instantaneous_and_memory(rows)
+    pressure_delta = next(item for item in comparisons if item.name == "pressure_delta")
+    pressure_ema = next(item for item in comparisons if item.name == "pressure_ema")
+    assert pressure_delta.values[1] == 0.3
+    assert pressure_delta.values[2] == 0.0
+    assert pressure_ema.values[2] == 0.9
+
+
 def test_memory_benchmark_rejects_empty_input():
     try:
         compare_instantaneous_and_memory([])
