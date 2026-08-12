@@ -82,6 +82,16 @@ def test_selector_can_gate_calibration() -> None:
     assert decision.selected_model_id == "good"
 
 
+def test_selector_accepts_ece_exactly_on_canonical_boundary() -> None:
+    """The inclusive ECE gate is a deliberate boundary of the selection contract."""
+    thresholds = SelectionThresholds(brier_skill_min=0.05, auc_min=0.50, ece_max=0.10, version="selection-thresholds-boundary-v1")
+    selector = ModelSelector(selection_thresholds=thresholds, max_brier=0.25)
+    boundary = ModelMetrics("boundary", 0.80, 0.10, 0.20, 1.0, 1, 100, 0.80, 0.10, 0.20)
+    decision = selector.select([boundary])
+    assert decision.status == "SELECTED"
+    assert decision.selected_model_id == "boundary"
+
+
 def test_consensus_surfaces_disagreement() -> None:
     status, mean, models = consensus({"core": 0.90, "path": 0.45, "coupling": 0.80}, tolerance=0.10)
     assert status == "CONTESTED" and mean == pytest.approx((0.90 + 0.45 + 0.80) / 3)
