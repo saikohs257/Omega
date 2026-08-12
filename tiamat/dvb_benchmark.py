@@ -134,8 +134,8 @@ def compare_dvb_history(rows: Iterable[BenchmarkRow], horizon: int = 3) -> tuple
     frozen = tuple(rows)
     return (
         _history_feature(frozen, f"B_history_{horizon}", lambda r: r.B, horizon),
-        _history_feature(f"V_history_{horizon}", lambda r: r.V, horizon),
-        _history_feature(f"D_history_{horizon}", lambda r: r.D, horizon),
+        _history_feature(frozen, f"V_history_{horizon}", lambda r: r.V, horizon),
+        _history_feature(frozen, f"D_history_{horizon}", lambda r: r.D, horizon),
         _history_feature(
             frozen, f"DVB_history_{horizon}",
             lambda r: abs(r.B) + abs(r.V) + abs(r.D), horizon,
