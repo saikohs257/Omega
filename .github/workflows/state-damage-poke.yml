@@ -1,0 +1,15 @@
+name: Omega State Damage Poke
+on:
+  push:
+    paths:
+      - 'experiments/first_poke/state_vs_damage_poke.py'
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run state versus damage poke
+        run: python experiments/first_poke/state_vs_damage_poke.py
