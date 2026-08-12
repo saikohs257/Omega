@@ -1,0 +1,15 @@
+name: Omega Boundary Probe
+on:
+  push:
+    paths:
+      - 'experiments/first_poke/boundary_probe.py'
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run boundary probe
+        run: python experiments/first_poke/boundary_probe.py
