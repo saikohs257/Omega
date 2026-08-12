@@ -1,0 +1,18 @@
+name: Omega Poke Now
+on:
+  push:
+    paths:
+      - '.github/workflows/poke-now.yml'
+  workflow_dispatch:
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Omega
+        run: python -m pip install -e .
+      - name: Run state versus damage poke
+        run: python experiments/first_poke/state_vs_damage_poke.py
