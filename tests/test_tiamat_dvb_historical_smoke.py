@@ -1,3 +1,5 @@
+import pytest
+
 from tiamat.dvb_benchmark import BenchmarkRow, compare_dvb, compare_dvb_history
 from tiamat.state import TiamatState
 
@@ -51,5 +53,5 @@ def test_mapping_adapter_preserves_canonical_dvb_values() -> None:
     assert adapted.V == -0.2
     assert adapted.D == 0.7
     assert adapted.recovery == 0.2
-    assert adapted.residual_load == 0.5
+    assert adapted.residual_load == pytest.approx(0.5)
     assert adapted.target == 1
