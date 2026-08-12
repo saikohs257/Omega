@@ -63,6 +63,10 @@ jobs:
         run: python -m tiamat.adaptive_mechanism_report
       - name: Run TIAMAT metric discovery tests
         run: python -m pytest -q tests/test_tiamat_metric_discovery.py
+      - name: Run TIAMAT controlled metric disagreement report
+        run: python -m tiamat.metric_value_report
+      - name: Run TIAMAT controlled metric disagreement tests
+        run: python -m pytest -q tests/test_tiamat_metric_value_report.py
       - name: Run TIAMAT focused tests
         run: python -m pytest -q tests/test_tiamat_*.py
       - name: Run full test suite
