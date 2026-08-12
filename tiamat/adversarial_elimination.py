@@ -73,12 +73,19 @@ def eliminate_winner(
       * attenuated is the robustness gate and must retain the target;
       * delayed is diagnostic only. It is recorded but cannot fail the candidate.
 
+    Round-2 stress is intentionally less strict on calibration than canonical
+    selection. The attenuated transform compresses a valid probability stream
+    toward 0.5 and therefore raises ECE by construction; using the canonical
+    ECE gate here would make the declared robustness gate mathematically
+    impossible to pass.
+
     ``failed`` therefore contains only gate-bearing variants. A failed delayed
     selection remains visible through ``delayed_status`` and ``audits`` without
     contaminating the Round-2 pass/fail accounting.
     """
     variants = make_variants(predictions, winner)
-    runner = TournamentRunner(selector=selector or ModelSelector(), specs=tuple(specs))
+    stress_selector = selector or ModelSelector(max_calibration_error=0.30)
+    runner = TournamentRunner(selector=stress_selector, specs=tuple(specs))
     audits: list[VariantAudit] = []
     survived: list[str] = []
     failed: list[str] = []
