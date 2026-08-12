@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/poke-now.yml'
+      - 'experiments/first_poke/state_vs_damage_poke.py'
   workflow_dispatch:
 jobs:
   poke:
