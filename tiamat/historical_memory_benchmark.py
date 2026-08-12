@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Mapping
 
-from .historical_memory import causal_memory
+from .historical_memory import MemoryPoint, causal_memory
 
 
 @dataclass(frozen=True)
@@ -22,8 +22,8 @@ def _series(rows: list[Mapping[str, float]], key: str) -> tuple[float, ...]:
     return tuple(float(row.get(key, 0.0)) for row in rows)
 
 
-def _memory_series(rows: list[Mapping[str, float]], *, half_life_h: float) -> tuple[dict[str, float], ...]:
-    return tuple(causal_memory(rows[:i + 1], half_life_h=half_life_h).__dict__ for i in range(len(rows)))
+def _memory_series(rows: list[Mapping[str, float]], *, half_life_h: float) -> tuple[MemoryPoint, ...]:
+    return tuple(causal_memory(rows[:i + 1], half_life_h=half_life_h) for i in range(len(rows)))
 
 
 def compare_instantaneous_and_memory(
@@ -43,11 +43,11 @@ def compare_instantaneous_and_memory(
         MemoryComparison("LiveDeficit", _series(frozen, "LiveDeficit"), len(frozen)),
         MemoryComparison("SimpleShock", _series(frozen, "SimpleShock"), len(frozen)),
         MemoryComparison("RecoveryWeakness_v1", _series(frozen, "RecoveryWeakness_v1"), len(frozen)),
-        MemoryComparison("freshness", tuple(float(point["freshness"]) for point in memory), len(frozen)),
-        MemoryComparison("pressure_ema", tuple(float(point["pressure_ema"]) for point in memory), len(frozen)),
-        MemoryComparison("deficit_ema", tuple(float(point["deficit_ema"]) for point in memory), len(frozen)),
-        MemoryComparison("shock_ema", tuple(float(point["shock_ema"]) for point in memory), len(frozen)),
-        MemoryComparison("recovery_ema", tuple(float(point["recovery_ema"]) for point in memory), len(frozen)),
-        MemoryComparison("pressure_delta", tuple(float(point["pressure_delta"]) for point in memory), len(frozen)),
+        MemoryComparison("freshness", tuple(point.freshness for point in memory), len(frozen)),
+        MemoryComparison("pressure_ema", tuple(point.pressure_ema for point in memory), len(frozen)),
+        MemoryComparison("deficit_ema", tuple(point.deficit_ema for point in memory), len(frozen)),
+        MemoryComparison("shock_ema", tuple(point.shock_ema for point in memory), len(frozen)),
+        MemoryComparison("recovery_ema", tuple(point.recovery_ema for point in memory), len(frozen)),
+        MemoryComparison("pressure_delta", tuple(point.pressure_delta for point in memory), len(frozen)),
         MemoryComparison("run_age_h_live", _series(frozen, "run_age_h_live"), len(frozen)),
     )
