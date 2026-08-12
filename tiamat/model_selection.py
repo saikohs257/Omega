@@ -211,7 +211,14 @@ class ModelSelector:
         items = tuple(metrics)
         if not items:
             return SelectionDecision("UNRESOLVED", None, 0.0, "no candidates evaluated")
-        eligible = tuple(m for m in items if m.auc > self.selection_thresholds.auc_min and m.brier < self.max_brier and m.stability > self.min_stability and m.calibration_error < self.selection_thresholds.ece_max and m.brier_skill >= self.selection_thresholds.brier_skill_min)
+        eligible = tuple(
+            m for m in items
+            if m.auc > self.selection_thresholds.auc_min
+            and m.brier < self.max_brier
+            and m.stability > self.min_stability
+            and m.calibration_error <= self.selection_thresholds.ece_max
+            and m.brier_skill >= self.selection_thresholds.brier_skill_min
+        )
         if not eligible:
             return SelectionDecision("UNRESOLVED", None, 0.0, "no candidate passed minimum evidence gates")
         front = pareto_front(eligible)
