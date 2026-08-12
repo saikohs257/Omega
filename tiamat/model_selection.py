@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from math import isfinite, log
 from typing import Iterable, Mapping, Sequence
 
+from runtime.selection import SelectionThresholds
+
 _EPS = 1e-12
 
 
@@ -172,18 +174,44 @@ class SelectionDecision:
 
 
 class ModelSelector:
-    def __init__(self, *, min_auc: float = 0.5, max_brier: float = 0.25, min_stability: float = 0.0, max_calibration_error: float = 1.0, min_brier_skill: float = 0.05) -> None:
-        self.min_auc = float(min_auc)
+    def __init__(
+        self,
+        *,
+        selection_thresholds: SelectionThresholds | None = None,
+        min_auc: float | None = None,
+        max_brier: float = 0.25,
+        min_stability: float = 0.0,
+        max_calibration_error: float | None = None,
+        min_brier_skill: float | None = None,
+    ) -> None:
+        """Select candidates using the canonical frozen selection contract.
+
+        Legacy threshold arguments remain accepted for compatibility. When
+        supplied, they construct an explicit SelectionThresholds instance;
+        otherwise the canonical default contract is used.
+        """
+        if selection_thresholds is not None and any(
+            value is not None for value in (min_auc, max_calibration_error, min_brier_skill)
+        ):
+            raise ValueError("selection_thresholds cannot be combined with legacy selection thresholds")
+        if selection_thresholds is None:
+            selection_thresholds = SelectionThresholds(
+                auc_min=0.5 if min_auc is None else float(min_auc),
+                ece_max=0.10 if max_calibration_error is None else float(max_calibration_error),
+                brier_skill_min=0.05 if min_brier_skill is None else float(min_brier_skill),
+            )
+        self.selection_thresholds = selection_thresholds
+        self.min_auc = selection_thresholds.auc_min
         self.max_brier = float(max_brier)
         self.min_stability = float(min_stability)
-        self.max_calibration_error = float(max_calibration_error)
-        self.min_brier_skill = float(min_brier_skill)
+        self.max_calibration_error = selection_thresholds.ece_max
+        self.min_brier_skill = selection_thresholds.brier_skill_min
 
     def select(self, metrics: Iterable[ModelMetrics]) -> SelectionDecision:
         items = tuple(metrics)
         if not items:
             return SelectionDecision("UNRESOLVED", None, 0.0, "no candidates evaluated")
-        eligible = tuple(m for m in items if m.auc > self.min_auc and m.brier < self.max_brier and m.stability > self.min_stability and m.calibration_error < self.max_calibration_error and m.brier_skill >= self.min_brier_skill)
+        eligible = tuple(m for m in items if m.auc > self.selection_thresholds.auc_min and m.brier < self.max_brier and m.stability > self.min_stability and m.calibration_error < self.selection_thresholds.ece_max and m.brier_skill >= self.selection_thresholds.brier_skill_min)
         if not eligible:
             return SelectionDecision("UNRESOLVED", None, 0.0, "no candidate passed minimum evidence gates")
         front = pareto_front(eligible)
