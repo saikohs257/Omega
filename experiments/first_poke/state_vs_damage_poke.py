@@ -1,8 +1,9 @@
 """Minimal stress probe for state-vs-damage divergence.
 
 The probe uses the canonical TIAMAT API. It changes only the initial D value
-between matched cases and keeps the evidence constant, so any output change
-is attributable to D rather than to a different calling path.
+between matched cases and keeps the evidence constant. D is intentionally not
+present in the evidence because transition() treats evidence D as the observed
+next-state D and would otherwise overwrite the state-only poke.
 """
 from __future__ import annotations
 
@@ -14,7 +15,6 @@ from tiamat.state import TiamatState
 EVIDENCE = {
     "B": 0.0,
     "V": 1.0,
-    "D": 0.0,
 }
 
 CASES = [
