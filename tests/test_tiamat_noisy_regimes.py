@@ -10,7 +10,10 @@ from tiamat.model_selection import CandidateSpec, ModelSelector
 from tiamat.tournament import TournamentCase, TournamentRunner
 
 LABELS = (0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1)
-GOOD = tuple(0.18 if y == 0 else 0.82 for y in LABELS)
+# Canonical ECE contract is <= 0.10.  Use an exactly calibrated strong
+# probability stream so these tests exercise selection rather than a fixture
+# that accidentally violates the production gate.
+GOOD = tuple(0.10 if y == 0 else 0.90 for y in LABELS)
 MEDIUM = tuple(0.08 if y == 0 else 0.92 for y in LABELS)
 NEUTRAL = tuple(0.50 for _ in LABELS)
 SHIFTED = tuple(0.32 if i % 4 < 2 else 0.68 for i in range(len(LABELS)))
