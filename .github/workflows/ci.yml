@@ -22,12 +22,13 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
-      - name: Print tested revision
+      - name: Verify tested revision
         run: |
           echo "event=${GITHUB_EVENT_NAME}"
           echo "ref=${GITHUB_REF}"
           echo "sha=${GITHUB_SHA}"
           echo "checked_out=$(git rev-parse HEAD)"
+          test "${GITHUB_SHA}" = "$(git rev-parse HEAD)"
           git status --short --branch
       - name: Set up Python
         uses: actions/setup-python@v5
