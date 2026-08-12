@@ -1,0 +1,9 @@
+{
+  "schema": "tiamat_a_axis_counterfactual_court_v1",
+  "runtime_authority": false,
+  "required_outputs": ["base", "hot", "prec", "selected", "fatal_fuse", "source_legality", "target_outcome"],
+  "groupings": ["global", "chronological", "year", "regime", "source", "path", "pocket"],
+  "counterfactuals": ["selected_vs_base", "selected_vs_hot", "selected_vs_prec"],
+  "hard_gates": ["no_future_dependency", "no_train_test_leakage", "no_post_holdout_retune", "no_hidden_worse_both_pocket", "shoot_through_zero", "enter_source_legal", "exit_source_legal"],
+  "promotion_rule": "descriptive_or_local_gain_is_not_runtime_authority; require stable conditional counterfactual advantage and explicit authority court"
+}

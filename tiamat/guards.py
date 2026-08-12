@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 import math
 from typing import Any, Mapping
-
 from .modes import TiamatMode
 from .state import TiamatState
-
 
 @dataclass(frozen=True, slots=True)
 class GuardResult:
@@ -14,97 +11,67 @@ class GuardResult:
     triggered: bool
     priority: int
 
-
 class Guard:
     name = "UNNAMED"
     priority = 0
-
     def evaluate(self, state: TiamatState, evidence: Mapping[str, Any]) -> bool:
         raise NotImplementedError
 
 
-def _finite_float(value: Any) -> float | None:
+def _finite_number(value: Any) -> float | None:
+    """Accept real finite numeric evidence, explicitly excluding bool."""
     if isinstance(value, bool):
         return None
     try:
-        result = float(value)
+        number = float(value)
     except (TypeError, ValueError, OverflowError):
         return None
-    return result if math.isfinite(result) else None
-
-
-def _integer_count(value: Any) -> int | None:
-    result = _finite_float(value)
-    if result is None or not result.is_integer():
-        return None
-    return int(result)
+    return number if math.isfinite(number) else None
 
 
 class DamageHazardGuard(Guard):
     name = "DURATION_DAMAGE_HAZARD_GUARD"
     priority = 3
-
     def evaluate(self, state, evidence):
-        threshold = _finite_float(evidence.get("damage_threshold"))
+        threshold = _finite_number(evidence.get("damage_threshold"))
         return threshold is not None and state.D >= threshold
-
 
 class ResidualDamageGuard(Guard):
     name = "RELAXATION_WITH_RESIDUAL_DAMAGE"
     priority = 3
-
     def evaluate(self, state, evidence):
-        threshold = _finite_float(evidence.get("residual_threshold"))
-        return (
-            state.mode is TiamatMode.RELAXATION
-            and threshold is not None
-            and state.residual_load > threshold
-        )
-
+        threshold = _finite_number(evidence.get("residual_threshold"))
+        return state.mode is TiamatMode.RELAXATION and threshold is not None and state.residual_load > threshold
 
 class ExcitationDurationGuard(Guard):
     name = "EXCITATION_DURATION_EXPIRED"
     priority = 2
-
     def evaluate(self, state, evidence):
-        limit = _finite_float(evidence.get("excitation_duration"))
+        limit = _finite_number(evidence.get("excitation_duration"))
         return limit is not None and limit >= 0 and state.tau_mode >= limit
-
 
 class PrecursorHazardGuard(Guard):
     name = "LATENT_HAZARD_PRECURSOR_GUARD"
     priority = 2
-
     def evaluate(self, state, evidence):
-        threshold = _finite_float(evidence.get("precursor_threshold"))
+        threshold = _finite_number(evidence.get("precursor_threshold"))
         return threshold is not None and state.D + max(0.0, state.V) >= threshold
-
 
 class CoupledPromotionGuard(Guard):
     name = "COUPLED_TRANSFER_HAZARD_PROMOTION"
     priority = 1
-
     def evaluate(self, state, evidence):
-        threshold = _integer_count(evidence.get("promotion_threshold"))
-        count = _integer_count(evidence.get("promotion_count"))
-        return threshold is not None and count is not None and count >= threshold
+        threshold = _finite_number(evidence.get("promotion_threshold"))
+        count = _finite_number(evidence.get("promotion_count"))
+        if threshold is None or count is None:
+            return False
+        if not count.is_integer() or not threshold.is_integer():
+            return False
+        return int(count) >= int(threshold)
 
-
-DEFAULT_GUARDS = (
-    DamageHazardGuard(),
-    ResidualDamageGuard(),
-    ExcitationDurationGuard(),
-    PrecursorHazardGuard(),
-    CoupledPromotionGuard(),
-)
-
+DEFAULT_GUARDS = (DamageHazardGuard(), ResidualDamageGuard(), ExcitationDurationGuard(), PrecursorHazardGuard(), CoupledPromotionGuard())
 
 def evaluate_guards(state: TiamatState, evidence: Mapping[str, Any], guards=DEFAULT_GUARDS):
     if not isinstance(evidence, Mapping):
         raise TypeError("evidence must be a mapping")
-    return tuple(
-        sorted(
-            (GuardResult(g.name, bool(g.evaluate(state, evidence)), g.priority) for g in guards),
-            key=lambda r: -r.priority,
-        )
-    )
+    return tuple(sorted((GuardResult(g.name, bool(g.evaluate(state, evidence)), g.priority) for g in guards), key=lambda r: -r.priority))
