@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.selection import SelectionThresholds
 from tiamat.model_selection import (
     CandidateSpec, ModelMetrics, ModelSelector, binary_auc, brier_score, brier_skill_score, calibration_error,
     consensus, dominates, evaluate_candidate, log_loss, pareto_front,
@@ -48,6 +49,25 @@ def test_selector_can_select_best_eligible_candidate() -> None:
     ]
     decision = ModelSelector(min_auc=0.80, max_brier=0.20).select(metrics)
     assert decision.status == "SELECTED" and decision.selected_model_id == "DQV"
+
+
+def test_selector_can_consume_canonical_selection_thresholds() -> None:
+    thresholds = SelectionThresholds(brier_skill_min=0.20, auc_min=0.80, ece_max=0.10, version="selection-thresholds-test-v1")
+    selector = ModelSelector(selection_thresholds=thresholds, max_brier=0.20)
+    assert selector.selection_thresholds is thresholds
+    assert selector.min_auc == thresholds.auc_min
+    assert selector.min_brier_skill == thresholds.brier_skill_min
+    assert selector.max_calibration_error == thresholds.ece_max
+
+    good = ModelMetrics("good", 0.85, 0.15, 0.30, 0.95, 2, 100, 0.80, 0.05, 0.25)
+    weak_skill = ModelMetrics("weak", 0.85, 0.15, 0.30, 0.95, 2, 100, 0.80, 0.05, 0.10)
+    decision = selector.select([weak_skill, good])
+    assert decision.status == "SELECTED" and decision.selected_model_id == "good"
+
+
+def test_selector_rejects_mixed_canonical_and_legacy_thresholds() -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        ModelSelector(selection_thresholds=SelectionThresholds(), min_auc=0.80)
 
 
 def test_selector_refuses_to_force_a_bad_model() -> None:
