@@ -60,7 +60,9 @@ def test_06_inverse_signal_cannot_win() -> None:
 
 
 def test_07_weak_signal_beats_neutral_when_gate_allows() -> None:
-    selector = ModelSelector(min_brier_skill=-1.0)
+    # This test intentionally isolates the weak-signal gate from calibration.
+    # The canonical selector keeps ECE <= .10; WEAK has ECE=.45 by construction.
+    selector = ModelSelector(min_brier_skill=-1.0, max_calibration_error=0.50)
     specs = (CandidateSpec("weak", ("weak",)), CandidateSpec("neutral", ("neutral",)))
     result = TournamentRunner(selector=selector, specs=specs).run_case(_case(specs, {"weak": WEAK, "neutral": NEUTRAL}))
     assert result.decision.status == "SELECTED"
