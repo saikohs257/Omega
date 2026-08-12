@@ -53,9 +53,9 @@ def _safe_auc(y: np.ndarray, x: np.ndarray) -> float:
 def _directional_gap(a: np.ndarray, b: np.ndarray, relation: str, y: np.ndarray) -> float:
     """Measure temporal order, not operand order.
 
-    The old implementation compared f(a,b) with f(b,a).  Every supported
+    The old implementation compared f(a,b) with f(b,a). Every supported
     interaction is effectively commutative at that level, so that quantity was
-    identically zero.  Here we compare two different temporal hypotheses:
+    identically zero. Here we compare two different temporal hypotheses:
 
       A -> B : A_t combined with B_{t+1}
       B -> A : B_t combined with A_{t+1}
@@ -64,7 +64,7 @@ def _directional_gap(a: np.ndarray, b: np.ndarray, relation: str, y: np.ndarray)
     the final sample. This is a directional temporal diagnostic, not a causal
     proof.
     """
-    n = min(len(a), len(b), len(y) + 1)
+    n = min(len(a), len(b), len(y))
     if n < 3:
         return 0.0
     aa, bb = a[:n], b[:n]
@@ -74,10 +74,32 @@ def _directional_gap(a: np.ndarray, b: np.ndarray, relation: str, y: np.ndarray)
     return _safe_auc(yy, ab) - _safe_auc(yy, ba)
 
 
-def map_relationships(signals: Mapping[str, Iterable[float]], labels: Iterable[int], *, phase: Iterable[float] | None = None) -> tuple[RelationshipResult, ...]:
+def _lagged_interaction_auc(a: np.ndarray, b: np.ndarray, relation: str, y: np.ndarray) -> float:
+    """Score B one step behind A without circular wraparound."""
+    n = min(len(a), len(b), len(y))
+    if n < 3:
+        return 0.5
+    return _safe_auc(
+        y[1:n],
+        interaction_feature(a[1:n], b[: n - 1], relation),
+    )
+
+
+def map_relationships(
+    signals: Mapping[str, Iterable[float]],
+    labels: Iterable[int],
+    *,
+    phase: Iterable[float] | None = None,
+) -> tuple[RelationshipResult, ...]:
     y = np.asarray(labels, dtype=int)
     arrays = {k: np.asarray(v, dtype=float) for k, v in signals.items()}
+    lengths = {len(y), *(len(v) for v in arrays.values())}
+    if len(lengths) != 1:
+        raise ValueError("signals and labels must have the same length")
     phase_arr = np.asarray(phase, dtype=float) if phase is not None else None
+    if phase_arr is not None and len(phase_arr) != len(y):
+        raise ValueError("phase must have the same length as labels")
+
     out: list[RelationshipResult] = []
     for left, right in combinations(arrays, 2):
         a, b = arrays[left], arrays[right]
@@ -85,12 +107,26 @@ def map_relationships(signals: Mapping[str, Iterable[float]], labels: Iterable[i
         relation, joint = _interaction(a, b, y)
         ji = _safe_auc(y, joint)
         reverse_gap = _directional_gap(a, b, relation, y)
-        lag = np.roll(b, 1)
-        lag_gain = _safe_auc(y, interaction_feature(a, lag, relation)) - ji
+        lag_gain = _lagged_interaction_auc(a, b, relation, y) - ji
         inv_score = _safe_auc(y, interaction_feature(a, -b, relation))
         attenuation_score = _safe_auc(y, interaction_feature(a, 0.5 + 0.5 * b, relation))
         phase_gain = (_phase_auc(y, joint, phase_arr) - ji) if phase_arr is not None else 0.0
-        out.append(RelationshipResult(left, right, la, lb, ji, ji - max(la, lb), reverse_gap, lag_gain, inv_score - ji, attenuation_score - ji, phase_gain, relation))
+        out.append(
+            RelationshipResult(
+                left,
+                right,
+                la,
+                lb,
+                ji,
+                ji - max(la, lb),
+                reverse_gap,
+                lag_gain,
+                inv_score - ji,
+                attenuation_score - ji,
+                phase_gain,
+                relation,
+            )
+        )
     return tuple(sorted(out, key=lambda r: (-r.interaction_gain, -abs(r.reverse_gap), -abs(r.lag_gain))))
 
 
