@@ -18,6 +18,23 @@ def test_metrics_have_expected_direction() -> None:
     assert log_loss(good, labels) < log_loss(bad, labels)
 
 
+def test_metrics_handle_ties_and_boundary_probabilities() -> None:
+    labels = [0, 0, 1, 1]
+    tied = [0.5, 0.5, 0.5, 0.5]
+    assert binary_auc(tied, labels) == pytest.approx(0.5)
+    assert brier_score([0.0, 0.0, 1.0, 1.0], labels) == pytest.approx(0.0)
+    assert log_loss([0.0, 0.0, 1.0, 1.0], labels) < 1e-10
+
+
+def test_metrics_reject_invalid_observations() -> None:
+    with pytest.raises(ValueError, match="equal length"):
+        brier_score([0.1, 0.9], [0])
+    with pytest.raises(ValueError, match="in \[0, 1\]"):
+        brier_score([-0.1, 0.9], [0, 1])
+    with pytest.raises(ValueError, match="both positive and negative"):
+        binary_auc([0.1, 0.2], [0, 0])
+
+
 def test_calibration_error_and_evaluation() -> None:
     labels = [0, 0, 1, 1]; probabilities = [0.05, 0.10, 0.90, 0.95]
     metric = evaluate_candidate(CandidateSpec("DQV", ("damage", "charge", "velocity")), probabilities, labels)
