@@ -63,21 +63,27 @@ def map_relationships(signals: Mapping[str, Iterable[float]], labels: Iterable[i
     out: list[RelationshipResult] = []
     for left, right in combinations(arrays, 2):
         a, b = arrays[left], arrays[right]
+        if len(a) != len(b) or len(a) != len(y):
+            continue
         la, lb = _auc(y, _normalize(a)), _auc(y, _normalize(b))
         relation, joint = _interaction(a, b, y)
         ji = _auc(y, joint)
         directional = _directional_gap(a, b, relation, y)
-        lag = np.roll(b, 1)
-        lag_gain = _auc(y, interaction_feature(a, lag, relation)) - ji
+        if len(b) >= 3:
+            lag_joint = interaction_feature(a[:-1], b[:-1], relation)
+            lag_target = y[1:]
+            lag_gain = _auc(lag_target, lag_joint) - _auc(y, joint)
+        else:
+            lag_gain = 0.0
         inv_score = _auc(y, interaction_feature(a, -b, relation))
         attenuation_score = _auc(y, interaction_feature(a, 0.5 + 0.5 * b, relation))
-        phase_gain = (_phase_auc(y, joint, phase_arr) - ji) if phase_arr is not None else 0.0
+        phase_gain = (_phase_auc(y, joint, phase_arr) - ji) if phase_arr is not None and len(phase_arr) == len(y) else 0.0
         out.append(RelationshipResult(left, right, la, lb, ji, ji - max(la, lb), directional, lag_gain, inv_score - ji, attenuation_score - ji, phase_gain, relation))
     return tuple(sorted(out, key=lambda r: (-r.interaction_gain, -abs(r.reverse_gap), -abs(r.lag_gain))))
 
 
 def format_report(results: Iterable[RelationshipResult]) -> str:
-    rows = ["RELATIONSHIP MAP", "pair | AUC(L) | AUC(R) | interaction | gain | directional_gap | lag_gain | inversion_gain | attenuation_gain | phase_gain | relation"]
+    rows = ["RELATIONSHIP MAP", "pair | AUC(L) | AUC(R) | interaction | gain | reverse_gap | lag_gain | inversion_gain | attenuation_gain | phase_gain | relation"]
     for r in results:
         rows.append(f"{r.left}+{r.right} | {r.left_auc:.4f} | {r.right_auc:.4f} | {r.interaction_auc:.4f} | {r.interaction_gain:.4f} | {r.reverse_gap:.4f} | {r.lag_gain:.4f} | {r.inversion_gain:.4f} | {r.attenuation_gain:.4f} | {r.phase_gain:.4f} | {r.relation}")
     return "\n".join(rows)
