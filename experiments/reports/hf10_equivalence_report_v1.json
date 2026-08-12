@@ -1,0 +1,51 @@
+{
+  "schema_version": 2,
+  "comparison_basis": {
+    "old_wrapper_source": "tiamat/hf10_diagnostic.py@16e6dbcf10bc780829d0cbab34b3da1515b9a381",
+    "canonical_head": "bfb0a83eb3481c458eafd80678821e37d3b99005",
+    "execution_commit": "d807d26e94c5fbd8227499778b9d833eab2fc0ec",
+    "ci_run": 346,
+    "ci_run_id": 31336930681
+  },
+  "synthetic_scope": {
+    "run_predictors": ["M3", "uniform"],
+    "registry_predictors": ["M3", "M7"],
+    "corpus_manifest_hash": "2505a88a2bc7cb4fcf5fcfefadbba19fd94fe1f893561ec554ce45e55b6aeef6",
+    "deterministic": true
+  },
+  "classification": {
+    "metrics": "EQUIVALENT",
+    "reliability_bins": "EQUIVALENT",
+    "metric_distributions": "EQUIVALENT",
+    "hf10_information_set": "EQUIVALENT",
+    "hf10_information_set_hash": "EQUIVALENT",
+    "hf10_claim_registry": "EQUIVALENT",
+    "hf10_claim_registry_hash": "EQUIVALENT",
+    "hf10_claim_registry_snapshot_hash": "ADDITION",
+    "hf10_claim_status": "EQUIVALENT",
+    "hf10_claim_rationale": "EQUIVALENT",
+    "hf10_claims": "EQUIVALENT",
+    "hf10_claim_state_by_predictor": "ADDITION"
+  },
+  "unexpected_removals": [],
+  "unexpected_value_changes": [],
+  "bundle_comparison": {
+    "old_bundle_hash": "sha256:45a8713de6ec982a030322392736fc6a4ef56daf51629951944c5eef14ff85fc",
+    "new_bundle_hash": "sha256:6d5da8098b98249fee36d48a1b45d22ca1fcd77990f70f3bd2607e5a30e3e2f0",
+    "metric_distributions_hash": "sha256:d9edda73d4b7f32d079da7336263527668c898d80a86fe15d023ba746d3dc8a8",
+    "reliability_bins_hash": "sha256:fd2a667b76eca7fad069ff36dfecd77d4521935173e161c3a42f58fde3f624e8",
+    "bundle_hash_delta_reason": "calibration_report.json intentionally gains HF10 fields"
+  },
+  "migration_transform": {
+    "kind": "schema_evolution",
+    "operations": [
+      "retain existing HF10 information-set and claim-registry evidence",
+      "retain existing claim list; canonical path deterministically orders it by (predictor, claim_id)",
+      "add hf10_claim_registry_snapshot_hash",
+      "add hf10_claim_state_by_predictor with ABSTAIN for executed predictors lacking a registry claim"
+    ],
+    "information_loss": false
+  },
+  "merge_authorized": true,
+  "audit_note": "The old wrapper was recovered from the PR base commit. The equivalence test executed both the old-wrapper reference semantics and the canonical runner against identical deterministic synthetic inputs and sealed both bundles through the same writer."
+}
