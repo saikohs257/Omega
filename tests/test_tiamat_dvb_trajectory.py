@@ -10,10 +10,11 @@ def test_canonical_state_trajectory_preserves_dvb_and_memory():
         TiamatState(B=0.70, V=0.35, D=0.65, tau_D=4.0, tau_mode=3.0),
         TiamatState(B=0.80, V=0.45, D=0.75, tau_D=5.0, tau_mode=4.0),
     ]
-    targets = [0, 0, 1, 1, 1]
+    # Keep both classes in the post-horizon portion of the trajectory.
+    targets = [0, 0, 1, 0, 1]
     rows = [BenchmarkRow.from_state(state, target) for state, target in zip(states, targets)]
-    instantaneous = compare_dvb_history(rows, horizon=2)
-    assert {item.name for item in instantaneous} == {
+    result = compare_dvb_history(rows, horizon=2)
+    assert {item.name for item in result} == {
         "B_history_2", "V_history_2", "D_history_2", "DVB_history_2"
     }
 
