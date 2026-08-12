@@ -40,9 +40,10 @@ def _raw_observables(causal: str) -> dict[str, tuple[float, ...]]:
     raw: dict[str, tuple[float, ...]] = {}
     for index, feature in enumerate(FEATURES):
         if feature == causal:
-            # Causal observable has a strong but imperfect relationship to the
-            # outcome; the alternating perturbation prevents trivial constants.
-            values = tuple(0.82 if y else 0.18 for y in LABELS)
+            # Strong, calibrated signal: the average probability remains .10/.90
+            # so it satisfies the canonical ECE <= .10 selection contract while
+            # the alternating perturbation prevents a trivial constant stream.
+            values = tuple(0.90 if y else 0.10 for y in LABELS)
             values = tuple(v + (0.01 if (i + index) % 3 == 0 else -0.01) for i, v in enumerate(values))
         else:
             # Deterministic nuisance variables have no relationship to labels.
