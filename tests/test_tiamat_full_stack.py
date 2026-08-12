@@ -76,3 +76,14 @@ def test_engine_replay_matches_repeated_steps() -> None:
         state = engine.step(state, row)
     assert engine.replay_state(initial, evidence) == state
     assert math.isfinite(state.residual_load)
+
+
+def test_diagnose_accepts_canonical_state_for_matched_damage_pokes() -> None:
+    engine = TiamatEngine()
+    evidence = {"B": 0.0, "V": 1.0, "D": 0.0}
+    for damage in (0.0, 1e-9, 1e-6):
+        state = TiamatState(B=0.0, V=1.0, D=damage)
+        diagnostic = engine.diagnose(state, evidence)
+        assert diagnostic["state"]["D"] == damage
+        assert diagnostic["state"]["V"] == 1.0
+        assert diagnostic["state"]["B"] == 0.0
