@@ -1,3 +1,4 @@
+from runtime.contracts import ProbabilityContract
 from runtime.controls import prepare_controls_run
 from runtime.selection import SelectionThresholds
 from tiamat.model_selection import CandidateSpec, ModelSelector, evaluate_candidate
@@ -17,10 +18,7 @@ def test_controls_run_excludes_incomparable_predictors_without_aborting() -> Non
 
 
 def test_controls_run_uses_custom_probability_contract() -> None:
-    contract = __import__("runtime.contracts", fromlist=["ProbabilityContract"]).ProbabilityContract(
-        minimum=0.05,
-        maximum=0.95,
-    )
+    contract = ProbabilityContract(minimum=0.05, maximum=0.95)
     run = prepare_controls_run(
         {"inside": (0.05, 0.95), "outside": (0.0, 0.9)},
         contract=contract,
