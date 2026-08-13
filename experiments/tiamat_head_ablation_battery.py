@@ -12,6 +12,8 @@ That fallback validates the recorded proxy result; it does not recompute the
 missing canonical Layer-1 binary.
 """
 
+# Final-court touch: rerun after lineage-aware summary fix.
+
 import json, os
 from pathlib import Path
 from typing import Iterable
