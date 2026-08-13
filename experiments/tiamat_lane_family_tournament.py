@@ -28,6 +28,8 @@ FAMILIES={
 }
 YEARS=[2020,2021,2022,2023,2024]
 
+# CI touch: keep this research-only tournament in the lane-family trigger path.
+
 def target(df,h=15):
  a=df.entry_path.ne("none").to_numpy(); t=df.open_time.to_numpy(); y=np.full(len(df),np.nan)
  for i in range(len(df)-h):
