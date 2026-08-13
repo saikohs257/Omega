@@ -1,0 +1,28 @@
+name: TIAMAT Head Court
+
+on:
+  push:
+    branches: [research/tiamat-archaeology-build]
+    paths:
+      - 'experiments/first_poke/head_scope_court.py'
+      - 'tiamat/**'
+      - 'tests/test_tiamat_head_scope_contract.py'
+  workflow_dispatch:
+
+jobs:
+  head-court:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Omega
+        run: python -m pip install -e .
+      - name: Run scoped head court
+        run: python experiments/first_poke/head_scope_court.py
+      - name: Run head scope contract
+        run: pytest -q tests/test_tiamat_head_scope_contract.py
