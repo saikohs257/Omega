@@ -1,0 +1,43 @@
+name: TIAMAT Lane Family Tournament
+on:
+  push:
+    branches: [research/tiamat-archaeology-build]
+    paths:
+      - 'experiments/tiamat_lane_family_tournament.py'
+      - 'tests/test_tiamat_lane_family_tournament.py'
+      - 'data/**'
+      - 'tiamat/**'
+  workflow_dispatch:
+jobs:
+  tournament:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: |
+          python -m pip install -e .
+          python -m pip install "pytest>=8,<9" "numpy>=1.26,<3" "pandas>=2,<3" "scikit-learn>=1.5,<2"
+      - name: Validate
+        run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_lane_family_tournament.py
+      - name: Run lane-family tournament
+        run: |
+          set -o pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python experiments/tiamat_lane_family_tournament.py | tee lane_family_tournament.log
+      - name: Verify tournament result record exists
+        run: test -s tiamat_lane_family_tournament_results.json
+      - name: Publish result summary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("tiamat_lane_family_tournament_results.json"))
+          print(f"lineage={d.get('lineage','native_or_recomputed')}")
+          print(f"rows={d['rows']} target={d['target']}")
+          print(f"selection={d.get('selection')}")
+          for h,v in d["heads"].items():
+              pairs=v.get('pairs',v.get('top',[]))
+              print(f"HEAD {h} n={v['n']} pairs={len(pairs)}")
+              for r in pairs[:5]: print(json.dumps(r))
+          PY

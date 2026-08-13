@@ -1,0 +1,58 @@
+name: TIAMAT Head Court
+
+on:
+  push:
+    branches: [research/tiamat-archaeology-build]
+    paths:
+      - 'experiments/first_poke/head_scope_court.py'
+      - 'experiments/tiamat_head_ablation_battery.py'
+      - 'tiamat/**'
+      - 'tests/test_tiamat_head_scope_contract.py'
+      - 'tests/test_tiamat_head_ablation_battery.py'
+      - 'docs/TIAMAT_HEAD_ABLATION_BATTERY_V1.md'
+  workflow_dispatch:
+
+jobs:
+  head-court:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Omega
+        run: |
+          python -m pip install -e .
+          python -m pip install "pytest>=8,<9" "numpy>=1.26,<3" "pandas>=2,<3" "scikit-learn>=1.5,<2"
+      - name: Run scoped head court
+        run: python experiments/first_poke/head_scope_court.py
+      - name: Run head scope contract
+        run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_head_scope_contract.py
+      - name: Run head ablation harness contract
+        run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_head_ablation_battery.py
+      - name: Run head ablation battery
+        run: |
+          set -o pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python experiments/tiamat_head_ablation_battery.py | tee head_ablation_battery.log
+      - name: Verify battery result record exists
+        run: test -s tiamat_head_ablation_battery_results.json
+      - name: Publish head battery summary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("tiamat_head_ablation_battery_results.json"))
+          print(f"lineage={d.get('lineage','native_or_recomputed')}")
+          print(f"rows={d['rows']} active_rows={d['active_rows']} eligible_rows={d['eligible_rows']}")
+          print(f"classification={d.get('classification')}")
+          for h,v in d["heads"].items():
+              print(f"HEAD {h} n={v['n']} positive_rate={v['positive_rate']}")
+              if "full_in_sample" in v: print("  full_in_sample=", v["full_in_sample"])
+              if "top" in v:
+                  for p in v["top"][:3]: print("  PAIR=",p)
+              if "ablations" in v: print("  ablations=", v["ablations"])
+          if "leave_year_out" in d: print("leave_year_out=", d["leave_year_out"])
+          if "universal_vs_native" in d: print("universal_vs_native=", d["universal_vs_native"])
+          PY
