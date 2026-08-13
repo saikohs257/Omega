@@ -17,8 +17,24 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install
-        run: python -m pip install -e .
+        run: |
+          python -m pip install -e .
+          python -m pip install "pytest>=8,<9" "numpy>=1.26,<3" "pandas>=2,<3" "scikit-learn>=1.5,<2"
       - name: Validate
         run: pytest -q tests/test_tiamat_lane_family_tournament.py
       - name: Run lane-family tournament
         run: python experiments/tiamat_lane_family_tournament.py
+      - name: Publish result summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("tiamat_lane_family_tournament_results.json")
+          d=json.loads(p.read_text())
+          print(f"rows={d['rows']}")
+          print(f"target={d['target']}")
+          for h,v in d["heads"].items():
+              print(f"HEAD {h} n={v['n']} pairs={len(v['pairs'])}")
+              for r in v['pairs'][:5]:
+                  print(json.dumps({k:r[k] for k in ('A','B','in_sample_auc','in_sample_brier','interaction_auc','interaction_brier','interaction_gain')}))
+          PY
