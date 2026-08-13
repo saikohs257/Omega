@@ -11,6 +11,7 @@ falls back to the committed PROXY_LINEAGE_HISTORICAL_RAW_V1 result record.
 That fallback is a result-record validation, not a recomputation of the
 historical raw panel.
 """
+# Final-court touch: rerun after lineage-aware lane summary fix.
 import json, os
 from pathlib import Path
 import numpy as np
@@ -20,14 +21,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score, brier_score_loss
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
-
 DATA=Path(os.environ.get("TIAMAT_LAYER1_CSV","data/layer1_structured_hazard_arm_timeseries.csv"))
 OUT=Path(os.environ.get("TIAMAT_LANE_TOURNAMENT_OUT","tiamat_lane_family_tournament_results.json"))
 RECORDED=Path("docs/TIAMAT_PROXY_HEAD_LANE_RESULTS_V1.json")
 HEADS={"H0":"0_to_4","H2":"2_to_4","H3":"3_to_4","H4":"4_to_4"}
 FAMILIES={"BURDEN":["LiveDeficit"],"HAZARD":["hazard_raw"],"SHOCK":["SimpleShock"],"RECOVERY":["RecoveryWeakness_v1"],"AGE":["episode_age_h"]}
 YEARS=[2020,2021,2022,2023,2024]
-
 def target(df,h=15):
  a=df.entry_path.ne("none").to_numpy(); t=df.open_time.to_numpy(); y=np.full(len(df),np.nan)
  for i in range(len(df)-h):
@@ -35,35 +34,26 @@ def target(df,h=15):
   exp=t[i]+np.arange(1,h+1).astype("timedelta64[h]")
   if np.array_equal(t[i+1:i+h+1],exp): y[i]=float(np.all(a[i+1:i+h+1]))
  return pd.Series(y,index=df.index)
-
 def seats(df):
  a=df.entry_path.ne("none"); start=a & ~a.shift(1,fill_value=False); df=df.copy(); df["seat"]=None
  for h,p in HEADS.items():
   if h!="H4": df.loc[start & df.entry_path.eq(p),"seat"]=h
  df.loc[a & ~start,"seat"]="H4"; return df
-
 def model(cols,interaction=False):
  steps=[("imp",SimpleImputer(strategy="median")),("scale",StandardScaler())]
  if interaction: steps.append(("poly",PolynomialFeatures(degree=2,include_bias=False)))
  steps += [("lr",LogisticRegression(max_iter=3000,C=1.0))]
  return Pipeline(steps)
-
 def score(train,test,cols,interaction=False):
  m=model(cols,interaction); m.fit(train[cols],train.y); p=m.predict_proba(test[cols])[:,1]
  if test.y.nunique()<2:return np.nan,np.nan
  return float(roc_auc_score(test.y,p)),float(brier_score_loss(test.y,p))
-
 def fallback_record():
  if not RECORDED.exists(): raise FileNotFoundError(f"canonical Layer-1 unavailable and no recorded proxy result: {RECORDED}")
- recorded=json.loads(RECORDED.read_text())
- out={"lineage":recorded["lineage"],"dataset":"COMMITTED_RESULT_RECORD_ONLY","rows":recorded["raw_rows"],"active_rows":recorded["active_rows"],"episodes":recorded["episodes"],"target":recorded["target"],"families":FAMILIES,"heads":recorded["heads"],"selection":"Recorded proxy result validation; no CI recomputation of the missing canonical Layer-1 binary"}
- OUT.write_text(json.dumps(out,indent=2,default=float)); print(json.dumps(out,indent=2,default=float))
- return out
-
+ recorded=json.loads(RECORDED.read_text()); out={"lineage":recorded["lineage"],"dataset":"COMMITTED_RESULT_RECORD_ONLY","rows":recorded["raw_rows"],"active_rows":recorded["active_rows"],"episodes":recorded["episodes"],"target":recorded["target"],"families":FAMILIES,"heads":recorded["heads"],"selection":"Recorded proxy result validation; no CI recomputation of the missing canonical Layer-1 binary"}; OUT.write_text(json.dumps(out,indent=2,default=float)); print(json.dumps(out,indent=2,default=float)); return out
 def main():
  if not DATA.exists(): return fallback_record()
- df=pd.read_csv(DATA,parse_dates=["open_time"]).sort_values("open_time").reset_index(drop=True); df["year"]=df.open_time.dt.year; df["y"]=target(df); df=seats(df); base=df[df.seat.notna() & df.y.notna()].copy()
- out={"dataset":str(DATA),"rows":len(df),"target":"15h active survival","families":FAMILIES,"heads":{},"selection":"Pareto reporting of AUC/Brier/stability; no arbitrary combined score"}
+ df=pd.read_csv(DATA,parse_dates=["open_time"]).sort_values("open_time").reset_index(drop=True); df["year"]=df.open_time.dt.year; df["y"]=target(df); df=seats(df); base=df[df.seat.notna() & df.y.notna()].copy(); out={"dataset":str(DATA),"rows":len(df),"target":"15h active survival","families":FAMILIES,"heads":{},"selection":"Pareto reporting of AUC/Brier/stability; no arbitrary combined score"}
  for h in HEADS:
   g=base[base.seat.eq(h)].copy(); out["heads"][h]={"n":len(g),"pairs":[]}
   for fa,ca in FAMILIES.items():
