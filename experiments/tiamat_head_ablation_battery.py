@@ -10,7 +10,7 @@ Set TIAMAT_LAYER1_CSV to the canonical 2020-2024 Layer-1 CSV. The default path
 is suitable for the local archaeological workspace.
 """
 
-# CI touch: keep the scientific environment and head-court workflow aligned.
+# CI touch: rerun the head court after its repository-path fix.
 
 import json
 import os
