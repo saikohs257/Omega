@@ -19,18 +19,21 @@ def test_entry_path_thresholds_and_prior_shock_clamp() -> None:
 
 
 def test_recovered_active_machine_is_stateful_and_exit_precedes_new_start() -> None:
-    idx = pd.date_range("2020-01-01", periods=5, freq="h")
+    # The historical exit rule needs six hours of prior shock context.  At
+    # hour 7 we deliberately make exit and a fresh start eligible together;
+    # exit must win.  Hour 8 can then start the new active interval.
+    idx = pd.date_range("2020-01-01", periods=9, freq="h")
     frame = pd.DataFrame(
         {
-            "hazard_raw": [0.0, 1.2, 1.3, 0.1, 1.4],
-            "hazard_score": [0.2, 0.8, 0.81, 0.62, 0.9],
-            "LiveDeficit": [0.0, 0.9, 0.9, 0.9, 0.9],
-            "SimpleShock": [0.0, 0.6, 0.6, 0.6, 0.6],
+            "hazard_raw": [0.0, 1.2, 1.3, 1.3, 1.3, 1.3, 1.3, 2.5, 3.7],
+            "hazard_score": [0.2, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.60, 0.90],
+            "LiveDeficit": [0.0, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+            "SimpleShock": [0.0, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6],
         },
         index=idx,
     )
     active = recovered_active_mask(frame)
-    assert active.tolist() == [False, True, True, False, True]
+    assert active.tolist() == [False, True, True, True, True, True, True, False, True]
 
 
 def test_hinge_v3a_combines_tightness_and_age() -> None:
