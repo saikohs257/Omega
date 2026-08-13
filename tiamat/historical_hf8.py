@@ -98,10 +98,11 @@ def _gate_3to4(ts: pd.Timestamp, hourly: pd.DataFrame, daily: pd.DataFrame, star
     peak_6h = float(np.nanmax(pre)) if len(pre) else 0.5
     date = ts.normalize()
     vr = []
-    for lag in range(4, -1, -1):
-        d = date - pd.Timedelta(days=lag)
-        if d in daily.index and pd.notna(daily.loc[d, "volratio"]):
-            vr.append(float(daily.loc[d, "volratio"]))
+    if "volratio" in daily.columns:
+        for lag in range(4, -1, -1):
+            d = date - pd.Timedelta(days=lag)
+            if d in daily.index and pd.notna(daily.loc[d, "volratio"]):
+                vr.append(float(daily.loc[d, "volratio"]))
     vr_exp = (vr[-1] - min(vr)) / min(vr) if len(vr) >= 3 and min(vr) > 0 else 0.5
     n24 = int(((starts >= ts - pd.Timedelta(hours=24)) & (starts < ts)).sum())
     n48 = int(((starts >= ts - pd.Timedelta(hours=48)) & (starts < ts)).sum())
