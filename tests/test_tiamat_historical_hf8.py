@@ -21,9 +21,6 @@ def test_entry_path_thresholds_and_prior_shock_clamp() -> None:
 
 
 def test_recovered_active_machine_is_stateful_and_exit_precedes_new_start() -> None:
-    # The historical exit rule needs six hours of prior shock context. At
-    # hour 7 we deliberately make exit and a fresh start eligible together;
-    # exit must win. Hour 8 can then start the new active interval.
     idx = pd.date_range("2020-01-01", periods=9, freq="h")
     frame = pd.DataFrame(
         {
@@ -63,9 +60,10 @@ def test_thehinge_promotes_phasic_to_trapped_after_8_hours() -> None:
         {
             "hazard_raw": [0.0, 1.2] + [1.3] * 8,
             "hazard_score": [0.2, 0.80] + [0.80] * 8,
-            "LiveDeficit": [0.0, 0.90] + [0.90] * 8,
-            # The start at hour 1 must enter via 3->4, so the previous hour
-            # stays above the LD threshold but below the prior-shock clamp.
+            # Previous-hour LD must already be >0.85 so the start enters via
+            # 3->4; prior shock remains <=0.50 so the 3->4 -> 2->4 clamp does
+            # not fire.
+            "LiveDeficit": [0.90, 0.90] + [0.90] * 8,
             "SimpleShock": [0.40, 0.60] + [0.60] * 8,
         },
         index=idx,
