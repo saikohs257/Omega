@@ -1,0 +1,24 @@
+name: TIAMAT Lane Family Tournament
+on:
+  push:
+    branches: [research/tiamat-archaeology-build]
+    paths:
+      - 'experiments/tiamat_lane_family_tournament.py'
+      - 'tests/test_tiamat_lane_family_tournament.py'
+      - 'data/**'
+      - 'tiamat/**'
+  workflow_dispatch:
+jobs:
+  tournament:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: python -m pip install -e .
+      - name: Validate
+        run: pytest -q tests/test_tiamat_lane_family_tournament.py
+      - name: Run lane-family tournament
+        run: python experiments/tiamat_lane_family_tournament.py
