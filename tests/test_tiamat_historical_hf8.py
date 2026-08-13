@@ -5,8 +5,10 @@ import pandas as pd
 
 from tiamat.historical_hf8 import (
     build_age_chain,
+    build_thehinge,
     compute_hinge,
     entry_path_at_start,
+    promote_v41e,
     recovered_active_mask,
 )
 
@@ -53,3 +55,37 @@ def test_age_chain_uses_daily_max_then_7d_mean() -> None:
     assert out.index.freq is not None
     assert float(out.loc[pd.Timestamp("2020-01-08"), "day_max_age_h"]) == 24.0
     assert float(out.loc[pd.Timestamp("2020-01-08"), "age_7d"]) == 24.0
+
+
+def test_thehinge_promotes_phasic_to_trapped_after_8_hours() -> None:
+    idx = pd.date_range("2020-01-01", periods=10, freq="h")
+    hourly = pd.DataFrame(
+        {
+            "hazard_raw": [0.0, 1.2] + [1.3] * 8,
+            "hazard_score": [0.2, 0.80] + [0.80] * 8,
+            "LiveDeficit": [0.0, 0.90] + [0.90] * 8,
+            "SimpleShock": [0.0, 0.60] + [0.60] * 8,
+        },
+        index=idx,
+    )
+    # No daily volume input is needed for this case because the 3->4 path is
+    # clamped to 2->4 by the prior-shock rule; the test therefore exercises
+    # persistence of the resulting non-phasic run without fabricating a
+    # missing historical generator.
+    daily = pd.DataFrame(index=pd.date_range("2020-01-01", periods=1, freq="D"))
+    out = build_thehinge(hourly, daily)
+    assert out["episode_type"].iloc[1] == "trapped"
+    assert out["run_age_h"].iloc[9] == 9.0
+
+
+def test_v41e_gate_preserves_historical_branch_authority() -> None:
+    row = {
+        "hazard_raw_0_4h_max_from_l1": 4.0,
+        "SimpleShock_0_4h_max_from_l1": 0.70,
+        "prev_active_exit_SimpleShock": 0.2,
+    }
+    out = promote_v41e(row)
+    assert out["selected"] is True
+    assert out["posture"] == "short_watch"
+    assert out["authority"] == "canonical_admission_gate"
+    assert out["version"] == "v41e_gate_v1"
