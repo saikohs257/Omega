@@ -23,20 +23,21 @@ jobs:
       - name: Validate
         run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_lane_family_tournament.py
       - name: Run lane-family tournament
-        run: PYTHONPATH="$GITHUB_WORKSPACE" python experiments/tiamat_lane_family_tournament.py | tee lane_family_tournament.log
+        run: |
+          set -o pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python experiments/tiamat_lane_family_tournament.py | tee lane_family_tournament.log
       - name: Verify tournament result record exists
         run: test -s tiamat_lane_family_tournament_results.json
       - name: Publish result summary
         run: |
           python - <<'PY'
           import json
-          from pathlib import Path
-          p=Path("tiamat_lane_family_tournament_results.json")
-          d=json.loads(p.read_text())
-          print(f"rows={d['rows']}")
-          print(f"target={d['target']}")
+          d=json.load(open("tiamat_lane_family_tournament_results.json"))
+          print(f"lineage={d.get('lineage','native_or_recomputed')}")
+          print(f"rows={d['rows']} target={d['target']}")
+          print(f"selection={d.get('selection')}")
           for h,v in d["heads"].items():
-              print(f"HEAD {h} n={v['n']} pairs={len(v['pairs'])}")
-              for r in v['pairs'][:5]:
-                  print(json.dumps({k:r[k] for k in ('A','B','in_sample_auc','in_sample_brier','interaction_auc','interaction_brier','interaction_gain')}))
+              pairs=v.get('pairs',v.get('top',[]))
+              print(f"HEAD {h} n={v['n']} pairs={len(pairs)}")
+              for r in pairs[:5]: print(json.dumps(r))
           PY
