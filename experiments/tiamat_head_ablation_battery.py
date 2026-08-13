@@ -10,6 +10,8 @@ Set TIAMAT_LAYER1_CSV to the canonical 2020-2024 Layer-1 CSV. The default path
 is suitable for the local archaeological workspace.
 """
 
+# CI touch: keep the scientific environment and head-court workflow aligned.
+
 import json
 import os
 from pathlib import Path
@@ -32,7 +34,7 @@ CORE = ["LiveDeficit", "hazard_raw", "SimpleShock", "RecoveryWeakness_v1"]
 YEARS = [2020, 2021, 2022, 2023, 2024]
 
 
-def metric(fn, y: pd.Series, score: np.ndarray) -> float:
+def metric(fn: callable, y: pd.Series, score: np.ndarray) -> float:
     values = np.asarray(y, dtype=float)
     if np.unique(values).size < 2:
         return float("nan")
