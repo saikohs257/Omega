@@ -30,8 +30,23 @@ jobs:
       - name: Run scoped head court
         run: python experiments/first_poke/head_scope_court.py
       - name: Run head scope contract
-        run: pytest -q tests/test_tiamat_head_scope_contract.py
+        run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_head_scope_contract.py
       - name: Run head ablation harness contract
-        run: pytest -q tests/test_tiamat_head_ablation_battery.py
+        run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_head_ablation_battery.py
+      - name: Run head ablation battery
+        run: |
+          PYTHONPATH="$GITHUB_WORKSPACE" python experiments/tiamat_head_ablation_battery.py | tee head_ablation_battery.log
       - name: Verify battery result record exists
-        run: test -f docs/TIAMAT_HEAD_ABLATION_BATTERY_V1.md
+        run: test -s tiamat_head_ablation_battery_results.json
+      - name: Publish head battery summary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("tiamat_head_ablation_battery_results.json"))
+          print(f"rows={d['rows']} active_rows={d['active_rows']} eligible_rows={d['eligible_rows']}")
+          print(f"universal_vs_native={d['universal_vs_native']}")
+          for h,v in d["heads"].items():
+              print(f"HEAD {h} path={v['path']} n={v['n']} positive_rate={v['positive_rate']}")
+              print("  full_in_sample=", v.get("full_in_sample"))
+              print("  ablations=", v.get("ablations"))
+              print("  leave_year_out=", d["leave_year_out"].get(h))
