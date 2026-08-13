@@ -21,9 +21,11 @@ jobs:
           python -m pip install -e .
           python -m pip install "pytest>=8,<9" "numpy>=1.26,<3" "pandas>=2,<3" "scikit-learn>=1.5,<2"
       - name: Validate
-        run: pytest -q tests/test_tiamat_lane_family_tournament.py
+        run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_lane_family_tournament.py
       - name: Run lane-family tournament
-        run: python experiments/tiamat_lane_family_tournament.py
+        run: PYTHONPATH="$GITHUB_WORKSPACE" python experiments/tiamat_lane_family_tournament.py | tee lane_family_tournament.log
+      - name: Verify tournament result record exists
+        run: test -s tiamat_lane_family_tournament_results.json
       - name: Publish result summary
         run: |
           python - <<'PY'
