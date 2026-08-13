@@ -5,8 +5,11 @@ on:
     branches: [research/tiamat-archaeology-build]
     paths:
       - 'experiments/first_poke/head_scope_court.py'
+      - 'experiments/tiamat_head_ablation_battery.py'
       - 'tiamat/**'
       - 'tests/test_tiamat_head_scope_contract.py'
+      - 'tests/test_tiamat_head_ablation_battery.py'
+      - 'docs/TIAMAT_HEAD_ABLATION_BATTERY_V1.md'
   workflow_dispatch:
 
 jobs:
@@ -26,3 +29,7 @@ jobs:
         run: python experiments/first_poke/head_scope_court.py
       - name: Run head scope contract
         run: pytest -q tests/test_tiamat_head_scope_contract.py
+      - name: Run head ablation harness contract
+        run: pytest -q tests/test_tiamat_head_ablation_battery.py
+      - name: Verify battery result record exists
+        run: test -f docs/TIAMAT_HEAD_ABLATION_BATTERY_V1.md
