@@ -35,6 +35,7 @@ jobs:
         run: PYTHONPATH="$GITHUB_WORKSPACE" pytest -q tests/test_tiamat_head_ablation_battery.py
       - name: Run head ablation battery
         run: |
+          set -o pipefail
           PYTHONPATH="$GITHUB_WORKSPACE" python experiments/tiamat_head_ablation_battery.py | tee head_ablation_battery.log
       - name: Verify battery result record exists
         run: test -s tiamat_head_ablation_battery_results.json
@@ -43,10 +44,15 @@ jobs:
           python - <<'PY'
           import json
           d=json.load(open("tiamat_head_ablation_battery_results.json"))
+          print(f"lineage={d.get('lineage','native_or_recomputed')}")
           print(f"rows={d['rows']} active_rows={d['active_rows']} eligible_rows={d['eligible_rows']}")
-          print(f"universal_vs_native={d['universal_vs_native']}")
+          print(f"classification={d.get('classification')}")
           for h,v in d["heads"].items():
-              print(f"HEAD {h} path={v['path']} n={v['n']} positive_rate={v['positive_rate']}")
-              print("  full_in_sample=", v.get("full_in_sample"))
-              print("  ablations=", v.get("ablations"))
-              print("  leave_year_out=", d["leave_year_out"].get(h))
+              print(f"HEAD {h} n={v['n']} positive_rate={v['positive_rate']}")
+              if "full_in_sample" in v: print("  full_in_sample=", v["full_in_sample"])
+              if "top" in v:
+                  for p in v["top"][:3]: print("  PAIR=",p)
+              if "ablations" in v: print("  ablations=", v["ablations"])
+          if "leave_year_out" in d: print("leave_year_out=", d["leave_year_out"])
+          if "universal_vs_native" in d: print("universal_vs_native=", d["universal_vs_native"])
+          PY
