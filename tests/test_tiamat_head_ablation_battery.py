@@ -37,4 +37,6 @@ def test_target_requires_contiguous_active_hours() -> None:
     df = pd.DataFrame(rows)
     target = build_target(df, hours=3)
     assert target.iloc[0] == 1.0
-    assert target.iloc[15] == 0.0
+    # Row 16 has only two future active hours (17, 18), so the 3-hour
+    # contiguous horizon cannot be satisfied and must be negative.
+    assert target.iloc[16] == 0.0
