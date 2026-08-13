@@ -1,0 +1,51 @@
+{
+  "lineage": "NATIVE_LAYER1_CAUSAL_FIELDS_ONLY",
+  "source": "layer1_structured_hazard_arm_timeseries(15).csv",
+  "rows": 43848,
+  "active_rows": 4026,
+  "target": "survive next 15 contiguous hourly observations while active",
+  "excluded_from_family_search": ["episode_type", "duration_bucket"],
+  "reason_excluded": "final episode labels are not live-time causal features",
+  "heads": {
+    "H0": {
+      "n": 63,
+      "top_causal_pair": "AGE+RECOVERY",
+      "mean_oos_interaction_auc_gain": 0.0,
+      "years_positive_gain": 0,
+      "mean_oos_brier_delta": -0.0001
+    },
+    "H2": {
+      "n": 221,
+      "top_causal_pair": "AGE+RECOVERY",
+      "mean_oos_interaction_auc_gain": 0.0167,
+      "years_positive_gain": 1,
+      "mean_oos_brier_delta": -0.0011,
+      "secondary_pair": "BURDEN+HAZARD",
+      "secondary_mean_oos_interaction_auc_gain": 0.0065,
+      "secondary_years_positive_gain": 4
+    },
+    "H3": {
+      "n": 169,
+      "top_causal_pair": "AGE+HAZARD",
+      "mean_oos_interaction_auc_gain": 0.054,
+      "years_positive_gain": 1,
+      "mean_oos_brier_delta": -0.0069,
+      "secondary_pair": "HAZARD+RECOVERY",
+      "secondary_mean_oos_interaction_auc_gain": 0.0284,
+      "secondary_years_positive_gain": 1
+    },
+    "H4": {
+      "n": 3573,
+      "top_causal_pair": "AGE+SHOCK",
+      "mean_oos_interaction_auc_gain": 0.0085,
+      "years_positive_gain": 4,
+      "mean_oos_brier_delta": -0.0044,
+      "secondary_pair": "BURDEN+HAZARD",
+      "secondary_mean_oos_interaction_auc_gain": 0.0006,
+      "secondary_years_positive_gain": 3
+    }
+  },
+  "status": "research_only",
+  "authority": "no runtime promotion",
+  "interpretation": "Native Layer-1 causal-field tournament does not reproduce the proxy's dramatic H3 burden-hazard interaction. H3 remains the most promising lane for lane-specific interaction search, with age-hazard and hazard-recovery leading after leakage removal."
+}
