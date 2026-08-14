@@ -1,0 +1,13 @@
+{
+  "candidate":"AB1",
+  "formula":"0.6*hazard_score + 0.4*LiveDeficit",
+  "native_rows":43848,
+  "oracle_auc":0.999854,
+  "oracle_status":"DISCOVERY_ONLY_ORACLE_LEAKAGE",
+  "future_crash24":{"ab1_auc":0.7222470622,"hazard_auc":0.7123755777,"burden_auc":0.7227670243},
+  "weight_stability":{"2020":0.14,"2021":0.10,"2022":0.10,"2024":0.94},
+  "loyo_ab1_auc":{"2020":0.762883,"2021":0.704504,"2022":0.612858,"2024":0.897717},
+  "shuffle":{"original":0.722247,"hazard_shuffled":0.668101,"burden_shuffled":0.687822,"both_shuffled":0.510322},
+  "regime":{"down_gt10":0.843260,"flat_pm10":0.766341,"up_gt10":0.500918},
+  "conclusion":"AB1 remains a useful candidate but is not a proven canonical universal scalar; the 0.6/0.4 weighting is not stable across years."
+}
