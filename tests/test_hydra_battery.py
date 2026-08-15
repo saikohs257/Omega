@@ -98,7 +98,8 @@ def test_replay_is_deterministic_and_stateful():
     rows = [
         ev(0.4, 0.3, prev_ld=0.3),
         ev(0.6, 0.5, prev_ld=0.3, age=1),
-        ev(0.8, 0.7, prev_ld=0.5, age=2),
+        # Cross the documented lane boundary so the final replay path is 2_to_4.
+        ev(0.8, 0.7, prev_ld=0.7000001, age=2),
     ]
     engine = HydraEngine()
     a = engine.replay(rows)
