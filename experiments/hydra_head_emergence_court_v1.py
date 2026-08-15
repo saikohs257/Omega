@@ -22,11 +22,12 @@ The design is inspired by floating feature-selection methods and stability-
 focused nested-validation practice: feature selection belongs inside the
 training/discovery process, not on the final holdout. Brier is treated as a
 probabilistic score rather than a pure calibration metric; the court reports
-calibration error separately. See the experiment notes for references.
+calibration error separately. See the companion design note for references.
 """
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -276,7 +277,7 @@ def main(csv: Path, out: Path | None) -> None:
         print("permutation", perm)
 
     if out:
-        out.write_text(__import__("json").dumps(results, indent=2))
+        out.write_text(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":
