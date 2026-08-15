@@ -1,0 +1,44 @@
+{
+  "dataset_id": "LAYER1_CANONICAL_2020_2024_V1",
+  "artifact": {
+    "release_tag": "LAYER1_CANONICAL_2020_2024_V1",
+    "asset": "LAYER1_CANONICAL_2020_2024_V1.zip",
+    "source_filename": "layer1_structured_hazard_arm_timeseries(15).csv"
+  },
+  "integrity": {
+    "sha256": "6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a",
+    "rows": 43848,
+    "columns": 15,
+    "native_3_to_4_starts": 169,
+    "date_range": {
+      "start": "2020-01-01 00:00:00",
+      "end": "2024-12-31 23:00:00"
+    }
+  },
+  "schema": [
+    "open_time",
+    "close",
+    "SimpleShock",
+    "LiveDeficit",
+    "RecoveryWeakness_v1",
+    "recovery_gate",
+    "entry_path",
+    "episode_age_h",
+    "duration_bucket",
+    "regime_30d",
+    "episode_type",
+    "hazard_raw",
+    "hazard_score",
+    "hazard_bucket",
+    "Crash72"
+  ],
+  "provenance": {
+    "status": "canonical_verified_upload",
+    "verification": "local_sha256_and_structural_checks_passed",
+    "verified_against_existing_repo_contract": true
+  },
+  "immutability": {
+    "policy": "immutable_dataset_identity; corrections require a new dataset version",
+    "supersedes": null
+  }
+}
