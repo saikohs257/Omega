@@ -45,6 +45,9 @@ def make_history(d):
 
 
 def predict(train,test,cols):
+ if not cols:
+  # Intercept-only null model for the intentional empty-head baseline.
+  return np.full(len(test),train[TARGET].mean(),dtype=float)
  m=make_pipeline(SimpleImputer(strategy="median"),StandardScaler(),LogisticRegression(max_iter=1500,class_weight="balanced",C=.5,solver="liblinear"))
  m.fit(train[cols],train[TARGET].astype(int)); return m.predict_proba(test[cols])[:,1]
 
@@ -74,7 +77,7 @@ def main(csv,out):
  for heads in sequence:
   cols,folds=eval_nested(d,heads)
   tr=d[d.open_time.dt.year.isin(YEARS)]; te=d[d.open_time.dt.year==HOLDOUT]
-  p=predict(tr,te,cols) if cols else np.full(len(te),tr[TARGET].mean())
+  p=predict(tr,te,cols)
   hold=metrics(te[TARGET].to_numpy(),p)
   results.append({"heads":heads,"features":cols,"walk_forward":folds,"holdout_2024":hold})
   print(heads or ["BASELINE"],hold)
