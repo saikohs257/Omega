@@ -72,24 +72,48 @@ jobs:
         run: python -m pytest -q tests/test_tiamat_metric_value_report.py
       - name: Run TIAMAT focused tests
         run: python -m pytest -q tests/test_tiamat_*.py
+      - name: Fetch canonical Hydra dataset
+        env:
+          CANONICAL_URL: https://github.com/user-attachments/files/31108408/LAYER1_CANONICAL_2020_2024_V1.zip
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            "$CANONICAL_URL" \
+            --output data/canonical/LAYER1_CANONICAL_2020_2024_V1.zip
+          unzip -o data/canonical/LAYER1_CANONICAL_2020_2024_V1.zip -d data/canonical
+          CSV="data/canonical/layer1_structured_hazard_arm_timeseries(15).csv"
+          test -f "$CSV"
+          ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
       - name: Verify canonical Hydra court data
         run: |
-          CSV="data/canonical/layer1_structured_hazard_arm_timeseries.csv"
-          test -f "$CSV" || { echo "ERROR: canonical 2020-2024 Layer-1 CSV is missing: $CSV"; exit 1; }
-          python - "$CSV" <<'PY'
-          import hashlib, pathlib, sys
+          python - <<'PY'
+          import hashlib
+          import json
+          import pathlib
           import pandas as pd
-          p = pathlib.Path(sys.argv[1])
-          expected_sha = "6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a"
-          digest = hashlib.sha256(p.read_bytes()).hexdigest()
-          print(f"canonical_sha256={digest}")
+
+          manifest = json.loads(pathlib.Path("data/canonical/manifest.json").read_text())
+          csv = pathlib.Path("data/canonical/layer1_structured_hazard_arm_timeseries.csv")
+          expected_sha = manifest["integrity"]["sha256"]
+          expected_rows = manifest["integrity"]["rows"]
+          expected_cols = manifest["integrity"]["columns"]
+          expected_h3 = manifest["integrity"]["native_3_to_4_starts"]
+
+          digest = hashlib.sha256(csv.read_bytes()).hexdigest()
           assert digest == expected_sha, f"wrong canonical SHA: {digest}"
-          df = pd.read_csv(p)
-          assert len(df) == 43848, len(df)
+          df = pd.read_csv(csv)
+          assert len(df) == expected_rows, len(df)
+          assert len(df.columns) == expected_cols, len(df.columns)
           starts = ((df["entry_path"] == "3_to_4") & (df["episode_age_h"] == 1)).sum()
-          assert int(starts) == 169, starts
-          print(f"canonical_rows={len(df)}")
-          print(f"canonical_h3_starts={int(starts)}")
+          assert int(starts) == expected_h3, starts
+
+          print("CANONICAL SPINE")
+          print(f"rows:       {len(df)}")
+          print(f"columns:    {len(df.columns)}")
+          print(f"H3 starts:  {int(starts)}")
+          print(f"sha256:     {digest}")
+          print("status:     VERIFIED")
           PY
       - name: Run Hydra head emergence court
         run: |
