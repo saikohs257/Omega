@@ -26,7 +26,7 @@ HEAD_FEATURES = {
     "Hazard": ("hazard_score",),
     "Burden": ("LiveDeficit_lag6",),
     "Recovery": ("RecoveryWeakness_v1_lag6",),
-    "Trajectory": ("SimpleShock_mean24", "hazard_score_mean24", "hazard_diff1"),
+    "Trajectory": ("SimpleShock_mean24", "hazard_score_mean24", "hazard_score_diff1"),
 }
 
 
@@ -51,8 +51,6 @@ def with_persistence(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.DataFr
     rw = pd.to_numeric(train.RecoveryWeakness_v1, errors="coerce")
     ld_thr = float(ld.quantile(.75)); rw_thr = float(rw.quantile(.75))
 
-    # Build a causal counter for train. For test, initialize from the terminal
-    # train state and then advance chronologically through the test rows.
     def advance(values: np.ndarray, threshold: float, initial: int = 0) -> np.ndarray:
         n = 0 if not np.isfinite(initial) else int(initial)
         out = []
@@ -97,7 +95,6 @@ def score(y, p):
 
 
 def crossfit_heads(train, test, specs):
-    # Expanding-origin OOF predictions for the discovered head signals.
     n = len(train); oof = {k: np.full(n, np.nan) for k in specs}; ts = {}
     cuts = np.linspace(0, n, 4, dtype=int)
     for k, hcols in specs.items():
@@ -191,7 +188,6 @@ def main(csv: Path, out: Path | None):
             folds.append({"year": year, "order": order, "steps": evaluate_sequence(tr, te, order)})
     holdout = [{"order": order, "steps": evaluate_sequence(train23, hold, order)} for order in orders]
 
-    # Null on frozen holdout for the fully admitted configuration.
     trh, teh = with_persistence(train23, hold)
     admitted = {h: base[h] for h in orders[0]}
     oof, to, mask = crossfit_heads(trh, teh, admitted); y = trh[TARGET].astype(int).to_numpy()[mask]
