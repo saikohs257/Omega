@@ -1,0 +1,88 @@
+name: Hydra V2 Manual Court
+
+on:
+  workflow_dispatch:
+    inputs:
+      evidence_url:
+        description: 'HTTPS URL for the verified Layer-1 evidence CSV'
+        required: true
+        type: string
+      evidence_sha256:
+        description: 'Expected SHA-256 of the evidence CSV'
+        required: true
+        type: string
+
+jobs:
+  hydra-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test dependencies
+        run: python -m pip install -e '.[test]'
+
+      - name: Acquire evidence artifact
+        env:
+          EVIDENCE_URL: ${{ inputs.evidence_url }}
+        run: |
+          set -euo pipefail
+          case "$EVIDENCE_URL" in
+            https://*) ;;
+            *) echo 'ERROR: evidence_url must be HTTPS'; exit 1;;
+          esac
+          mkdir -p evidence
+          curl --fail --location --silent --show-error --retry 3 --output evidence/layer1_source.csv "$EVIDENCE_URL"
+          test -s evidence/layer1_source.csv
+
+      - name: Verify evidence artifact
+        env:
+          EXPECTED_SHA256: ${{ inputs.evidence_sha256 }}
+        run: |
+          set -euo pipefail
+          python - evidence/layer1_source.csv "$EXPECTED_SHA256" <<'PY'
+          import hashlib, pathlib, sys
+          import pandas as pd
+          p = pathlib.Path(sys.argv[1])
+          expected = sys.argv[2].strip().lower()
+          if len(expected) != 64 or any(c not in '0123456789abcdef' for c in expected):
+              raise SystemExit('ERROR: evidence_sha256 must be a 64-character hex SHA-256')
+          digest = hashlib.sha256(p.read_bytes()).hexdigest()
+          print(f'evidence_sha256={digest}')
+          if digest != expected:
+              raise SystemExit(f'ERROR: SHA mismatch: {digest}')
+          df = pd.read_csv(p)
+          if len(df) != 43848:
+              raise SystemExit(f'ERROR: expected 43848 rows, got {len(df)}')
+          starts = ((df['entry_path'] == '3_to_4') & (df['episode_age_h'] == 1)).sum()
+          if int(starts) != 169:
+              raise SystemExit(f'ERROR: expected 169 H3 starts, got {int(starts)}')
+          print(f'evidence_rows={len(df)}')
+          print(f'evidence_h3_starts={int(starts)}')
+          PY
+
+      - name: Run Layer-1 causal clearance audit
+        run: |
+          mkdir -p ci-results
+          python experiments/audit_layer1_causal_clearance.py \
+            evidence/layer1_source.csv \
+            --manifest ci-results/layer1_causal_clearance.json
+
+      - name: Run Hydra conditional ablation V2
+        run: |
+          python experiments/hydra_conditional_ablation_v2.py \
+            evidence/layer1_source.csv \
+            --out ci-results/hydra_conditional_ablation_v2.json
+
+      - name: Upload court artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-v2-court
+          path: ci-results/
+          if-no-files-found: error
