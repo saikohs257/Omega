@@ -1,21 +1,27 @@
 from pathlib import Path
 
-import pandas as pd
-
-from experiments.audit_layer1_causal_clearance import audit
+from experiments.audit_layer1_causal_clearance import (
+    EXPECTED_H3_STARTS,
+    EXPECTED_ROWS,
+    EXPECTED_SOURCE_SHA256,
+    HAZARD_QUARANTINE,
+    HINDSIGHT_QUARANTINE,
+    RUNTIME_CANDIDATES,
+    audit,
+)
 
 
 SOURCE = Path("data/canonical/layer1_structured_hazard_arm_timeseries(15).csv")
 
 
 def test_layer1_clearance_contract():
-    if not SOURCE.exists():
-        return
+    assert SOURCE.exists(), "canonical Layer-1 source is required; do not silently skip the integrity gate"
     result = audit(SOURCE)
-    assert result["rows"] == 43848
-    assert result["h3_start_count"] == 169
-    assert result["hazard_quarantine"] == ["hazard_raw", "hazard_score", "hazard_bucket"]
-    assert result["hindsight_quarantine"] == [
-        "Crash72", "entry_path", "episode_age_h", "duration_bucket", "episode_type"
-    ]
+    assert result["rows"] == EXPECTED_ROWS
+    assert result["h3_start_count"] == EXPECTED_H3_STARTS
+    assert result["source_sha256"] == EXPECTED_SOURCE_SHA256
+    assert result["runtime_candidates"] == RUNTIME_CANDIDATES
+    assert result["hazard_quarantine"] == HAZARD_QUARANTINE
+    assert result["hindsight_quarantine"] == HINDSIGHT_QUARANTINE
+    assert result["hourly_cadence_verified"] is True
     assert result["feature_clearance"]["promotion_allowed"] is False
