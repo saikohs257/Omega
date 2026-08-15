@@ -4,9 +4,9 @@ Crash72 is the single target for the nested ablation. 2024 is frozen. Native
 TIAMAT-derived hazard state is audited but not trusted as a causal anchor.
 Head outputs are cross-fitted before the coordinator sees them.
 
-This executable also seals Recovery/Persistence representation selection inside
-each outer walk-forward training interval. No representation candidate is
-selected using the outer test year or the frozen 2024 holdout.
+Recovery/Persistence representation selection is sealed inside each outer
+walk-forward training interval. Persistence tenure carries across the train
+/test boundary while its threshold is learned from training data only.
 """
 from __future__ import annotations
 
@@ -49,27 +49,36 @@ def prepare(d: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
-def add_persistence(train, test):
+def _persistence_series(values: np.ndarray, threshold: float, initial_age: int = 0) -> np.ndarray:
+    age = int(initial_age)
+    out = []
+    for x in values:
+        if np.isfinite(x) and x >= threshold:
+            age += 1
+        else:
+            age = 0
+        out.append(age)
+    return np.asarray(out, float)
+
+
+def add_persistence(train: pd.DataFrame, test: pd.DataFrame):
+    """Add tenure using train-only thresholds and continuous train→test state."""
     train = train.copy()
     test = test.copy()
     ld = float(train._ld.quantile(.75))
     rw = float(train._rw.quantile(.75))
 
-    def age(s, threshold):
-        a = 0
-        out = []
-        for x in s:
-            if np.isfinite(x) and x >= threshold:
-                a += 1
-            else:
-                a = 0
-            out.append(a)
-        return np.asarray(out, float)
+    train_ld = _persistence_series(train._ld.to_numpy(float), ld)
+    train_rw = _persistence_series(train._rw.to_numpy(float), rw)
+    test_ld0 = int(train_ld[-1]) if len(train_ld) and train_ld[-1] > 0 else 0
+    test_rw0 = int(train_rw[-1]) if len(train_rw) and train_rw[-1] > 0 else 0
+    test_ld = _persistence_series(test._ld.to_numpy(float), ld, test_ld0)
+    test_rw = _persistence_series(test._rw.to_numpy(float), rw, test_rw0)
 
-    train["persistence_ld"] = age(train._ld.to_numpy(float), ld)
-    train["persistence_rw"] = age(train._rw.to_numpy(float), rw)
-    test["persistence_ld"] = age(test._ld.to_numpy(float), ld)
-    test["persistence_rw"] = age(test._rw.to_numpy(float), rw)
+    train["persistence_ld"] = train_ld
+    train["persistence_rw"] = train_rw
+    test["persistence_ld"] = test_ld
+    test["persistence_rw"] = test_rw
     return train, test
 
 
@@ -104,7 +113,7 @@ def score(y, p):
 
 
 def crossfit_heads(train, test, specs):
-    """Return OOF train head outputs and frozen test outputs."""
+    """Return chronological OOF train head outputs and frozen test outputs."""
     n = len(train)
     oof = {k: np.full(n, np.nan) for k in specs}
     ts = {}
@@ -152,7 +161,6 @@ def run_config(train, test, specs):
 
 
 def _nested_validation_split(train: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Chronological internal split used only for representation selection."""
     n = len(train)
     cut = int(n * 0.75)
     if cut < 100 or n - cut < 50:
@@ -164,7 +172,6 @@ def select_representations(train: pd.DataFrame) -> dict:
     """Select Recovery/Persistence representations without seeing outer test data."""
     sub, val = _nested_validation_split(train)
     sub_p, val_p = add_persistence(sub, val)
-
     recovery_candidates = (
         "LiveDeficit_diff1",
         "LiveDeficit_slope24",
@@ -172,7 +179,6 @@ def select_representations(train: pd.DataFrame) -> dict:
         "RecoveryWeakness_v1_diff1",
     )
     persistence_candidates = ("persistence_ld", "persistence_rw")
-
     rec_scores = {
         c: score(val_p.Crash72.astype(int), fit(sub_p, val_p, [c]))["auc"]
         for c in recovery_candidates
@@ -181,7 +187,6 @@ def select_representations(train: pd.DataFrame) -> dict:
         c: score(val_p.Crash72.astype(int), fit(sub_p, val_p, [c]))["auc"]
         for c in persistence_candidates
     }
-
     best_r = max(rec_scores, key=lambda x: rec_scores[x] if rec_scores[x] is not None else -1)
     best_p = max(per_scores, key=lambda x: per_scores[x] if per_scores[x] is not None else -1)
     return {
@@ -227,19 +232,16 @@ def main(csv: Path, out: Path | None):
 
     train23 = d[d.open_time.dt.year <= 2023].copy()
     hold = d[d.open_time.dt.year == 2024].copy()
-
     hazard = {
         "lineage": "SUSPECT_NATIVE_TIAMAT_DERIVED",
         "holdout_2024": score(hold.Crash72.astype(int), fit(train23, hold, ["hazard_score"])),
         "promotion": False,
     }
-
     orders = [
         ["Hazard", "Burden", "Recovery", "Persistence", "Trajectory"],
         ["Hazard", "Trajectory", "Burden", "Recovery", "Persistence"],
         ["Burden", "Recovery", "Trajectory", "Persistence", "Hazard"],
     ]
-
     folds = []
     fold_representation_selection = {}
     for year in (2021, 2022, 2023):
@@ -250,11 +252,9 @@ def main(csv: Path, out: Path | None):
         base = build_heads(rep)
         for result in evaluate_orders(train, test, base, orders):
             folds.append({"year": year, **result})
-
     hold_rep = select_representations(train23)
     hold_base = build_heads(hold_rep)
     holdout = evaluate_orders(train23, hold, hold_base, orders)
-
     perm = []
     rng = np.random.default_rng(17)
     admitted = {}
@@ -272,13 +272,7 @@ def main(csv: Path, out: Path | None):
             pp = coordinator(oof, z, y)
             null.append(score(teh.Crash72.astype(int), pp)["auc"])
         p95 = float(np.quantile(null, .95))
-        perm.append({
-            "added": h,
-            "observed_auc": obs,
-            "null_p95_auc": p95,
-            "separation": None if obs is None else float(obs - p95),
-        })
-
+        perm.append({"added": h, "observed_auc": obs, "null_p95_auc": p95, "separation": None if obs is None else float(obs - p95)})
     payload = {
         "court": "HYDRA_HEAD_CONDITIONAL_ABLATION_V2",
         "audit": a,
