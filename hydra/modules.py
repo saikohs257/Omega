@@ -42,14 +42,10 @@ class TrajectoryModule:
     name: str = "trajectory"
 
     def update(self, evidence: HydraEvidence, state: HydraState) -> float:
-        """Estimate directional transition pressure.
-
-        Version 0 uses hazard acceleration when prior state exists.  This is a
-        deliberately small baseline that can later be replaced by a richer
-        adaptive trajectory estimator without changing the shared-state contract.
-        """
-        delta = evidence.hazard_raw - state.hazard
-        return _clamp01(0.5 + 0.5 * max(-1.0, min(1.0, delta)))
+        """Estimate directional transition pressure from normalized hazard change."""
+        delta = float(evidence.hazard_score) - float(state.hazard)
+        delta = max(-1.0, min(1.0, delta))
+        return _clamp01(0.5 + 0.5 * delta)
 
 
 @dataclass(frozen=True, slots=True)
