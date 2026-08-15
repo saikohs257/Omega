@@ -1,0 +1,63 @@
+name: Hydra V2 Manual Court
+
+on:
+  workflow_dispatch:
+
+jobs:
+  hydra-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test dependencies
+        run: python -m pip install -e '.[test]'
+
+      - name: Verify recovered evidence artifact
+        run: |
+          CSV='data/canonical/layer1_structured_hazard_arm_timeseries(15).csv'
+          test -f "$CSV" || {
+            echo "ERROR: recovered 15-column Layer-1 evidence panel is missing: $CSV"
+            exit 1
+          }
+          python - "$CSV" <<'PY'
+          import hashlib, pathlib, sys
+          import pandas as pd
+          p = pathlib.Path(sys.argv[1])
+          expected = '6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a'
+          digest = hashlib.sha256(p.read_bytes()).hexdigest()
+          print(f'evidence_sha256={digest}')
+          assert digest == expected, f'wrong evidence SHA: {digest}'
+          df = pd.read_csv(p)
+          assert len(df) == 43848
+          starts = ((df['entry_path'] == '3_to_4') & (df['episode_age_h'] == 1)).sum()
+          assert int(starts) == 169
+          print(f'evidence_rows={len(df)}')
+          print(f'evidence_h3_starts={int(starts)}')
+          PY
+
+      - name: Run Layer-1 causal clearance audit
+        run: |
+          mkdir -p ci-results
+          python experiments/audit_layer1_causal_clearance.py \
+            'data/canonical/layer1_structured_hazard_arm_timeseries(15).csv' \
+            --manifest ci-results/layer1_causal_clearance.json
+
+      - name: Run Hydra conditional ablation V2
+        run: |
+          python experiments/hydra_conditional_ablation_v2.py \
+            'data/canonical/layer1_structured_hazard_arm_timeseries(15).csv' \
+            --out ci-results/hydra_conditional_ablation_v2.json
+
+      - name: Upload court artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-v2-court
+          path: ci-results/
+          if-no-files-found: error
