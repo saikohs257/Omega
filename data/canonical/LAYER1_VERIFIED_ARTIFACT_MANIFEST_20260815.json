@@ -1,0 +1,13 @@
+{
+  "status": "CANDIDATE_RUNTIME_SPINE_NOT_CAUSALLY_CLEARED",
+  "source_rows": 43848,
+  "source_sha256": "6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a",
+  "native_h3_starts": 169,
+  "causal_spine_sha256": "2ae3daa4795078ac3c9dd87485f6735390eaecc9271ddc7e44743a4aba3f532d",
+  "labels_sha256": "8fd79e85c4dbf47a399ac4862398d156213e2422367544f32806008760af4433",
+  "annotations_sha256": "03c7bff1dd26d5b08664bfde9dce8f21370882d3bfd605aded93c3f55ad45bb7",
+  "hazard_status": "QUARANTINED",
+  "target_status": "FROZEN_SUPPLIED_CRASH72",
+  "runtime_lineage_verified": false,
+  "promotion_allowed": false
+}
