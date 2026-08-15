@@ -42,8 +42,14 @@ class HydraEngine:
 
         # Activation is deliberately conservative and transparent. It is a
         # coordinator policy, not a claim about canonical TIAMAT admission logic.
-        active = (hazard >= 0.90 and burden >= 0.70) or lane_score >= 0.80
-        age = evidence.episode_age_h if active else 0
+        # A strong rising hazard is independently actionable even before burden
+        # catches up; this preserves transition information rather than hiding it.
+        active = (
+            (hazard >= 0.90 and burden >= 0.70)
+            or (hazard >= 0.90 and trajectory >= 0.80)
+            or lane_score >= 0.80
+        )
+        age = max(0, int(evidence.episode_age_h))
 
         votes = {
             "hazard": "high" if hazard >= 0.80 else "low",
