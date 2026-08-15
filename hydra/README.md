@@ -48,6 +48,7 @@ Routes the observation into the recovered topology scopes using the previous-hou
 3. Final labels such as `episode_type` and `duration_bucket` are never accepted as predictors by the core engine.
 4. Lane-specific meaning is preserved; H0/H2/H3 are not forced into one universal scalar.
 5. Every module can be replaced or enhanced independently and tested by differential comparison against TIAMAT or native panels.
+6. CI must be run on every Hydra change; a green local assumption is never treated as validation.
 
 ## Current status
 
