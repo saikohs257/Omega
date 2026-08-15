@@ -9,7 +9,6 @@ on:
 permissions:
   contents: read
 
-# Manual trigger marker: force a fresh canonical-data court run.
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -40,7 +39,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[test]'
-          python -m pip install 'numpy>=1.26,<3' 'pandas>=2.0,<3'
       - name: Verify scientific test dependencies
         run: python -c "import numpy; import pandas; import pytest; print(f'numpy={numpy.__version__}'); print(f'pandas={pandas.__version__}'); print(f'pytest={pytest.__version__}')"
       - name: Import package surface
@@ -75,17 +73,39 @@ jobs:
         run: python -m pytest -q tests/test_tiamat_*.py
       - name: Fetch canonical Hydra dataset
         env:
-          CANONICAL_URL: https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p data/canonical
+          ASSET_ID="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("data/canonical/manifest.json").read_text())
+          print(manifest["artifact"]["release_asset_id"])
+          PY
+          )"
+          EXPECTED_ZIP_SHA="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("data/canonical/manifest.json").read_text())
+          print(manifest["artifact"]["release_asset_sha256"])
+          PY
+          )"
+          OUT="data/canonical/LAYER1_CANONICAL_2020_2024_V2.zip"
+          API_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}"
           curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
-            "$CANONICAL_URL" \
-            --output data/canonical/LAYER1_CANONICAL_2020_2024_V2.zip
-          unzip -o data/canonical/LAYER1_CANONICAL_2020_2024_V2.zip -d data/canonical
+            -H "Accept: application/octet-stream" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "$API_URL" \
+            --output "$OUT"
+          ACTUAL_ZIP_SHA="$(sha256sum "$OUT" | awk '{print $1}')"
+          test "$ACTUAL_ZIP_SHA" = "$EXPECTED_ZIP_SHA"
+          unzip -o "$OUT" -d data/canonical
           CSV="data/canonical/layer1_structured_hazard_arm_timeseries(15).csv"
           test -f "$CSV"
           ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
+          echo "release_asset_id=${ASSET_ID}"
+          echo "release_asset_sha256=${ACTUAL_ZIP_SHA}"
       - name: Verify canonical Hydra court data
         run: |
           python - <<'PY'
