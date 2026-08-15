@@ -67,30 +67,24 @@ def add_persistence(train: pd.DataFrame, test: pd.DataFrame):
     test = test.copy()
     ld = float(train._ld.quantile(.75))
     rw = float(train._rw.quantile(.75))
-
     train_ld = _persistence_series(train._ld.to_numpy(float), ld)
     train_rw = _persistence_series(train._rw.to_numpy(float), rw)
     test_ld0 = int(train_ld[-1]) if len(train_ld) and train_ld[-1] > 0 else 0
     test_rw0 = int(train_rw[-1]) if len(train_rw) and train_rw[-1] > 0 else 0
-    test_ld = _persistence_series(test._ld.to_numpy(float), ld, test_ld0)
-    test_rw = _persistence_series(test._rw.to_numpy(float), rw, test_rw0)
-
     train["persistence_ld"] = train_ld
     train["persistence_rw"] = train_rw
-    test["persistence_ld"] = test_ld
-    test["persistence_rw"] = test_rw
+    test["persistence_ld"] = _persistence_series(test._ld.to_numpy(float), ld, test_ld0)
+    test["persistence_rw"] = _persistence_series(test._rw.to_numpy(float), rw, test_rw0)
     return train, test
 
 
 def estimator(cols):
-    return make_pipeline(
-        SimpleImputer(strategy="median"),
-        StandardScaler(),
-        LogisticRegression(max_iter=2000, C=.5, solver="liblinear"),
-    )
+    return make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), LogisticRegression(max_iter=2000, C=.5, solver="liblinear"))
 
 
 def fit(train, test, cols):
+    if train.Crash72.nunique() < 2:
+        raise ValueError("training slice has only one Crash72 class")
     m = estimator(cols)
     m.fit(train[list(cols)].astype(float), train.Crash72.astype(int))
     return m.predict_proba(test[list(cols)].astype(float))[:, 1]
@@ -98,10 +92,7 @@ def fit(train, test, cols):
 
 def score(y, p):
     p = np.clip(np.asarray(p, float), 1e-6, 1 - 1e-6)
-    r = {
-        "brier": float(brier_score_loss(y, p)),
-        "logloss": float(log_loss(y, p, labels=[0, 1])),
-    }
+    r = {"brier": float(brier_score_loss(y, p)), "logloss": float(log_loss(y, p, labels=[0, 1]))}
     if len(np.unique(y)) == 2:
         r["auc"] = float(roc_auc_score(y, p))
         r["pr_auc"] = float(average_precision_score(y, p))
@@ -110,6 +101,15 @@ def score(y, p):
     else:
         r.update({"auc": None, "pr_auc": None, "ece10_mae": None})
     return r
+
+
+def _selection_auc(train, val, cols):
+    if train.Crash72.nunique() < 2 or val.Crash72.nunique() < 2:
+        return None
+    try:
+        return score(val.Crash72.astype(int), fit(train, val, [cols]))["auc"]
+    except (ValueError, KeyError):
+        return None
 
 
 def crossfit_heads(train, test, specs):
@@ -122,34 +122,29 @@ def crossfit_heads(train, test, specs):
         for i in range(1, 4):
             lo, hi = cuts[i - 1], cuts[i]
             fit_end = lo
-            if fit_end < 100:
+            if fit_end < 100 or train.iloc[:fit_end].Crash72.nunique() < 2:
                 continue
             p = fit(train.iloc[:fit_end], train.iloc[lo:hi], h.cols)
             oof[k][lo:hi] = p
         ts[k] = fit(train, test, h.cols)
-    mask = np.all(np.isfinite(np.column_stack(list(oof.values()))), axis=1)
+    matrix = np.column_stack(list(oof.values()))
+    mask = np.all(np.isfinite(matrix), axis=1)
     return {k: v[mask] for k, v in oof.items()}, ts, mask
 
 
 def coordinator(oof, test_outputs, y):
+    if len(np.unique(y)) < 2:
+        raise ValueError("coordinator training slice has only one Crash72 class")
     names = list(oof)
     X = np.column_stack([oof[n] for n in names])
     Z = np.column_stack([test_outputs[n] for n in names])
-    m = make_pipeline(
-        StandardScaler(),
-        LogisticRegression(max_iter=2000, C=.5, solver="liblinear"),
-    )
+    m = make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000, C=.5, solver="liblinear"))
     m.fit(X, y)
     return m.predict_proba(Z)[:, 1]
 
 
 def audit(d):
-    return {
-        "rows": len(d),
-        "leakage_fields_present": sorted(LEAKAGE & set(d.columns)),
-        "native_suspect": sorted(SUSPECT & set(d.columns)),
-        "h3_starts_posthoc": int(((d.entry_path == "3_to_4") & (d.episode_age_h == 1)).sum()),
-    }
+    return {"rows": len(d), "leakage_fields_present": sorted(LEAKAGE & set(d.columns)), "native_suspect": sorted(SUSPECT & set(d.columns)), "h3_starts_posthoc": int(((d.entry_path == "3_to_4") & (d.episode_age_h == 1)).sum())}
 
 
 def run_config(train, test, specs):
@@ -172,41 +167,21 @@ def select_representations(train: pd.DataFrame) -> dict:
     """Select Recovery/Persistence representations without seeing outer test data."""
     sub, val = _nested_validation_split(train)
     sub_p, val_p = add_persistence(sub, val)
-    recovery_candidates = (
-        "LiveDeficit_diff1",
-        "LiveDeficit_slope24",
-        "burden_minus_shock24",
-        "RecoveryWeakness_v1_diff1",
-    )
+    recovery_candidates = ("LiveDeficit_diff1", "LiveDeficit_slope24", "burden_minus_shock24", "RecoveryWeakness_v1_diff1")
     persistence_candidates = ("persistence_ld", "persistence_rw")
-    rec_scores = {
-        c: score(val_p.Crash72.astype(int), fit(sub_p, val_p, [c]))["auc"]
-        for c in recovery_candidates
-    }
-    per_scores = {
-        c: score(val_p.Crash72.astype(int), fit(sub_p, val_p, [c]))["auc"]
-        for c in persistence_candidates
-    }
-    best_r = max(rec_scores, key=lambda x: rec_scores[x] if rec_scores[x] is not None else -1)
-    best_p = max(per_scores, key=lambda x: per_scores[x] if per_scores[x] is not None else -1)
-    return {
-        "recovery_scores": rec_scores,
-        "persistence_scores": per_scores,
-        "selected_recovery": best_r,
-        "selected_persistence": best_p,
-        "selection_rows": {"train": len(sub), "validation": len(val)},
-        "selection_is_nested": True,
-    }
+    rec_scores = {c: _selection_auc(sub_p, val_p, c) for c in recovery_candidates}
+    per_scores = {c: _selection_auc(sub_p, val_p, c) for c in persistence_candidates}
+    valid_r = {k: v for k, v in rec_scores.items() if v is not None}
+    valid_p = {k: v for k, v in per_scores.items() if v is not None}
+    if not valid_r or not valid_p:
+        raise ValueError(f"representation selection unevaluable: recovery={rec_scores}, persistence={per_scores}")
+    best_r = max(valid_r, key=valid_r.get)
+    best_p = max(valid_p, key=valid_p.get)
+    return {"recovery_scores": rec_scores, "persistence_scores": per_scores, "selected_recovery": best_r, "selected_persistence": best_p, "selection_rows": {"train": len(sub), "validation": len(val)}, "selection_is_nested": True}
 
 
 def build_heads(rep: dict) -> dict[str, Head]:
-    return {
-        "Hazard": Head(("hazard_score",)),
-        "Burden": Head(("LiveDeficit_lag6",)),
-        "Recovery": Head((rep["selected_recovery"],)),
-        "Persistence": Head((rep["selected_persistence"],)),
-        "Trajectory": Head(("SimpleShock_mean24", "hazard_score_mean24")),
-    }
+    return {"Hazard": Head(("hazard_score",)), "Burden": Head(("LiveDeficit_lag6",)), "Recovery": Head((rep["selected_recovery"],)), "Persistence": Head((rep["selected_persistence"],)), "Trajectory": Head(("SimpleShock_mean24", "hazard_score_mean24"))}
 
 
 def evaluate_orders(train, test, base, orders):
@@ -223,76 +198,29 @@ def evaluate_orders(train, test, base, orders):
 
 
 def main(csv: Path, out: Path | None):
-    d = prepare(pd.read_csv(csv))
-    a = audit(d)
-    if len(d) != 43848 or a["h3_starts_posthoc"] != 169:
-        raise ValueError(f"canonical validation failed: {a}")
-    if "Crash72" not in d:
-        raise ValueError("Crash72 target missing")
-
-    train23 = d[d.open_time.dt.year <= 2023].copy()
-    hold = d[d.open_time.dt.year == 2024].copy()
-    hazard = {
-        "lineage": "SUSPECT_NATIVE_TIAMAT_DERIVED",
-        "holdout_2024": score(hold.Crash72.astype(int), fit(train23, hold, ["hazard_score"])),
-        "promotion": False,
-    }
-    orders = [
-        ["Hazard", "Burden", "Recovery", "Persistence", "Trajectory"],
-        ["Hazard", "Trajectory", "Burden", "Recovery", "Persistence"],
-        ["Burden", "Recovery", "Trajectory", "Persistence", "Hazard"],
-    ]
-    folds = []
-    fold_representation_selection = {}
+    d = prepare(pd.read_csv(csv)); a = audit(d)
+    if len(d) != 43848 or a["h3_starts_posthoc"] != 169: raise ValueError(f"canonical validation failed: {a}")
+    if "Crash72" not in d: raise ValueError("Crash72 target missing")
+    train23 = d[d.open_time.dt.year <= 2023].copy(); hold = d[d.open_time.dt.year == 2024].copy()
+    hazard = {"lineage": "SUSPECT_NATIVE_TIAMAT_DERIVED", "holdout_2024": score(hold.Crash72.astype(int), fit(train23, hold, ["hazard_score"])), "promotion": False}
+    orders = [["Hazard", "Burden", "Recovery", "Persistence", "Trajectory"], ["Hazard", "Trajectory", "Burden", "Recovery", "Persistence"], ["Burden", "Recovery", "Trajectory", "Persistence", "Hazard"]]
+    folds = []; fold_representation_selection = {}
     for year in (2021, 2022, 2023):
-        train = d[d.open_time.dt.year < year].copy()
-        test = d[d.open_time.dt.year == year].copy()
-        rep = select_representations(train)
-        fold_representation_selection[year] = rep
-        base = build_heads(rep)
-        for result in evaluate_orders(train, test, base, orders):
-            folds.append({"year": year, **result})
-    hold_rep = select_representations(train23)
-    hold_base = build_heads(hold_rep)
-    holdout = evaluate_orders(train23, hold, hold_base, orders)
-    perm = []
-    rng = np.random.default_rng(17)
-    admitted = {}
-    trh, teh = add_persistence(train23, hold)
+        train = d[d.open_time.dt.year < year].copy(); test = d[d.open_time.dt.year == year].copy()
+        rep = select_representations(train); fold_representation_selection[year] = rep; base = build_heads(rep)
+        for result in evaluate_orders(train, test, base, orders): folds.append({"year": year, **result})
+    hold_rep = select_representations(train23); hold_base = build_heads(hold_rep); holdout = evaluate_orders(train23, hold, hold_base, orders)
+    perm = []; rng = np.random.default_rng(17); admitted = {}; trh, teh = add_persistence(train23, hold)
     for h in orders[0]:
-        admitted[h] = hold_base[h]
-        oof, to, mask = crossfit_heads(trh, teh, admitted)
-        y = trh.Crash72.astype(int).to_numpy()[mask]
-        observed = coordinator(oof, to, y)
-        obs = score(teh.Crash72.astype(int), observed)["auc"]
-        null = []
+        admitted[h] = hold_base[h]; oof, to, mask = crossfit_heads(trh, teh, admitted); y = trh.Crash72.astype(int).to_numpy()[mask]
+        observed = coordinator(oof, to, y); obs = score(teh.Crash72.astype(int), observed)["auc"]; null = []
         for _ in range(200):
-            z = dict(to)
-            z[h] = rng.permutation(z[h])
-            pp = coordinator(oof, z, y)
-            null.append(score(teh.Crash72.astype(int), pp)["auc"])
-        p95 = float(np.quantile(null, .95))
-        perm.append({"added": h, "observed_auc": obs, "null_p95_auc": p95, "separation": None if obs is None else float(obs - p95)})
-    payload = {
-        "court": "HYDRA_HEAD_CONDITIONAL_ABLATION_V2",
-        "audit": a,
-        "target": "Crash72 for every configuration",
-        "hazard_audit": hazard,
-        "fold_representation_selection": fold_representation_selection,
-        "holdout_representation_selection": hold_rep,
-        "walk_forward": folds,
-        "holdout_2024": holdout,
-        "newest_head_permutation": perm,
-        "decision_rule": "V2 lock: PROMOTE/MERGE/REWORK/REJECT/HOLD only after all preregistered gates.",
-    }
-    if out:
-        out.write_text(json.dumps(payload, indent=2, default=str))
+            z = dict(to); z[h] = rng.permutation(z[h]); pp = coordinator(oof, z, y); null.append(score(teh.Crash72.astype(int), pp)["auc"])
+        p95 = float(np.quantile(null, .95)); perm.append({"added": h, "observed_auc": obs, "null_p95_auc": p95, "separation": None if obs is None else float(obs - p95)})
+    payload = {"court": "HYDRA_HEAD_CONDITIONAL_ABLATION_V2", "audit": a, "target": "Crash72 for every configuration", "hazard_audit": hazard, "fold_representation_selection": fold_representation_selection, "holdout_representation_selection": hold_rep, "walk_forward": folds, "holdout_2024": holdout, "newest_head_permutation": perm, "decision_rule": "V2 lock: PROMOTE/MERGE/REWORK/REJECT/HOLD only after all preregistered gates."}
+    if out: out.write_text(json.dumps(payload, indent=2, default=str))
     print(json.dumps(payload, indent=2, default=str))
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("csv", type=Path)
-    ap.add_argument("--out", type=Path)
-    x = ap.parse_args()
-    main(x.csv, x.out)
+    ap = argparse.ArgumentParser(); ap.add_argument("csv", type=Path); ap.add_argument("--out", type=Path); x = ap.parse_args(); main(x.csv, x.out)
