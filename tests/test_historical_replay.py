@@ -29,6 +29,8 @@ def test_causal_observation_never_uses_future_close():
 def test_outcome_label_uses_future_only():
     labels = build_outcome_labels(bars([100, 95, 70, 90]), OutcomeSpec(horizon=2, drawdown=0.20))
     assert labels[0].crash is True
+    # From the 95 origin, use a non-crash path before the later recovery/crash example.
+    labels = build_outcome_labels(bars([100, 95, 85, 90]), OutcomeSpec(horizon=2, drawdown=0.20))
     assert labels[1].crash is False
 
 
