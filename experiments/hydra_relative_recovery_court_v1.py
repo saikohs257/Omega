@@ -60,6 +60,11 @@ def history(d: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
+def make_history(d: pd.DataFrame) -> pd.DataFrame:
+    """Compatibility alias used by the earlier CI contract/tests."""
+    return history(d)
+
+
 def fit_predict(train: pd.DataFrame, test: pd.DataFrame, col: str) -> np.ndarray:
     model = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), LogisticRegression(max_iter=1600, class_weight="balanced", C=.5, solver="liblinear"))
     model.fit(train[[col]].astype(float), train[TARGET].astype(int))
@@ -112,7 +117,6 @@ def main(csv: Path, out: Path) -> None:
     candidates = candidate_list()
     discovery = {c: discovery_report(d, c) for c in candidates}
     ranked = sorted(candidates, key=lambda c: ((discovery[c]["mean_auc"] if discovery[c]["mean_auc"] is not None else -1), -(discovery[c]["mean_brier"])), reverse=True)
-    # Pre-registered selection: highest mean discovery AUC, breaking ties by lower mean Brier.
     best = ranked[0]
     tr = d[d.open_time.dt.year.isin(DISCOVERY)]
     te = d[d.open_time.dt.year == HOLDOUT]
