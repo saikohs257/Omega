@@ -75,7 +75,7 @@ jobs:
         run: python -m pytest -q tests/test_tiamat_*.py
       - name: Fetch canonical Hydra dataset
         env:
-          CANONICAL_URL: https://github.com/user-attachments/files/31108408/LAYER1_CANONICAL_2020_2024_V1.zip
+          CANONICAL_URL: https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V1.zip
         run: |
           set -euo pipefail
           mkdir -p data/canonical
