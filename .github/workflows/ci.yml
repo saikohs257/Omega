@@ -72,5 +72,43 @@ jobs:
         run: python -m pytest -q tests/test_tiamat_metric_value_report.py
       - name: Run TIAMAT focused tests
         run: python -m pytest -q tests/test_tiamat_*.py
+      - name: Verify canonical Hydra court data
+        run: |
+          CSV="data/canonical/layer1_structured_hazard_arm_timeseries.csv"
+          test -f "$CSV" || { echo "ERROR: canonical 2020-2024 Layer-1 CSV is missing: $CSV"; exit 1; }
+          python - "$CSV" <<'PY'
+          import hashlib, pathlib, sys
+          import pandas as pd
+          p = pathlib.Path(sys.argv[1])
+          expected_sha = "6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a"
+          digest = hashlib.sha256(p.read_bytes()).hexdigest()
+          print(f"canonical_sha256={digest}")
+          assert digest == expected_sha, f"wrong canonical SHA: {digest}"
+          df = pd.read_csv(p)
+          assert len(df) == 43848, len(df)
+          starts = ((df["entry_path"] == "3_to_4") & (df["episode_age_h"] == 1)).sum()
+          assert int(starts) == 169, starts
+          print(f"canonical_rows={len(df)}")
+          print(f"canonical_h3_starts={int(starts)}")
+          PY
+      - name: Run Hydra head emergence court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_head_emergence_court_v1.py \
+            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
+            --out ci-results/hydra_head_emergence_court_v1.json
+      - name: Run Hydra conditional head ablation court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_head_conditional_ablation_v1.py \
+            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
+            --out ci-results/hydra_head_conditional_ablation_v1.json
+      - name: Upload Hydra court results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-head-courts-${{ matrix.python-version }}
+          path: ci-results/
+          if-no-files-found: ignore
       - name: Run full test suite
         run: python -m pytest -q
