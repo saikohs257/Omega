@@ -3,7 +3,10 @@
   "artifact": {
     "release_tag": "LAYER1_CANONICAL_2020_2024_V1",
     "asset": "LAYER1_CANONICAL_2020_2024_V1.zip",
-    "source_filename": "layer1_structured_hazard_arm_timeseries(15).csv"
+    "source_filename": "layer1_structured_hazard_arm_timeseries(15).csv",
+    "source_url": "https://github.com/user-attachments/files/31108408/LAYER1_CANONICAL_2020_2024_V1.zip",
+    "url_type": "github_user_attachment",
+    "release_url": "https://github.com/saikohs257/Omega/releases/tag/LAYER1_CANONICAL_2020_2024_V1"
   },
   "integrity": {
     "sha256": "6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a",
@@ -35,7 +38,8 @@
   "provenance": {
     "status": "canonical_verified_upload",
     "verification": "local_sha256_and_structural_checks_passed",
-    "verified_against_existing_repo_contract": true
+    "verified_against_existing_repo_contract": true,
+    "release_published": true
   },
   "immutability": {
     "policy": "immutable_dataset_identity; corrections require a new dataset version",
