@@ -40,7 +40,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[test]'
       - name: Verify scientific test dependencies
-        run: python -c "import numpy; import pandas; import pytest; print(f'numpy={numpy.__version__}'); print(f'pandas={pandas.__version__}'); print(f'pytest={pytest.__version__}')"
+        run: python -c "import numpy; import pandas; import pytest; import sklearn; print(f'numpy={numpy.__version__}'); print(f'pandas={pandas.__version__}'); print(f'pytest={pytest.__version__}'); print(f'sklearn={sklearn.__version__}')"
       - name: Import package surface
         run: python -c "import atlas, bentaxis, colony, court, erk, hypergraph, hydra, omega, oracle, runtime, sheaf, simplicial, tiamat, end, pond"
       - name: Run TIAMAT tournament scorecard
@@ -148,6 +148,10 @@ jobs:
         run: |
           mkdir -p ci-results
           python experiments/hydra_conditional_ablation_v2.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_conditional_ablation_v2.json
+      - name: Run Hydra AUC Brier incrementality court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_head_incrementality_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_head_incrementality_court_v1.json
       - name: Upload Hydra court results
         if: always()
         uses: actions/upload-artifact@v4
