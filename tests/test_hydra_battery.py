@@ -1,3 +1,5 @@
+from pytest import approx
+
 from hydra import HydraEngine, HydraEvidence, HydraState
 from hydra.modules import BurdenModule, HazardModule, LaneCoordinator, PersistenceModule, RecoveryModule, TrajectoryModule
 
@@ -59,9 +61,9 @@ def test_recovery_capacity_is_inverse_of_weakness():
 
 def test_trajectory_direction_from_hazard_change():
     m = TrajectoryModule()
-    assert m.update(ev(0.8, 0.5), HydraState(hazard=0.2)) == 0.8
-    assert m.update(ev(0.2, 0.5), HydraState(hazard=0.8)) == 0.2
-    assert m.update(ev(0.5, 0.5), HydraState(hazard=0.5)) == 0.5
+    assert m.update(ev(0.8, 0.5), HydraState(hazard=0.2)) == approx(0.8)
+    assert m.update(ev(0.2, 0.5), HydraState(hazard=0.8)) == approx(0.2)
+    assert m.update(ev(0.5, 0.5), HydraState(hazard=0.5)) == approx(0.5)
 
 
 def test_persistence_saturates_at_24_hours():
