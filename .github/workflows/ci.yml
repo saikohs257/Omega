@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
 
+# Manual trigger marker: force a fresh canonical-data court run.
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -118,21 +119,15 @@ jobs:
       - name: Run Hydra head emergence court
         run: |
           mkdir -p ci-results
-          python experiments/hydra_head_emergence_court_v1.py \
-            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
-            --out ci-results/hydra_head_emergence_court_v1.json
+          python experiments/hydra_head_emergence_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_head_emergence_court_v1.json
       - name: Run Hydra conditional head ablation V1
         run: |
           mkdir -p ci-results
-          python experiments/hydra_head_conditional_ablation_v1.py \
-            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
-            --out ci-results/hydra_head_conditional_ablation_v1.json
+          python experiments/hydra_head_conditional_ablation_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_head_conditional_ablation_v1.json
       - name: Run Hydra conditional head ablation V2
         run: |
           mkdir -p ci-results
-          python experiments/hydra_conditional_ablation_v2.py \
-            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
-            --out ci-results/hydra_conditional_ablation_v2.json
+          python experiments/hydra_conditional_ablation_v2.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_conditional_ablation_v2.json
       - name: Upload Hydra court results
         if: always()
         uses: actions/upload-artifact@v4
