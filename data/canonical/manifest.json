@@ -2,12 +2,14 @@
   "dataset_id": "LAYER1_CANONICAL_2020_2024_V1",
   "artifact": {
     "release_tag": "LAYER1_CANONICAL_2020_2024_V1",
-    "asset": "LAYER1_CANONICAL_2020_2024_V1.zip",
+    "asset": "LAYER1_CANONICAL_2020_2024_V2.zip",
     "source_filename": "layer1_structured_hazard_arm_timeseries(15).csv",
-    "source_url": "https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V1.zip",
+    "source_url": "https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip",
     "url_type": "github_release_asset",
     "release_url": "https://github.com/saikohs257/Omega/releases/tag/LAYER1_CANONICAL_2020_2024_V1",
-    "release_asset_id": 516067585
+    "release_asset_id": 516080998,
+    "release_asset_sha256": "e55f82905453652d7da7b610861f62fe5e3e9c29651b8761ae14a90e5be9c9ee",
+    "release_asset_size": 1204372
   },
   "integrity": {
     "sha256": "6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a",
@@ -37,11 +39,11 @@
     "Crash72"
   ],
   "provenance": {
-    "status": "release_asset_bytes_mismatch",
-    "verification": "canonical_csv_verified_locally; current_release_asset_digest_does_not_match_expected_csv_sha256",
+    "status": "canonical_verified_upload",
+    "verification": "canonical_csv_sha256_and_release_asset_sha256_verified",
     "verified_against_existing_repo_contract": true,
     "release_published": true,
-    "release_asset_verified": false
+    "release_asset_verified": true
   },
   "immutability": {
     "policy": "immutable_dataset_identity; corrections require a new dataset version",
