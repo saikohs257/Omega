@@ -165,6 +165,18 @@ jobs:
           mkdir -p ci-results
           python experiments/hydra_relative_recovery_calibration_court_v1.py
           cp artifacts/hydra_relative_recovery_calibration_v1.json ci-results/hydra_relative_recovery_calibration_court_v1.json
+      - name: Run Hydra relative-recovery generalization court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_relative_recovery_generalization_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_relative_recovery_generalization_court_v1.json
+      - name: Run Hydra relative-recovery incremental court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_relative_recovery_incremental_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_relative_recovery_incremental_court_v1.json
+      - name: Run Hydra relative-recovery falsification court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_relative_recovery_falsification_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_relative_recovery_falsification_court_v1.json
       - name: Upload Hydra court results
         if: always()
         uses: actions/upload-artifact@v4
