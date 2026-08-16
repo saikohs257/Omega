@@ -17,6 +17,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f experiments/hydra_crash72_orphan_persistence_court_v1.py
+          grep -q "orphan_persistence_court_v2" experiments/hydra_crash72_orphan_persistence_court_v1.py
           grep -q "12" experiments/hydra_crash72_orphan_persistence_court_v1.py
           grep -q "350" experiments/hydra_crash72_orphan_persistence_court_v1.py
           grep -q "606" experiments/hydra_crash72_orphan_persistence_court_v1.py
@@ -35,5 +36,5 @@ jobs:
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: hydra-crash72-orphan-persistence
+          name: hydra-crash72-orphan-persistence-v2
           path: orphan_persistence.json
