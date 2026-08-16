@@ -14,7 +14,10 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip pandas numpy scikit-learn
       - name: Verify checkout
-        run: git rev-parse HEAD
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "05c88b49cf59604464fd67afd00fdaef0880f127"
       - name: Download canonical artifact
         run: |
           set -euo pipefail
@@ -29,5 +32,5 @@ jobs:
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: hydra-crash72-incremental-orphan
+          name: hydra-crash72-incremental-orphan-v3
           path: incremental_orphan.json
