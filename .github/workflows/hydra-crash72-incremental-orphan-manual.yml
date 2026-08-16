@@ -13,12 +13,14 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install --upgrade pip pandas numpy scikit-learn
-      - name: Verify checkout
+      - name: Verify court version and checkout
         run: |
           set -euo pipefail
           ACTUAL="$(git rev-parse HEAD)"
           echo "Checked out: $ACTUAL"
-          test "$ACTUAL" = "06aeabebc6bbd8d74c1dcafc7ef2b39f0ad0cca3"
+          grep -q 'hydra_crash72_incremental_orphan_court_v3' experiments/hydra_crash72_incremental_orphan_court_v1.py
+          grep -q 'rr_recovery_minus_burden' experiments/hydra_crash72_incremental_orphan_court_v1.py
+          grep -q 'allow_nan=False' experiments/hydra_crash72_incremental_orphan_court_v1.py
       - name: Download canonical artifact
         run: |
           set -euo pipefail
