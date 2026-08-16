@@ -1,4 +1,4 @@
-name: Hydra Crash72 Orphan Matched Persistence V2 (MANUAL)
+name: Hydra Crash72 Orphan Matched Persistence V3 (MANUAL)
 on:
   workflow_dispatch:
 jobs:
@@ -11,11 +11,12 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install --upgrade pip pandas numpy scikit-learn
-      - name: Verify court
+      - name: Verify V3 court
         run: |
           set -euo pipefail
           test -f experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
-          grep -q 'matched_persistence_court_v2' experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
+          grep -q 'matched_persistence_court_v3' experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
+          grep -q 'CONTROL_POOL_EMPTY' experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
           grep -q '606' experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
           grep -q '350' experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
           grep -q '12' experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
@@ -28,9 +29,9 @@ jobs:
           CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
           test -n "$CSV"
           ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
-      - name: Run matched persistence V2
-        run: python experiments/hydra_crash72_orphan_matched_persistence_court_v2.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out matched_persistence_v2.json
+      - name: Run matched persistence V3
+        run: python experiments/hydra_crash72_orphan_matched_persistence_court_v2.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out matched_persistence_v3.json
       - uses: actions/upload-artifact@v4
         with:
-          name: hydra-crash72-orphan-matched-persistence-v2
-          path: matched_persistence_v2.json
+          name: hydra-crash72-orphan-matched-persistence-v3
+          path: matched_persistence_v3.json
