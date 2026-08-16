@@ -16,8 +16,9 @@ jobs:
       - name: Verify checkout
         run: |
           set -euo pipefail
-          git rev-parse HEAD
-          test "$(git rev-parse HEAD)" = "05c88b49cf59604464fd67afd00fdaef0880f127"
+          ACTUAL="$(git rev-parse HEAD)"
+          echo "Checked out: $ACTUAL"
+          test "$ACTUAL" = "06aeabebc6bbd8d74c1dcafc7ef2b39f0ad0cca3"
       - name: Download canonical artifact
         run: |
           set -euo pipefail
