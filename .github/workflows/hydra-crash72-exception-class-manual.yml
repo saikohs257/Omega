@@ -1,0 +1,44 @@
+name: Hydra Crash72 Exception Class Court (MANUAL)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  class-court:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy scikit-learn
+      - name: Verify checkout SHA
+        run: git rev-parse HEAD
+      - name: Download canonical artifact
+        env:
+          CANONICAL_URL: https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error "$CANONICAL_URL" --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
+          python - <<'PY'
+          import pandas as pd
+          p='data/canonical/layer1_structured_hazard_arm_timeseries.csv'
+          d=pd.read_csv(p)
+          assert len(d)==43848 and len(d.columns)==15
+          assert int(((d.entry_path=='3_to_4')&(d.episode_age_h==1)).sum())==169
+          print('CANONICAL VERIFIED')
+          PY
+      - name: Run exception class court
+        run: |
+          python experiments/hydra_crash72_exception_class_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out crash72_exception_class_v1.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-crash72-exception-class
+          path: crash72_exception_class_v1.json
