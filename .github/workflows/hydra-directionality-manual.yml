@@ -1,0 +1,85 @@
+name: Hydra Directionality Court (MANUAL)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  directionality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact manually selected revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Verify tested revision
+        run: |
+          set -euo pipefail
+          echo "event=${GITHUB_EVENT_NAME}"
+          echo "ref=${GITHUB_REF}"
+          echo "sha=${GITHUB_SHA}"
+          echo "checked_out=$(git rev-parse HEAD)"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+      - name: Fetch and verify canonical Hydra dataset
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          ASSET_ID="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('data/canonical/manifest.json').read_text())
+          print(m['artifact']['release_asset_id'])
+          PY
+          )"
+          EXPECTED="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('data/canonical/manifest.json').read_text())
+          print(m['artifact']['release_asset_sha256'])
+          PY
+          )"
+          OUT=data/canonical/LAYER1_CANONICAL_2020_2024_V2.zip
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            -H 'Accept: application/octet-stream' \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}" -o "$OUT"
+          ACTUAL=$(sha256sum "$OUT" | awk '{print $1}')
+          test "$ACTUAL" = "$EXPECTED"
+          unzip -o "$OUT" -d data/canonical
+          CSV='data/canonical/layer1_structured_hazard_arm_timeseries(15).csv'
+          test -f "$CSV"
+          ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
+          python - <<'PY'
+          import hashlib,json,pathlib,pandas as pd
+          m=json.loads(pathlib.Path('data/canonical/manifest.json').read_text())
+          p=pathlib.Path('data/canonical/layer1_structured_hazard_arm_timeseries.csv')
+          d=pd.read_csv(p)
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==m['integrity']['sha256']
+          assert len(d)==m['integrity']['rows'] and len(d.columns)==m['integrity']['columns']
+          print(f"CANONICAL VERIFIED rows={len(d)} columns={len(d.columns)} sha256={hashlib.sha256(p.read_bytes()).hexdigest()}")
+          PY
+      - name: Run dense temporal directionality court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_relative_recovery_directionality_court_v1.py \
+            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
+            --out ci-results/hydra_relative_recovery_directionality_court_v1.json
+      - name: Upload directionality result
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-directionality-manual-${{ github.sha }}
+          path: ci-results/hydra_relative_recovery_directionality_court_v1.json
