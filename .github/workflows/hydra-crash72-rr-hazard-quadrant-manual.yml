@@ -17,8 +17,9 @@ jobs:
         run: |
           set -euo pipefail
           test -f experiments/hydra_crash72_rr_hazard_quadrant_court_v1.py
-          grep -q "606" experiments/hydra_crash72_rr_hazard_quadrant_court_v1.py
-          grep -q "350" experiments/hydra_crash72_rr_hazard_quadrant_court_v1.py
+          grep -q 'hydra_crash72_rr_hazard_quadrant_court_v2' experiments/hydra_crash72_rr_hazard_quadrant_court_v1.py
+          grep -q 'normalized_entry_path' experiments/hydra_crash72_rr_hazard_quadrant_court_v1.py
+          grep -q "'core':12,'transition':350,'orphan':606,'crash72':968" experiments/hydra_crash72_rr_hazard_quadrant_court_v1.py
       - name: Download canonical artifact
         run: |
           set -euo pipefail
@@ -33,5 +34,5 @@ jobs:
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: hydra-crash72-rr-hazard-quadrants
+          name: hydra-crash72-rr-hazard-quadrants-v2
           path: rr_hazard_quadrants.json
