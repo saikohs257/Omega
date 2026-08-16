@@ -1,0 +1,75 @@
+name: Hydra Crash72 Provenance Audit (MANUAL)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact manually selected revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Verify tested revision
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "workflow_dispatch"
+          test "${GITHUB_SHA}" = "$(git rev-parse HEAD)"
+          echo "manual_sha=${GITHUB_SHA}"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install scientific dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+      - name: Fetch and verify canonical Hydra dataset
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          ASSET_ID="$(python - <<'PY'
+          import json; from pathlib import Path
+          print(json.loads(Path('data/canonical/manifest.json').read_text())['artifact']['release_asset_id'])
+          PY
+          )"
+          EXPECTED="$(python - <<'PY'
+          import json; from pathlib import Path
+          print(json.loads(Path('data/canonical/manifest.json').read_text())['artifact']['release_asset_sha256'])
+          PY
+          )"
+          OUT=data/canonical/LAYER1_CANONICAL_2020_2024_V2.zip
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            -H 'Accept: application/octet-stream' -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}" -o "$OUT"
+          test "$(sha256sum "$OUT" | awk '{print $1}')" = "$EXPECTED"
+          unzip -o "$OUT" -d data/canonical
+          test -f 'data/canonical/layer1_structured_hazard_arm_timeseries(15).csv'
+          ln -sf 'layer1_structured_hazard_arm_timeseries(15).csv' data/canonical/layer1_structured_hazard_arm_timeseries.csv
+          python - <<'PY'
+          import hashlib,json,pathlib,pandas as pd
+          m=json.loads(pathlib.Path('data/canonical/manifest.json').read_text())
+          p=pathlib.Path('data/canonical/layer1_structured_hazard_arm_timeseries.csv'); d=pd.read_csv(p)
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==m['integrity']['sha256']
+          assert len(d)==43848 and len(d.columns)==15
+          assert int(((d.entry_path=='3_to_4')&(d.episode_age_h==1)).sum())==169
+          print('CANONICAL VERIFIED')
+          PY
+      - name: Run Crash72 provenance audit
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_crash72_provenance_audit_v1.py \
+            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
+            --out ci-results/hydra_crash72_provenance_audit_v1.json
+      - name: Upload provenance result
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-crash72-provenance-${{ github.sha }}
+          path: ci-results/hydra_crash72_provenance_audit_v1.json
