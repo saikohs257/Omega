@@ -1,0 +1,35 @@
+name: Hydra Crash72 Exception Court V2 (MANUAL)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  exception:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy scikit-learn
+      - name: Verify checkout SHA
+        run: git rev-parse HEAD
+      - name: Download canonical artifact
+        env:
+          CANONICAL_URL: https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error "$CANONICAL_URL" --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
+      - name: Run corrected exception court
+        run: python experiments/hydra_crash72_exception_court_v2.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out crash72_exception_v2.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-crash72-exception-v2
+          path: crash72_exception_v2.json
