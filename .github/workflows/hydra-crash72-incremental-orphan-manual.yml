@@ -18,8 +18,8 @@ jobs:
           set -euo pipefail
           ACTUAL="$(git rev-parse HEAD)"
           echo "Checked out: $ACTUAL"
-          grep -q 'hydra_crash72_incremental_orphan_court_v3' experiments/hydra_crash72_incremental_orphan_court_v1.py
-          grep -q 'rr_recovery_minus_burden' experiments/hydra_crash72_incremental_orphan_court_v1.py
+          grep -q 'hydra_crash72_incremental_orphan_court_v4' experiments/hydra_crash72_incremental_orphan_court_v1.py
+          grep -q "counts=={'target_core':12,'target_transition':350,'target_orphan':606}" experiments/hydra_crash72_incremental_orphan_court_v1.py
           grep -q 'allow_nan=False' experiments/hydra_crash72_incremental_orphan_court_v1.py
       - name: Download canonical artifact
         run: |
@@ -35,5 +35,5 @@ jobs:
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: hydra-crash72-incremental-orphan-v3
+          name: hydra-crash72-incremental-orphan-v4
           path: incremental_orphan.json
