@@ -1,4 +1,4 @@
-name: Hydra Crash72 Exception Court (MANUAL)
+name: Hydra Crash72 Exception Court V2 (MANUAL)
 
 on:
   workflow_dispatch:
@@ -26,11 +26,11 @@ jobs:
           CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
           test -n "$CSV"
           ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
-      - name: Run exception court
+      - name: Run exception court V2
         run: |
-          python experiments/hydra_crash72_exception_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out crash72_exception.json
+          python experiments/hydra_crash72_exception_court_v2.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out crash72_exception_v2.json
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: hydra-crash72-exception
-          path: crash72_exception.json
+          name: hydra-crash72-exception-v2
+          path: crash72_exception_v2.json
