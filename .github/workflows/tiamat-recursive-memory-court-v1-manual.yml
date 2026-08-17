@@ -2,10 +2,6 @@ name: TIAMAT Recursive Memory Court V1
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'experiments/tiamat_memory_chain_v1.py'
-      - '.github/workflows/tiamat-recursive-memory-court-v1-manual.yml'
 
 jobs:
   recursive-memory:
@@ -35,7 +31,7 @@ jobs:
       - name: Validate chained contract
         run: |
           python - <<'PY'
-          import json, math
+          import json
           p=json.load(open('tiamat_memory_chain_v1.json'))
           assert p['experiment']=='TIAMAT_MEMORY_CHAIN_V1'
           assert p['caliper']==0.05
