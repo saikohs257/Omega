@@ -1,0 +1,39 @@
+name: TIAMAT Path Memory Court V4 (MANUAL)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/tiamat-path-memory-court-v4-manual.yml'
+      - 'experiments/tiamat_path_memory_court_v4.py'
+
+jobs:
+  path-memory-v4:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy
+      - name: Verify strict court
+        run: python -m py_compile experiments/tiamat_path_memory_court_v4.py
+      - name: Download canonical Layer1 V2
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            "https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip" \
+            --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          cp "$CSV" data/canonical/input.csv
+      - name: Run strict causal court
+        run: python experiments/tiamat_path_memory_court_v4.py data/canonical/input.csv --out tiamat_path_memory_court_v4.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiamat-path-memory-court-v4
+          path: tiamat_path_memory_court_v4.json
