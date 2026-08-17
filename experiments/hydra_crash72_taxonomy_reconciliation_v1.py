@@ -2,10 +2,16 @@
 No assertions about expected 2024 counts; this is a pure diagnostic.
 """
 from __future__ import annotations
-import argparse,json
+import argparse,json,math
 from pathlib import Path
 import pandas as pd
 from hydra_relative_recovery_court_v1 import history
+
+def clean_json(x):
+    if isinstance(x, dict): return {str(k):clean_json(v) for k,v in x.items()}
+    if isinstance(x, list): return [clean_json(v) for v in x]
+    if isinstance(x, float) and not math.isfinite(x): return None
+    return x
 
 def classify(d):
  y=pd.to_numeric(d['Crash72'],errors='coerce').fillna(0).astype(int).eq(1)
@@ -23,6 +29,7 @@ def main(csv:Path,out:Path):
  raw=raw.sort_values('open_time').reset_index(drop=True); hist=hist.sort_values('open_time').reset_index(drop=True)
  raw24=raw[raw.open_time.dt.year==2024].copy(); hist24=hist[hist.open_time.dt.year==2024].copy()
  result={'experiment':'hydra_crash72_taxonomy_reconciliation_v1','raw_global':classify(raw),'history_global':classify(hist),'raw_2024':classify(raw24),'history_2024':classify(hist24),'timestamp_bounds':{'raw_2024_min':str(raw24.open_time.min()),'raw_2024_max':str(raw24.open_time.max()),'history_2024_min':str(hist24.open_time.min()),'history_2024_max':str(hist24.open_time.max())},'raw_vs_history_label_equal':bool(raw['Crash72'].reset_index(drop=True).equals(hist['Crash72'].reset_index(drop=True))),'raw_vs_history_path_equal':bool(raw['entry_path'].reset_index(drop=True).equals(hist['entry_path'].reset_index(drop=True))),'raw_vs_history_age_equal':bool(raw['episode_age_h'].reset_index(drop=True).equals(hist['episode_age_h'].reset_index(drop=True)))}
+ result=clean_json(result)
  out.write_text(json.dumps(result,indent=2,allow_nan=False,default=str)); print(json.dumps(result,indent=2,allow_nan=False,default=str))
 if __name__=='__main__':
  ap=argparse.ArgumentParser(); ap.add_argument('csv',type=Path); ap.add_argument('--out',type=Path,required=True); a=ap.parse_args(); main(a.csv,a.out)
