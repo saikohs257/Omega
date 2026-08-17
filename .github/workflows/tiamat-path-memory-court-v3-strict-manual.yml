@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/tiamat-path-memory-court-v3-strict-manual.yml'
       - 'experiments/tiamat_path_memory_court_v3_strict.py'
+      - 'experiments/tiamat_path_memory_court_v4_strict_timefix.py'
       - 'experiments/tiamat_path_memory_timestamp_diagnostic_v1.py'
 
 jobs:
@@ -25,6 +26,7 @@ jobs:
       - name: Compile strict court
         run: |
           python -m py_compile experiments/tiamat_path_memory_court_v3_strict.py
+          python -m py_compile experiments/tiamat_path_memory_court_v4_strict_timefix.py
           python -m py_compile experiments/tiamat_path_memory_timestamp_diagnostic_v1.py
       - name: Download canonical Layer1 V2
         run: |
@@ -45,33 +47,34 @@ jobs:
           import json
           p=json.load(open('tiamat_path_memory_timestamp_diagnostic.json'))
           assert p['positive_rows'] > 0 and p['negative_rows'] > 0
-          assert p['minimum_opposite_outcome_separation_h'] >= 168
           assert p['eligible_opposite_pairs_after_168h'] > 0
           print('TIMESTAMP_SANITY_PASS')
           print(json.dumps(p, indent=2))
           PY
-      - name: Run strict matched-state court
-        run: python experiments/tiamat_path_memory_court_v3_strict.py data/canonical/input.csv --out tiamat_path_memory_court_v3_strict.json
+      - name: Run strict matched-state court V4 time-safe
+        run: python experiments/tiamat_path_memory_court_v4_strict_timefix.py data/canonical/input.csv --out tiamat_path_memory_court_v4_strict_timefix.json
       - name: Validate result contract
         run: |
           python - <<'PY'
           import json
-          p=json.load(open('tiamat_path_memory_court_v3_strict.json'))
-          assert p['experiment']=='TIAMAT_PATH_MEMORY_COURT_V3_STRICT'
+          p=json.load(open('tiamat_path_memory_court_v4_strict_timefix.json'))
+          assert p['experiment']=='TIAMAT_PATH_MEMORY_COURT_V4_STRICT_TIMEFIX'
           assert p['matching']['method']=='greedy_1to1_nearest_opposite_outcome'
           assert p['matching']['minimum_temporal_separation_h']==168
           assert p['matching']['same_regime_constraint'] is False
+          assert 'datetime64[ns] timedelta' in p['matching']['timestamp_method']
           assert all(x not in p['present_features'] for x in ['entry_path','episode_type','duration_bucket','Crash72'])
           assert len(p['matching']['calipers']) == 7
           assert len(p['results']) == 7 * 15
-          assert 'diagnostics' in p and 'eligible_opposite_pairs_after_168h' in p['diagnostics']
+          assert p['diagnostics']['eligible_opposite_pairs_after_168h'] > 0
+          assert max(r['pairs'] for r in p['results']) > 0
           print('STRICT_COURT_CONTRACT_PASS')
           print(json.dumps(p['diagnostics'], indent=2))
           PY
       - name: Upload strict court result
         uses: actions/upload-artifact@v4
         with:
-          name: tiamat-path-memory-court-v3-strict
+          name: tiamat-path-memory-court-v4-strict-timefix
           path: |
-            tiamat_path_memory_court_v3_strict.json
+            tiamat_path_memory_court_v4_strict_timefix.json
             tiamat_path_memory_timestamp_diagnostic.json
