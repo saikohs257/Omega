@@ -10,7 +10,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: python -m pip install --upgrade pip pandas numpy
+        run: python -m pip install --upgrade pip pandas numpy scikit-learn
       - name: Verify diagnostic
         run: |
           set -euo pipefail
