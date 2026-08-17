@@ -26,10 +26,10 @@ jobs:
           CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
           test -n "$CSV"
           cp "$CSV" data/canonical/input.csv
-      - name: Run memory discrimination court
+      - name: Run memory discrimination court V2
         run: python experiments/tiamat_memory_discrimination_v1.py data/canonical/input.csv --out tiamat_memory_discrimination.json
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: tiamat-memory-discrimination
+          name: tiamat-memory-discrimination-v2
           path: tiamat_memory_discrimination.json
