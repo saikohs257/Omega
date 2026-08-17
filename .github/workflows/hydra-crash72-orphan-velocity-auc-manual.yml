@@ -1,4 +1,4 @@
-name: Hydra Crash72 Orphan Velocity AUC Court (MANUAL)
+name: Hydra Crash72 Orphan Velocity AUC Court V2 (MANUAL)
 on:
   workflow_dispatch:
 jobs:
@@ -11,11 +11,12 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install --upgrade pip pandas numpy scikit-learn
-      - name: Verify court
+      - name: Verify V2 court
         run: |
           set -euo pipefail
           test -f experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
-          grep -q 'orphan_velocity_auc_court_v1' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
+          grep -q 'hydra_crash72_orphan_velocity_auc_court_v2' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
+          grep -q 'full chronological 2024 holdout' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
           grep -q '606' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
           grep -q '350' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
           grep -q '12' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
@@ -28,9 +29,9 @@ jobs:
           CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
           test -n "$CSV"
           ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
-      - name: Run velocity AUC court
-        run: python experiments/hydra_crash72_orphan_velocity_auc_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out velocity_auc.json
+      - name: Run velocity AUC V2 court
+        run: python experiments/hydra_crash72_orphan_velocity_auc_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out velocity_auc_v2.json
       - uses: actions/upload-artifact@v4
         with:
-          name: hydra-crash72-orphan-velocity-auc
-          path: velocity_auc.json
+          name: hydra-crash72-orphan-velocity-auc-v2
+          path: velocity_auc_v2.json
