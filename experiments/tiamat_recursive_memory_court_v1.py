@@ -22,8 +22,12 @@ def recur(ld, half):
     return m
 
 def pairs(q, cols):
-    med=q[cols].median().to_numpy(float); iqr=np.asarray(q[cols].quantile(.75)-q[cols].quantile(.25),dtype=float).copy(); iqr[iqr<=1e-12]=1
-    z=(q[cols].to_numpy(float)-med)/iqr; pos=np.flatnonzero(q.target.to_numpy()==1); neg=np.flatnonzero(q.target.to_numpy()==0); ts=q.open_time.to_numpy(dtype='datetime64[ns]')
+    med=np.asarray(q[cols].median().to_numpy(dtype=float, copy=True),dtype=float).copy()
+    iqr=np.asarray((q[cols].quantile(.75)-q[cols].quantile(.25)).to_numpy(dtype=float, copy=True),dtype=float).copy()
+    iqr[iqr<=1e-12]=1
+    vals=np.asarray(q[cols].to_numpy(dtype=float, copy=True),dtype=float).copy()
+    z=(vals-med)/iqr
+    pos=np.flatnonzero(q.target.to_numpy()==1); neg=np.flatnonzero(q.target.to_numpy()==0); ts=q.open_time.to_numpy(dtype='datetime64[ns]')
     cand=[]
     for i in pos:
         dist=np.sqrt(((z[neg]-z[i])**2).sum(1)/len(cols)); sep=np.abs((ts[neg]-ts[i])/np.timedelta64(1,'h'))
