@@ -14,7 +14,7 @@ HISTORY = [
     "shock_excess24", "shock_excess72", "ld_above85_hours24", "recovery_area24",
     "hazard_peak24", "hazard_peak72",
 ]
-CALIPERS = (0.50, 0.25, 0.15, 0.10, 0.05)
+CALIPERS = (0.75, 0.50, 0.35, 0.25, 0.15, 0.10, 0.05)
 HORIZON_H = 6
 MIN_SEPARATION_H = 168
 NULL_N = 2000
@@ -71,14 +71,18 @@ def robust_scale(train: pd.DataFrame, cols: list[str]) -> tuple[np.ndarray, np.n
     return med, iqr
 
 
-def make_candidates(te: pd.DataFrame, med: np.ndarray, iqr: np.ndarray) -> list[dict]:
+def prepare(te: pd.DataFrame, med: np.ndarray, iqr: np.ndarray) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
     q = te.dropna(subset=OBS + ["target"]).copy().reset_index(drop=True)
     z = (q[OBS].to_numpy(float) - med) / iqr
     pos = np.flatnonzero(q.target.to_numpy() == 1)
     neg = np.flatnonzero(q.target.to_numpy() == 0)
     times = q.open_time.astype("int64").to_numpy()
-    regimes = q["regime_30d"].astype(str).to_numpy() if "regime_30d" in q.columns else np.array([""] * len(q))
-    candidates = []
+    return q, z, pos, neg, times
+
+
+def all_candidate_distances(te: pd.DataFrame, med: np.ndarray, iqr: np.ndarray) -> tuple[list[tuple[int, int, float]], int, int]:
+    q, z, pos, neg, times = prepare(te, med, iqr)
+    candidates: list[tuple[int, int, float]] = []
     for i in pos:
         if not len(neg):
             continue
@@ -86,29 +90,26 @@ def make_candidates(te: pd.DataFrame, med: np.ndarray, iqr: np.ndarray) -> list[
         dist = np.sqrt(np.sum(delta * delta, axis=1)) / np.sqrt(len(OBS))
         sep = np.abs(times[neg] - times[i]) / 3_600_000_000_000
         valid = sep >= MIN_SEPARATION_H
-        # Match within the same broad regime when available; if absent, time separation remains the guard.
-        same_regime = regimes[neg] == regimes[i]
-        if "regime_30d" in q.columns and np.any(valid & same_regime):
-            valid = valid & same_regime
         for j_local in np.flatnonzero(valid):
-            j = neg[j_local]
-            candidates.append({"i": int(i), "j": int(j), "dist": float(dist[j_local])})
-    candidates.sort(key=lambda r: r["dist"])
-    return candidates
+            candidates.append((int(i), int(neg[j_local]), float(dist[j_local])))
+    candidates.sort(key=lambda x: x[2])
+    return candidates, len(pos), len(neg)
 
 
 def greedy_pairs(te: pd.DataFrame, caliper: float, med: np.ndarray, iqr: np.ndarray) -> list[tuple[int, int, float]]:
     q = te.dropna(subset=OBS + ["target"]).copy().reset_index(drop=True)
-    cands = [c for c in make_candidates(q, med, iqr) if c["dist"] <= caliper]
+    candidates, _, _ = all_candidate_distances(q, med, iqr)
     used_pos: set[int] = set()
     used_neg: set[int] = set()
     pairs = []
-    for c in cands:
-        if c["i"] in used_pos or c["j"] in used_neg:
+    for i, j, dist in candidates:
+        if dist > caliper:
+            break
+        if i in used_pos or j in used_neg:
             continue
-        used_pos.add(c["i"])
-        used_neg.add(c["j"])
-        pairs.append((c["i"], c["j"], c["dist"]))
+        used_pos.add(i)
+        used_neg.add(j)
+        pairs.append((i, j, dist))
     return pairs
 
 
@@ -125,15 +126,15 @@ def pairwise_auc(q: pd.DataFrame, pairs: list[tuple[int, int, float]], history: 
     return float(np.mean(scores)) if scores else float("nan")
 
 
-def permutation_null(q: pd.DataFrame, pairs: list[tuple[int, int, float]], history: str, n: int, rng: np.random.Generator) -> dict:
-    if not pairs:
-        return {"mean": float("nan"), "p95": float("nan"), "p_value": float("nan"), "n": 0}
+def permutation_null(q: pd.DataFrame, pairs: list[tuple[int, int, float]], history: str, observed: float, n: int, rng: np.random.Generator) -> dict:
+    if not pairs or not np.isfinite(observed):
+        return {"mean": float("nan"), "p95": float("nan"), "p_value_two_sided": float("nan"), "n": 0}
     vals = q[history].to_numpy(float)
     usable = [(i, j) for i, j, _ in pairs if np.isfinite(vals[i]) and np.isfinite(vals[j])]
     if not usable:
-        return {"mean": float("nan"), "p95": float("nan"), "p_value": float("nan"), "n": 0}
-    obs = []
-    for _ in range(n):
+        return {"mean": float("nan"), "p95": float("nan"), "p_value_two_sided": float("nan"), "n": 0}
+    null = np.empty(n, dtype=float)
+    for k in range(n):
         wins = 0.0
         for i, j in usable:
             if rng.integers(2) == 0:
@@ -141,12 +142,13 @@ def permutation_null(q: pd.DataFrame, pairs: list[tuple[int, int, float]], histo
             else:
                 a, b = vals[j], vals[i]
             wins += 1.0 if a > b else 0.0 if a < b else 0.5
-        obs.append(wins / len(usable))
-    arr = np.asarray(obs)
+        null[k] = wins / len(usable)
+    deviation = abs(observed - 0.5)
+    p = (1.0 + np.sum(np.abs(null - 0.5) >= deviation)) / (n + 1.0)
     return {
-        "mean": float(arr.mean()),
-        "p95": float(np.quantile(arr, 0.95)),
-        "p_value": float((1.0 + np.sum(arr >= 0.5 + abs(np.mean(arr) - 0.5))) / (n + 1)),
+        "mean": float(null.mean()),
+        "p95": float(np.quantile(null, 0.95)),
+        "p_value_two_sided": float(p),
         "n": int(n),
     }
 
@@ -163,20 +165,23 @@ def run(csv: Path) -> dict:
     d["year"] = d.open_time.dt.year
     te = d[d.year == HOLDOUT_YEAR].copy().reset_index(drop=True)
     med, iqr = robust_scale(te, OBS)
+    q = te.dropna(subset=OBS + ["target"]).copy().reset_index(drop=True)
+    candidates, pos_count, neg_count = all_candidate_distances(q, med, iqr)
     rng = np.random.default_rng(20260817)
     results = []
     for caliper in CALIPERS:
-        pairs = greedy_pairs(te, caliper, med, iqr)
+        pairs = greedy_pairs(q, caliper, med, iqr)
         for hist in HISTORY:
-            observed = pairwise_auc(te, pairs, hist)
-            null = permutation_null(te, pairs, hist, NULL_N, rng)
-            results.append({
-                "caliper": caliper,
-                "history": hist,
-                "pairs": len(pairs),
-                "observed_pair_auc": observed,
-                "null": null,
-            })
+            observed = pairwise_auc(q, pairs, hist)
+            null = permutation_null(q, pairs, hist, observed, NULL_N, rng)
+            results.append({"caliper": caliper, "history": hist, "pairs": len(pairs), "observed_pair_auc": observed, "null": null})
+    diagnostics = {
+        "positive_rows": pos_count,
+        "negative_rows": neg_count,
+        "eligible_opposite_pairs_after_168h": len(candidates),
+        "minimum_observable_distance": float(candidates[0][2]) if candidates else float("nan"),
+        "candidate_distances_quantiles": {str(qv): float(np.quantile([c[2] for c in candidates], qv)) for qv in (0.01, 0.05, 0.10, 0.25, 0.50)} if candidates else {},
+    }
     return {
         "experiment": "TIAMAT_PATH_MEMORY_COURT_V3_STRICT",
         "classification": "experimental/non-authoritative",
@@ -187,10 +192,11 @@ def run(csv: Path) -> dict:
         "matching": {
             "method": "greedy_1to1_nearest_opposite_outcome",
             "distance": "RMS standardized IQR distance over present features",
-            "same_regime_when_available": True,
+            "same_regime_constraint": False,
             "minimum_temporal_separation_h": MIN_SEPARATION_H,
             "calipers": CALIPERS,
         },
+        "diagnostics": diagnostics,
         "null": {"type": "within_pair_outcome_orientation_swap", "n": NULL_N, "seed": 20260817},
         "forbidden_predictors": ["entry_path", "episode_type", "duration_bucket", "Crash72"],
         "results": results,
