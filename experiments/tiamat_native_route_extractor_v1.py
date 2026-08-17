@@ -108,6 +108,16 @@ def episode_rows(d: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out, columns=OUTPUT_COLUMNS)
 
 
+def _episode_blocks(d: pd.DataFrame) -> pd.DataFrame:
+    """Backward-compatible test/API alias for the lane-2 episode extractor.
+
+    The historical focused tests import this private helper.  Keep the alias
+    while making ``episode_rows`` the single implementation so the test and
+    extractor cannot drift apart again.
+    """
+    return episode_rows(d)
+
+
 def strict_h4_rows(d: pd.DataFrame, topology_col: str | None) -> pd.DataFrame:
     """Lane-1 strict 4->4 physics rows; requires contiguous hourly observations."""
     if topology_col is None:
