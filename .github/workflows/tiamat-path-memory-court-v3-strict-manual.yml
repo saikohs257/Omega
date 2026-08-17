@@ -44,9 +44,13 @@ jobs:
           assert p['experiment']=='TIAMAT_PATH_MEMORY_COURT_V3_STRICT'
           assert p['matching']['method']=='greedy_1to1_nearest_opposite_outcome'
           assert p['matching']['minimum_temporal_separation_h']==168
+          assert p['matching']['same_regime_constraint'] is False
           assert all(x not in p['present_features'] for x in ['entry_path','episode_type','duration_bucket','Crash72'])
-          assert len(p['results']) == 5 * 15
+          assert len(p['matching']['calipers']) == 7
+          assert len(p['results']) == 7 * 15
+          assert 'diagnostics' in p and 'eligible_opposite_pairs_after_168h' in p['diagnostics']
           print('STRICT_COURT_CONTRACT_PASS')
+          print(json.dumps(p['diagnostics'], indent=2))
           PY
       - name: Upload strict court result
         uses: actions/upload-artifact@v4
