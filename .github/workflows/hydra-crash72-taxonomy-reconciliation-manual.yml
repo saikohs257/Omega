@@ -24,10 +24,9 @@ jobs:
           unzip -o data/canonical/canonical.zip -d data/canonical
           CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
           test -n "$CSV"
+          cp "$CSV" data/canonical/input.csv
       - name: Run taxonomy reconciliation
-        run: python experiments/hydra_crash72_taxonomy_reconciliation_v1.py "$CSV" --out taxonomy_reconciliation.json
-        env:
-          CSV: data/canonical/layer1_structured_hazard_arm_timeseries\(15\).csv
+        run: python experiments/hydra_crash72_taxonomy_reconciliation_v1.py data/canonical/input.csv --out taxonomy_reconciliation.json
       - uses: actions/upload-artifact@v4
         with:
           name: hydra-crash72-taxonomy-reconciliation
