@@ -1,0 +1,125 @@
+name: TIAMAT Memory Reconciliation Court V1 (MANUAL)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy scikit-learn
+      - name: Verify experiment inputs
+        run: |
+          set -euo pipefail
+          test -f experiments/tiamat_path_memory_court_v4_strict_timefix.py
+          test -f experiments/hydra_crash72_rr_leakage_audit_court_v3.py
+          test -f experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
+          test -f experiments/hydra_crash72_orphan_rr_atomic_court_v1.py
+          python -m py_compile experiments/tiamat_path_memory_court_v4_strict_timefix.py
+          python -m py_compile experiments/hydra_crash72_rr_leakage_audit_court_v3.py
+          python -m py_compile experiments/hydra_crash72_orphan_matched_persistence_court_v2.py
+          python -m py_compile experiments/hydra_crash72_orphan_rr_atomic_court_v1.py
+      - name: Download one canonical snapshot
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            'https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip' \
+            --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          cp "$CSV" data/canonical/input.csv
+      - name: Court A - strict path-memory state completion
+        run: |
+          python experiments/tiamat_path_memory_court_v4_strict_timefix.py \
+            data/canonical/input.csv \
+            --out court_a_strict_timefix.json
+      - name: Court B - RR provenance and leakage
+        run: |
+          python experiments/hydra_crash72_rr_leakage_audit_court_v3.py \
+            data/canonical/input.csv \
+            --out court_b_rr_leakage.json
+      - name: Court C - orphan matched persistence
+        run: |
+          python experiments/hydra_crash72_orphan_matched_persistence_court_v2.py \
+            data/canonical/input.csv \
+            --out court_c_orphan_persistence.json
+      - name: Court D - RR atomic decomposition
+        run: |
+          python experiments/hydra_crash72_orphan_rr_atomic_court_v1.py \
+            data/canonical/input.csv \
+            --out court_d_rr_atomic.json
+      - name: Reconcile evidence without selecting a model
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          files={
+            'strict_timefix':'court_a_strict_timefix.json',
+            'rr_leakage':'court_b_rr_leakage.json',
+            'orphan_persistence':'court_c_orphan_persistence.json',
+            'rr_atomic':'court_d_rr_atomic.json',
+          }
+          data={k:json.loads(Path(v).read_text()) for k,v in files.items()}
+          summary={
+            'experiment':'TIAMAT_MEMORY_RECONCILIATION_COURT_V1',
+            'classification':'evidence-reconciliation/non-authoritative',
+            'canonical_snapshot':'LAYER1_CANONICAL_2020_2024_V2',
+            'principle':'No new feature selection. No model winner is selected by this workflow.',
+            'courts':{},
+            'disagreement_questions':[
+              'Does strict matched-state history remain discriminative at 168h separation?',
+              'Is RR provenance demonstrably free of target/path/episode-age leakage?',
+              'Does RR/hazard persistence differ from matched 2024 non-crash controls?',
+              'Which atomic RR component carries the orphan discrimination?',
+            ],
+          }
+          # Preserve raw result blocks and only extract non-authoritative metadata.
+          summary['courts']['strict_timefix']={
+            'experiment':data['strict_timefix'].get('experiment'),
+            'diagnostics':data['strict_timefix'].get('diagnostics'),
+            'result_count':len(data['strict_timefix'].get('results',[])),
+          }
+          summary['courts']['rr_leakage']={
+            'experiment':data['rr_leakage'].get('experiment'),
+            'global_taxonomy':data['rr_leakage'].get('global_taxonomy'),
+            'holdout_2024_taxonomy':data['rr_leakage'].get('holdout_2024_taxonomy'),
+            'rr_provenance':data['rr_leakage'].get('rr_provenance'),
+            'rr_holdout_discrimination':data['rr_leakage'].get('rr_holdout_discrimination'),
+          }
+          summary['courts']['orphan_persistence']={
+            'experiment':data['orphan_persistence'].get('experiment'),
+            'class_counts':data['orphan_persistence'].get('class_counts'),
+            'orphans':data['orphan_persistence'].get('orphans'),
+            'matched_controls':data['orphan_persistence'].get('matched_controls'),
+          }
+          summary['courts']['rr_atomic']={
+            'experiment':data['rr_atomic'].get('experiment'),
+            'holdout_counts':data['rr_atomic'].get('holdout_counts'),
+            'vs_orphan':data['rr_atomic'].get('vs_orphan'),
+            'vs_crash72':data['rr_atomic'].get('vs_crash72'),
+            'pairwise_orphan':data['rr_atomic'].get('pairwise_orphan'),
+          }
+          Path('tiamat_memory_reconciliation_v1.json').write_text(json.dumps(summary,indent=2,allow_nan=True))
+          print(json.dumps(summary,indent=2,allow_nan=True))
+          PY
+      - name: Upload reconciled evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiamat-memory-reconciliation-v1
+          path: |
+            court_a_strict_timefix.json
+            court_b_rr_leakage.json
+            court_c_orphan_persistence.json
+            court_d_rr_atomic.json
+            tiamat_memory_reconciliation_v1.json
