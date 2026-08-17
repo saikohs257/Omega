@@ -1,0 +1,36 @@
+name: Hydra Crash72 Orphan Velocity AUC Court (MANUAL)
+on:
+  workflow_dispatch:
+jobs:
+  court:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy scikit-learn
+      - name: Verify court
+        run: |
+          set -euo pipefail
+          test -f experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
+          grep -q 'orphan_velocity_auc_court_v1' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
+          grep -q '606' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
+          grep -q '350' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
+          grep -q '12' experiments/hydra_crash72_orphan_velocity_auc_court_v1.py
+      - name: Download canonical artifact
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error "https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip" --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
+      - name: Run velocity AUC court
+        run: python experiments/hydra_crash72_orphan_velocity_auc_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out velocity_auc.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hydra-crash72-orphan-velocity-auc
+          path: velocity_auc.json
