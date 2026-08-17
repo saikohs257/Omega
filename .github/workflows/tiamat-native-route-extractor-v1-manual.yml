@@ -34,7 +34,8 @@ jobs:
           python experiments/tiamat_native_route_extractor_v1.py data/canonical/input.csv \
             --out TIAMAT_NATIVE_ROUTE_RUNTIME_ALL_HEADS.csv \
             --cp15-out TIAMAT_NATIVE_ROUTE_CP15_ALL_HEADS.csv \
-            --audit TIAMAT_NATIVE_ROUTE_AUDIT_REPORT.json
+            --audit-json TIAMAT_NATIVE_ROUTE_AUDIT_REPORT.json \
+            --audit-md TIAMAT_NATIVE_ROUTE_AUDIT_REPORT.md
       - name: Upload HF9 outputs
         uses: actions/upload-artifact@v4
         with:
@@ -43,3 +44,4 @@ jobs:
             TIAMAT_NATIVE_ROUTE_RUNTIME_ALL_HEADS.csv
             TIAMAT_NATIVE_ROUTE_CP15_ALL_HEADS.csv
             TIAMAT_NATIVE_ROUTE_AUDIT_REPORT.json
+            TIAMAT_NATIVE_ROUTE_AUDIT_REPORT.md
