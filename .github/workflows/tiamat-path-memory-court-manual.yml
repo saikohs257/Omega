@@ -2,6 +2,10 @@ name: TIAMAT Path Memory Court (MANUAL)
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/tiamat-path-memory-court-manual.yml'
+      - 'experiments/tiamat_path_memory_court_v1.py'
 
 jobs:
   path-memory:
