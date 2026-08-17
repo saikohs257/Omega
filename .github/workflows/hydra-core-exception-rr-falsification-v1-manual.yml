@@ -1,0 +1,35 @@
+name: Hydra Core-Exception RR Falsification V1 (MANUAL)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  court:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy scikit-learn
+      - name: Verify checkout SHA
+        run: git rev-parse HEAD
+      - name: Download canonical artifact
+        env:
+          CANONICAL_URL: https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error "$CANONICAL_URL" --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
+      - name: Run core-exception RR falsification
+        run: python experiments/hydra_core_exception_rr_falsification_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out core_exception_rr_falsification_v1.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-core-exception-rr-falsification-v1
+          path: core_exception_rr_falsification_v1.json
