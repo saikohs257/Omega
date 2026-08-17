@@ -22,7 +22,7 @@ def recur(ld, half):
     return m
 
 def pairs(q, cols):
-    med=q[cols].median().to_numpy(float); iqr=(q[cols].quantile(.75)-q[cols].quantile(.25)).to_numpy(float); iqr[iqr<=1e-12]=1
+    med=q[cols].median().to_numpy(float); iqr=np.asarray(q[cols].quantile(.75)-q[cols].quantile(.25),dtype=float).copy(); iqr[iqr<=1e-12]=1
     z=(q[cols].to_numpy(float)-med)/iqr; pos=np.flatnonzero(q.target.to_numpy()==1); neg=np.flatnonzero(q.target.to_numpy()==0); ts=q.open_time.to_numpy(dtype='datetime64[ns]')
     cand=[]
     for i in pos:
@@ -57,8 +57,6 @@ def run(csv:Path)->dict:
     for c in BASE: d[c]=pd.to_numeric(d[c],errors='coerce')
     d['target']=target(d); d['year']=d.open_time.dt.year
     ld=d.LiveDeficit.to_numpy(float)
-    te=d[d.year==HOLDOUT_YEAR].copy().reset_index(drop=True)
-    # causal recursive states are generated over all chronology before holdout filtering.
     full_states={f'memory_half_life_{h}h':recur(ld,h) for h in HALF_LIVES}
     d2=d.copy()
     for c,v in full_states.items(): d2[c]=v
