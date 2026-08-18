@@ -1,0 +1,45 @@
+name: TIAMAT Structural Load Hypothesis Court V1
+
+on:
+  workflow_dispatch:
+
+jobs:
+  structural-load:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --upgrade pip pandas numpy scipy scikit-learn
+      - run: python -m py_compile experiments/tiamat_structural_load_hypothesis_court_v1.py
+      - name: Download canonical Layer1 V2
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            'https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip' \
+            --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          cp "$CSV" data/canonical/input.csv
+      - name: Run structural-load hypothesis court
+        run: python experiments/tiamat_structural_load_hypothesis_court_v1.py data/canonical/input.csv --out tiamat_structural_load_hypothesis_court_v1.json
+      - name: Validate contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tiamat_structural_load_hypothesis_court_v1.json'))
+          assert p['experiment']=='TIAMAT_STRUCTURAL_LOAD_HYPOTHESIS_COURT_V1'
+          assert p['matched_2024']['ld_only']['pairs']>0
+          print('STRUCTURAL_LOAD_HYPOTHESIS_CONTRACT_PASS')
+          print('2024:', {k:v['2024'] for k,v in p['annual'].items()})
+          print('MATCHED:', p['matched_2024'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tiamat-structural-load-hypothesis-v1
+          path: tiamat_structural_load_hypothesis_court_v1.json
