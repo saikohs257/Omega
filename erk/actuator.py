@@ -92,11 +92,7 @@ class ActuatorFirewall:
         key = self.kernel.config.authority_keys.get(self.key_id)
         if key is None:
             raise ConstitutionalViolation("execution permit key unavailable")
-        expected = hmac.new(
-            key,
-            self._message(permit.permit_id, permit.effect_id, permit.state_hash, permit.policy_version, permit.authority, permit.key_id),
-            hashlib.sha256,
-        ).hexdigest()
+        expected = hmac.new(key, self._message(permit.permit_id, permit.effect_id, permit.state_hash, permit.policy_version, permit.authority, permit.key_id), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, permit.signature):
             raise ConstitutionalViolation("invalid execution permit signature")
 
