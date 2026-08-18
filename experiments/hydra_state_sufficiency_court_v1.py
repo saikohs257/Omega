@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -62,12 +61,10 @@ def clean_target(d: pd.DataFrame) -> pd.Series:
 def add_state_coordinates(raw: pd.DataFrame) -> pd.DataFrame:
     d = history(raw)
     d = d.sort_values("open_time").reset_index(drop=True)
-    # All are strictly pre-row quantities.
     d["state_hazard"] = pd.to_numeric(d["hazard_score"], errors="coerce").shift(1)
     d["state_burden"] = pd.to_numeric(d["LiveDeficit"], errors="coerce").shift(1)
     d["state_rr"] = (
-        pd.to_numeric(d["RecoveryWeakness_v1"], errors="coerce")
-        .shift(1)
+        pd.to_numeric(d["RecoveryWeakness_v1"], errors="coerce").shift(1)
         - pd.to_numeric(d["LiveDeficit"], errors="coerce").shift(1)
     )
     d["hazard_lag24"] = d["state_hazard"].shift(24)
@@ -88,7 +85,7 @@ def quantile_edges(train: pd.DataFrame, col: str, bins: int = 4) -> np.ndarray:
     return q if len(q) >= 3 else np.array([])
 
 
-def apply_cell_edges(d: pd.DataFrame, edges: dict[str, np.ndarray], bins: int = 4) -> pd.Series:
+def apply_cell_edges(d: pd.DataFrame, edges: dict[str, np.ndarray]) -> pd.Series:
     keys = []
     for col in STATE:
         e = edges[col]
@@ -115,11 +112,18 @@ def add_timer(d: pd.DataFrame, train: pd.DataFrame) -> pd.DataFrame:
             dwell[i] = dwell[i - 1] + 1.0
         elif v != "-1|-1|-1":
             dwell[i] = 1.0
-        else:
-            dwell[i] = 0.0
     d["state_cell"] = cell
     d["state_cell_dwell_h"] = dwell
     return d
+
+
+def add_timer_with_context(test: pd.DataFrame, train: pd.DataFrame) -> pd.DataFrame:
+    """Compute dwell with the final training row as left context, without using test labels."""
+    context_cols = ["open_time"] + STATE
+    seed = train.tail(1)[context_cols].copy()
+    combo = pd.concat([seed, test[context_cols].copy()], ignore_index=True)
+    combo = add_timer(combo, train)
+    return combo.iloc[1:].reset_index(drop=True)
 
 
 def fit_predict(train: pd.DataFrame, test: pd.DataFrame, cols: list[str]) -> np.ndarray:
@@ -161,12 +165,14 @@ def evaluate_years(d: pd.DataFrame) -> list[dict]:
     for year in years:
         if int(year) < 2021:
             continue
-        train = d[pd.to_datetime(d.open_time, utc=True).dt.year < year].copy()
-        test = d[pd.to_datetime(d.open_time, utc=True).dt.year == year].copy()
+        train = d[pd.to_datetime(d.open_time, utc=True).dt.year < year].copy().reset_index(drop=True)
+        test = d[pd.to_datetime(d.open_time, utc=True).dt.year == year].copy().reset_index(drop=True)
         if train.empty or test.empty or train[TARGET].nunique() < 2:
             continue
         train = add_timer(train, train)
-        test = add_timer(test, train)
+        timer_test = add_timer_with_context(test, train)
+        test["state_cell"] = timer_test["state_cell"].to_numpy()
+        test["state_cell_dwell_h"] = timer_test["state_cell_dwell_h"].to_numpy()
         yt = test[TARGET].to_numpy(int)
         for name, cols in MODELS.items():
             p = fit_predict(train, test, cols)
@@ -175,23 +181,20 @@ def evaluate_years(d: pd.DataFrame) -> list[dict]:
 
 
 def evaluate_holdout_offsets(d: pd.DataFrame) -> list[dict]:
-    train = d[pd.to_datetime(d.open_time, utc=True).dt.year < HOLDOUT].copy()
-    test_all = d[pd.to_datetime(d.open_time, utc=True).dt.year == HOLDOUT].copy()
+    train = d[pd.to_datetime(d.open_time, utc=True).dt.year < HOLDOUT].copy().reset_index(drop=True)
+    test_all = d[pd.to_datetime(d.open_time, utc=True).dt.year == HOLDOUT].copy().reset_index(drop=True)
     train = add_timer(train, train)
-    fitted: dict[str, np.ndarray] = {}
-    for name, cols in MODELS.items():
-        fitted[name] = fit_predict(train, test_all, cols)
-    test_all = test_all.reset_index(drop=True)
+    timer_test = add_timer_with_context(test_all, train)
+    test_all["state_cell"] = timer_test["state_cell"].to_numpy()
+    test_all["state_cell_dwell_h"] = timer_test["state_cell_dwell_h"].to_numpy()
+    fitted = {name: fit_predict(train, test_all, cols) for name, cols in MODELS.items()}
     out: list[dict] = []
-    # Repeated phase-offset sampling tests whether any gain is an artifact of row overlap.
+    p_map = {str(t): {name: float(p[i]) for name, p in fitted.items()} for i, t in enumerate(test_all.open_time.astype(str))}
     for off in range(PERIOD):
         x = nonoverlap(test_all, off)
-        idx = x.index.to_numpy()
         y = x[TARGET].to_numpy(int)
-        for name, p_all in fitted.items():
-            # nonoverlap() preserves original row order after reset; rebuild positions by open_time.
-            p_map = dict(zip(test_all.open_time.astype(str), p_all))
-            p = np.array([p_map[str(v)] for v in x.open_time], dtype=float)
+        for name in MODELS:
+            p = np.array([p_map[str(v)][name] for v in x.open_time], dtype=float)
             out.append({"offset": off, "model": name, **metric(y, p)})
     return out
 
@@ -228,9 +231,12 @@ def summarize_offsets(rows: list[dict]) -> list[dict]:
 
 def matched_history_test(d: pd.DataFrame) -> dict:
     """Case/control match on H/B/RR, then inspect whether timer/history differs."""
-    train = d[pd.to_datetime(d.open_time, utc=True).dt.year < HOLDOUT].copy()
+    train = d[pd.to_datetime(d.open_time, utc=True).dt.year < HOLDOUT].copy().reset_index(drop=True)
     test = d[pd.to_datetime(d.open_time, utc=True).dt.year == HOLDOUT].copy().reset_index(drop=True)
-    test = add_timer(test, train)
+    train = add_timer(train, train)
+    timer_test = add_timer_with_context(test, train)
+    test["state_cell"] = timer_test["state_cell"].to_numpy()
+    test["state_cell_dwell_h"] = timer_test["state_cell_dwell_h"].to_numpy()
     y = test[TARGET].to_numpy(int)
     event_idx = np.flatnonzero(y == 1)
     ctrl_idx = np.flatnonzero(y == 0)
