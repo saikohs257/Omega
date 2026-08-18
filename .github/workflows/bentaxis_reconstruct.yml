@@ -1,0 +1,40 @@
+name: BentAxis Binary Reconstruct
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bentaxis-transfer-v1
+          fetch-depth: 0
+
+      - name: Reconstruct and verify BentAxis archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          find transfer/bentaxis/chunks -maxdepth 1 -type f -name '*.b64' -print0 | sort -z | xargs -0 cat > work/archive.b64
+          base64 -d work/archive.b64 > work/BentTesseract_COMPLETE_CURRENT_WITH_BU4_20260614.tar.xz
+          expected='9a4608fc527e9f3d9b3447c2b79e736732e36ae9b60d68a97b42501e420dfd0e'
+          actual=$(sha256sum work/BentTesseract_COMPLETE_CURRENT_WITH_BU4_20260614.tar.xz | awk '{print $1}')
+          test "$actual" = "$expected"
+          test "$(stat -c%s work/BentTesseract_COMPLETE_CURRENT_WITH_BU4_20260614.tar.xz)" = "6076144"
+          git hash-object work/BentTesseract_COMPLETE_CURRENT_WITH_BU4_20260614.tar.xz | tee work/GIT_BLOB_SHA
+          sha256sum work/BentTesseract_COMPLETE_CURRENT_WITH_BU4_20260614.tar.xz > work/SHA256SUMS
+
+      - name: Package verified reconstruction
+        uses: actions/upload-artifact@v4
+        with:
+          name: bentaxis-verified-reconstruction
+          path: |
+            work/BentTesseract_COMPLETE_CURRENT_WITH_BU4_20260614.tar.xz
+            work/SHA256SUMS
+            work/GIT_BLOB_SHA
+          retention-days: 7
