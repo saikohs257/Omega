@@ -1,7 +1,9 @@
-name: Hydra Crash72 Guard Surface Court (MANUAL)
+name: Hydra Crash72 Guard Surface Court
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   court:
