@@ -177,6 +177,10 @@ jobs:
         run: |
           mkdir -p ci-results
           python experiments/hydra_relative_recovery_falsification_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_relative_recovery_falsification_court_v1.json
+      - name: Run Hydra latent-state sufficiency court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_state_sufficiency_court_v1.py data/canonical/layer1_structured_hazard_arm_timeseries.csv --out ci-results/hydra_state_sufficiency_court_v1.json
       - name: Upload Hydra court results
         if: always()
         uses: actions/upload-artifact@v4
