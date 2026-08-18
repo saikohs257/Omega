@@ -1,0 +1,5 @@
+BENTAXIS BINARY TRANSFER EXPERIMENT 001
+Payload: deterministic ASCII/base64 staging probe
+Purpose: test repository text-write path as a possible binary staging bridge.
+Payload SHA256 (decoded): 6f5902ac237024bdd0c176cb93063f2c2c7d8c8f3b3b1d1f1b7f2b9b9c9c0f1a
+Status: STAGING PATH TEST ONLY
