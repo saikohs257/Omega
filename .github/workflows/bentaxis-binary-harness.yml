@@ -1,0 +1,32 @@
+name: BentAxis Binary Harness
+on:
+  push:
+    branches: [bentaxis-actions-binary-harness]
+    paths: ['.github/workflows/bentaxis-binary-harness.yml']
+permissions:
+  contents: write
+jobs:
+  binary-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate binary fixture
+        run: |
+          mkdir -p transfer-test
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('transfer-test/fixture.bin')
+          data = bytes((i * 73 + 19) % 256 for i in range(262144))
+          p.write_bytes(data)
+          PY
+      - name: Verify fixture
+        run: |
+          sha256sum transfer-test/fixture.bin | tee transfer-test/SHA256SUMS
+          git hash-object transfer-test/fixture.bin | tee transfer-test/GIT_BLOB_SHA
+      - name: Commit binary fixture
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add transfer-test/fixture.bin transfer-test/SHA256SUMS transfer-test/GIT_BLOB_SHA
+          git commit -m 'test: prove Actions binary commit path'
+          git push
