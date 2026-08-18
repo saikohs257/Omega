@@ -18,6 +18,8 @@ jobs:
           unzip -o data/canonical/canonical.zip -d data/canonical
           CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
           test -n "$CSV"; cp "$CSV" data/canonical/input.csv; test -s data/canonical/input.csv
+      - name: Import smoke test
+        run: python -c "import tiamat.dynamics as d; print('tiamat.dynamics import OK:', d.live_deficit_update)"
       - name: Compile
         run: python -m py_compile tiamat/dynamics.py experiments/tiamat_livedeficit_recursive_identification_v1.py
       - name: Run recursive identification court
