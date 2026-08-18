@@ -1,0 +1,71 @@
+name: TIAMAT Hysteresis Coordinate Court V1
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'experiments/tiamat_hysteresis_coordinate_court_v1.py'
+      - '.github/workflows/tiamat-hysteresis-coordinate-court-v1.yml'
+  push:
+    paths:
+      - 'experiments/tiamat_hysteresis_coordinate_court_v1.py'
+      - '.github/workflows/tiamat-hysteresis-coordinate-court-v1.yml'
+
+jobs:
+  hysteresis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy scipy scikit-learn
+      - name: Verify revision
+        run: test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+      - name: Compile
+        run: python -m py_compile experiments/tiamat_hysteresis_coordinate_court_v1.py
+      - name: Download canonical Layer1 V2
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            'https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip' \
+            --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          cp "$CSV" data/canonical/input.csv
+      - name: Verify canonical spine
+        run: |
+          python - <<'PY'
+          import hashlib, pandas as pd
+          p='data/canonical/input.csv'; d=pd.read_csv(p)
+          assert len(d)==43848
+          assert ((d.entry_path=='3_to_4')&(d.episode_age_h==1)).sum()==169
+          assert hashlib.sha256(open(p,'rb').read()).hexdigest()=='6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a'
+          print('CANONICAL_OK')
+          PY
+      - name: Run hysteresis coordinate court
+        run: python experiments/tiamat_hysteresis_coordinate_court_v1.py data/canonical/input.csv --out tiamat_hysteresis_coordinate_court_v1.json
+      - name: Validate contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tiamat_hysteresis_coordinate_court_v1.json'))
+          assert p['controls']['holdout_geometry_frozen'] is True
+          assert p['controls']['target_peek'] is False
+          assert p['controls']['pair_separation_hours']==168
+          assert len(p['model_ladder']['holdout'])==9
+          print('HYSTERESIS_COURT_CONTRACT_PASS')
+          print(json.dumps(p['model_ladder']['holdout_delta'],indent=2))
+          print(json.dumps(p['matching'],indent=2))
+          PY
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiamat-hysteresis-coordinate-court-v1
+          path: tiamat_hysteresis_coordinate_court_v1.json
