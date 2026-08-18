@@ -1,0 +1,92 @@
+name: TIAMAT State Completion Court V3 Minimal Memory
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'experiments/tiamat_state_completion_court_v3_minimal_memory.py'
+      - '.github/workflows/tiamat-state-completion-court-v3-minimal-memory.yml'
+  push:
+    paths:
+      - 'experiments/tiamat_state_completion_court_v3_minimal_memory.py'
+      - '.github/workflows/tiamat-state-completion-court-v3-minimal-memory.yml'
+
+jobs:
+  state-completion:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy scipy scikit-learn
+
+      - name: Verify checked-out revision
+        run: |
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "HEAD=$(git rev-parse HEAD)"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+
+      - name: Compile
+        run: python -m py_compile experiments/tiamat_state_completion_court_v3_minimal_memory.py
+
+      - name: Download canonical Layer1 V2
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            'https://github.com/saikohs257/Omega/releases/download/LAYER1_CANONICAL_2020_2024_V1/LAYER1_CANONICAL_2020_2024_V2.zip' \
+            --output data/canonical/canonical.zip
+          unzip -o data/canonical/canonical.zip -d data/canonical
+          CSV=$(find data/canonical -name 'layer1_structured_hazard_arm_timeseries*.csv' | head -1)
+          test -n "$CSV"
+          cp "$CSV" data/canonical/input.csv
+
+      - name: Verify canonical spine
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import pandas as pd
+          p=Path('data/canonical/input.csv')
+          df=pd.read_csv(p)
+          assert len(df)==43848, len(df)
+          assert ((df['entry_path']=='3_to_4') & (df['episode_age_h']==1)).sum()==169
+          sha=hashlib.sha256(p.read_bytes()).hexdigest()
+          assert sha=='6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a', sha
+          print({'rows':len(df),'h3_starts':int(((df['entry_path']=='3_to_4')&(df['episode_age_h']==1)).sum()),'sha256':sha})
+          PY
+
+      - name: Run minimal-memory closure court
+        run: python experiments/tiamat_state_completion_court_v3_minimal_memory.py data/canonical/input.csv --out tiamat_state_completion_court_v3_minimal_memory.json
+
+      - name: Validate forensic contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tiamat_state_completion_court_v3_minimal_memory.json'))
+          assert p['experiment']=='TIAMAT_STATE_COMPLETION_COURT_V3_MINIMAL_MEMORY'
+          assert p['controls']['holdout_geometry_frozen'] is True
+          assert p['controls']['discovery_years']==[2020,2021,2022,2023]
+          assert p['controls']['purge_hours']==6
+          assert p['controls']['pair_separation_hours']==168
+          assert p['candidate_memory']=='ld_lag24'
+          assert len(p['model_ladder']['holdout_2024'])==5
+          print('STATE_COMPLETION_V3_FORENSIC_CONTRACT_PASS')
+          print(json.dumps(p['model_ladder']['holdout_2024'], indent=2))
+          print(json.dumps(p['model_ladder']['closure'], indent=2))
+          print(json.dumps(p['matching'], indent=2))
+          PY
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiamat-state-completion-court-v3-minimal-memory
+          path: tiamat_state_completion_court_v3_minimal_memory.json
