@@ -32,13 +32,14 @@ def run(df, initial, downside):
 def main(csv,out):
     df=pd.read_csv(csv)
     if 'LiveDeficit' not in df or 'SimpleShock' not in df: raise SystemExit('canonical columns LiveDeficit/SimpleShock required')
-    retcol=next((c for c in ['ret_1h','ret_1h_pct','return_1h'] if c in df),None)
-    if not retcol: raise SystemExit('no canonical 1h return column found')
-    df['ret_1h']=pd.to_numeric(df[retcol],errors='coerce').fillna(0.0)
+    closecol=next((c for c in ['close','Close','close_price'] if c in df),None)
+    if not closecol: raise SystemExit('canonical close column not found; cannot reconstruct ret_1h=log(close).diff()')
+    close=pd.to_numeric(df[closecol],errors='coerce')
+    df['ret_1h']=np.log(close).diff().fillna(0.0)*100.0
     df['LiveDeficit']=pd.to_numeric(df['LiveDeficit'],errors='coerce'); df['SimpleShock']=pd.to_numeric(df['SimpleShock'],errors='coerce')
-    df=df.dropna(subset=['LiveDeficit','SimpleShock']).reset_index(drop=True)
+    df=df.dropna(subset=['LiveDeficit','SimpleShock','ret_1h']).reset_index(drop=True)
     initial=float(df['LiveDeficit'].iloc[0]); downs=downside_candidates(df['ret_1h']); native=df['LiveDeficit'].to_numpy(float)
-    res={'rows':len(df),'initial_native_ld':initial,'models':{}}
+    res={'rows':len(df),'initial_native_ld':initial,'return_source':f'log({closecol}).diff()*100','models':{}}
     for name,d in downs.items():
         pred=run(df,initial,d); err=pred-native
         res['models'][name]={'corr':float(np.corrcoef(pred,native)[0,1]),'mae':float(np.mean(np.abs(err))),'rmse':float(np.sqrt(np.mean(err*err))),'max_abs_error':float(np.max(np.abs(err))),'threshold_agreement_070':float(np.mean((pred>.70)==(native>.70))),'threshold_agreement_085':float(np.mean((pred>.85)==(native>.85))),'lane_agreement':float(np.mean(np.select([native<=.70,native<=.85],[0,2],default=3)==np.select([pred<=.70,pred<=.85],[0,2],default=3))),'native_ld_auc':auc((native>.85).astype(int),pred)}
