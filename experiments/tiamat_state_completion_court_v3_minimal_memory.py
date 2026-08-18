@@ -104,13 +104,14 @@ def fit_predict(train: pd.DataFrame, test: pd.DataFrame, cols: list[str]) -> np.
 
 
 def model_ladder(d: pd.DataFrame) -> dict:
-    all_history = OBS + [RR] + HISTORY
+    state4 = OBS
+    state5 = OBS + [RR]
     configs = {
-        "state4": OBS,
+        "state4": state4,
         "state4_plus_lag24": OBS + ["ld_lag24"],
         "state4_plus_lag24_rr": OBS + ["ld_lag24", RR],
-        "state4_plus_all_history": all_history,
-        "state5_plus_all_history": OBS + [RR] + HISTORY,
+        "state4_plus_all_history": OBS + HISTORY,
+        "state5_plus_all_history": state5 + HISTORY,
     }
     years = [2021, 2022, 2023]
     out = {"holdout_2024": {}, "walk_forward": {name: [] for name in configs}}
@@ -168,7 +169,9 @@ def pair_state(d: pd.DataFrame, cols: list[str]) -> list[tuple[int, int, float]]
     for i, j, dist in cand:
         if i in used_i or j in used_j:
             continue
-        used_i.add(i); used_j.add(j); out.append((i, j, dist))
+        used_i.add(i)
+        used_j.add(j)
+        out.append((i, j, dist))
     return out
 
 
