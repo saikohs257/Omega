@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -38,7 +37,9 @@ def numeric(d: pd.DataFrame, c: str) -> pd.Series:
 
 
 def add_causal_features(d: pd.DataFrame) -> pd.DataFrame:
-    d = d.sort_values("open_time").reset_index(drop=True).copy()
+    d = d.copy()
+    d["open_time"] = pd.to_datetime(d["open_time"], utc=True, errors="raise")
+    d = d.sort_values("open_time").reset_index(drop=True)
     for c in OBS:
         d[c] = numeric(d, c)
 
