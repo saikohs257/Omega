@@ -1,0 +1,48 @@
+name: Probability Metric Orientation Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or ref to test; default is main'
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+          fetch-depth: 1
+      - name: Verify tested revision and audit source
+        run: |
+          set -euo pipefail
+          echo "requested_ref=${{ inputs.ref || 'main' }}"
+          echo "sha=${GITHUB_SHA}"
+          echo "checked_out=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -f tools/probability_metric_orientation_audit_v1.py
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('tools/probability_metric_orientation_audit_v1.py').read_text()
+          for marker in ('lower_is_better','synthetic_control','1-metric reflection'):
+              assert marker in text, f'missing audit contract: {marker}'
+          print('probability_metric_audit_contract=VERIFIED')
+          PY
+      - name: Run probability metric orientation audit
+        run: |
+          mkdir -p ci-results
+          python tools/probability_metric_orientation_audit_v1.py . --out ci-results/probability_metric_orientation_audit_v1.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: probability-metric-orientation-audit
+          path: ci-results/probability_metric_orientation_audit_v1.json
+          if-no-files-found: error
