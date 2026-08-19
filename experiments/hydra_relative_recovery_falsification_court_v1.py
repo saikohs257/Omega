@@ -3,12 +3,17 @@
 The target is binary by construction: Crash72 == 1 only for the 72h event
 window and 0 otherwise. We refuse multiclass coercion. Evaluation uses
 non-overlapping 72h anchors across every phase offset, with 2024 held out.
+
+The canonical spine intentionally does not materialize research-derived
+features. Reconstruct the frozen candidate with the same history transform
+used by the discovery court before enforcing the falsification contract.
 """
 from __future__ import annotations
 import argparse,json
 from pathlib import Path
 import numpy as np,pandas as pd
 from sklearn.metrics import roc_auc_score
+from hydra_relative_recovery_court_v1 import history
 
 TARGET='Crash72'; FEATURE='rr_recovery_minus_burden'; PERIOD=72
 
@@ -30,8 +35,12 @@ def nonoverlap(d,offset):
  x['_anchor']=anchor; return x.groupby('_anchor',as_index=False).first()
 
 def main(csv:Path,out:Path):
- raw=pd.read_csv(csv); d=raw.copy(); d.open_time=pd.to_datetime(d.open_time,utc=True)
- assert len(d)==43848
+ raw=pd.read_csv(csv)
+ # Derive the research feature from canonical source fields; do not mutate the
+ # canonical spine or promote the candidate merely by making it materialized.
+ d=history(raw)
+ d.open_time=pd.to_datetime(d.open_time,utc=True)
+ assert len(raw)==43848
  if TARGET not in d or FEATURE not in d: raise KeyError(f'missing {TARGET} or {FEATURE}')
  d[TARGET]=pd.to_numeric(d[TARGET],errors='coerce')
  bad=set(d[TARGET].dropna().astype(int).unique())-{0,1}
