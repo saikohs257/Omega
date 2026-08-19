@@ -1,0 +1,48 @@
+name: AUC Inversion Preliminary Screen
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or ref to scan; default is main'
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout and verify revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+          fetch-depth: 1
+      - name: Verify source
+        run: |
+          set -euo pipefail
+          echo "requested_ref=${{ inputs.ref || 'main' }}"
+          echo "sha=${GITHUB_SHA}"
+          echo "checked_out=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/auc_inversion_screen.py')
+          text = p.read_text()
+          for marker in ('reflected_auc', 'near_perfect_inversion', '0.04 <= auc <= 0.053'):
+              assert marker in text, f'missing scanner contract: {marker}'
+          print('scanner_contract=VERIFIED')
+          PY
+      - name: Run preliminary inversion screen
+        run: |
+          mkdir -p ci-results
+          python tools/auc_inversion_screen.py . --out ci-results/auc_inversion_screen.json
+      - name: Upload inversion screen
+        uses: actions/upload-artifact@v4
+        with:
+          name: auc-inversion-screen
+          path: ci-results/auc_inversion_screen.json
+          if-no-files-found: error
