@@ -1,0 +1,115 @@
+name: Hydra Relative-Recovery Falsification
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or ref to test; default is main'
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  falsification:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+          fetch-depth: 1
+      - name: Verify tested revision and court source
+        run: |
+          set -euo pipefail
+          echo "requested_ref=${{ inputs.ref || 'main' }}"
+          echo "ref=${GITHUB_REF}"
+          echo "sha=${GITHUB_SHA}"
+          echo "checked_out=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path("experiments/hydra_relative_recovery_falsification_court_v1.py")
+          text = p.read_text()
+          required = [
+              "from hydra_relative_recovery_court_v1 import history",
+              "d=history(raw)",
+              "rr_recovery_minus_burden",
+          ]
+          missing = [x for x in required if x not in text]
+          if missing:
+              raise SystemExit(f"STALE RR FALSIFICATION COURT: {missing}")
+          print(f"court_source_sha256={hashlib.sha256(p.read_bytes()).hexdigest()}")
+          print("court_source_contract=VERIFIED")
+          PY
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]'
+      - name: Fetch canonical Hydra dataset
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/canonical
+          ASSET_ID="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("data/canonical/manifest.json").read_text())
+          print(manifest["artifact"]["release_asset_id"])
+          PY
+          )"
+          EXPECTED_ZIP_SHA="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("data/canonical/manifest.json").read_text())
+          print(manifest["artifact"]["release_asset_sha256"])
+          PY
+          )"
+          OUT="data/canonical/LAYER1_CANONICAL_2020_2024_V2.zip"
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            -H "Accept: application/octet-stream" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}" \
+            --output "$OUT"
+          test "$(sha256sum "$OUT" | awk '{print $1}')" = "$EXPECTED_ZIP_SHA"
+          unzip -o "$OUT" -d data/canonical
+          CSV="data/canonical/layer1_structured_hazard_arm_timeseries(15).csv"
+          test -f "$CSV"
+          ln -sf "$(basename "$CSV")" data/canonical/layer1_structured_hazard_arm_timeseries.csv
+      - name: Verify canonical target contract
+        run: |
+          python - <<'PY'
+          import json, pathlib, pandas as pd
+          m = json.loads(pathlib.Path('data/canonical/manifest.json').read_text())
+          d = pd.read_csv('data/canonical/layer1_structured_hazard_arm_timeseries.csv')
+          assert len(d) == m['integrity']['rows']
+          assert len(d.columns) == m['integrity']['columns']
+          assert 'Crash72' in d.columns
+          print(f"rows={len(d)} columns={len(d.columns)} Crash72_present=true")
+          PY
+      - name: Run Hydra relative-recovery falsification court
+        run: |
+          mkdir -p ci-results
+          python experiments/hydra_relative_recovery_falsification_court_v1.py \
+            data/canonical/layer1_structured_hazard_arm_timeseries.csv \
+            --out ci-results/hydra_relative_recovery_falsification_court_v1.json
+      - name: Upload falsification result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-relative-recovery-falsification-${{ matrix.python-version }}
+          path: ci-results/
+          if-no-files-found: ignore
