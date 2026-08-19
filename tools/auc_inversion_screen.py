@@ -1,16 +1,15 @@
 """Preliminary historical AUC inversion screen.
 
-Scans tracked text artifacts for explicit AUC/ROC-AUC values, computes the
-mathematical reflected AUC (1-AUC), and ranks sub-0.5 observations by inversion
-plausibility. This is an archaeological screen, not a promotion test.
+Only values explicitly identified as AUC/ROC-AUC are eligible. Markdown table
+rows are parsed only when the table header establishes an AUC/ROC-AUC column.
+This is an archaeological screen, not a promotion test.
 """
 from __future__ import annotations
 import argparse, json, re
 from pathlib import Path
 
-AUC_RE = re.compile(r"(?i)(?:ROC[- ]?AUC|ROC_AUC|AUC)\s*[:=|]\s*([01]\.\d{3,6})")
-TABLE_RE = re.compile(r"\|\s*([^|\n]{1,120}?)\s*\|\s*([01]\.\d{3,6})\s*\|")
-
+AUC_RE = re.compile(r"(?i)(?:ROC[- ]?AUC|ROC_AUC|AUC)\s*[:=]\s*([01]\.\d{3,6})")
+HEADER_TOKEN_RE = re.compile(r"(?i)(?:ROC[- ]?AUC|ROC_AUC|\bAUC\b)")
 TEXT_EXT = {".md", ".txt", ".json", ".csv", ".py", ".yml", ".yaml", ".rst", ".toml"}
 SKIP = {".git", "node_modules", "__pycache__", ".venv", "venv"}
 
@@ -23,40 +22,68 @@ def files(root: Path):
             yield p
 
 
+def table_auc_index(header: str):
+    if "|" not in header:
+        return None
+    cells = [c.strip() for c in header.strip().strip("|").split("|")]
+    for idx, cell in enumerate(cells):
+        if HEADER_TOKEN_RE.search(cell):
+            return idx
+    return None
+
+
+def numeric(cell: str):
+    m = re.fullmatch(r"\s*([01]\.\d{3,6})\s*", cell)
+    return float(m.group(1)) if m else None
+
+
 def main(root: Path, out: Path):
     rows = []
     seen = set()
     for p in files(root):
         try:
-            text = p.read_text(errors="ignore")
+            lines = p.read_text(errors="ignore").splitlines()
         except OSError:
             continue
-        lines = text.splitlines()
+        auc_col = None
         for i, line in enumerate(lines, 1):
-            candidates = []
-            for m in AUC_RE.finditer(line):
-                candidates.append((m.group(1), line.strip()))
-            for m in TABLE_RE.finditer(line):
-                candidates.append((m.group(2), f"{m.group(1).strip()} | {line.strip()}"))
-            for raw, context in candidates:
+            explicit = [(m.group(1), line.strip()) for m in AUC_RE.finditer(line)]
+            for raw, context in explicit:
                 auc = float(raw)
-                if not 0.0 < auc < 1.0:
+                if 0.0 < auc < 1.0 and auc < 0.5:
+                    key = (str(p), i, raw, "explicit")
+                    if key not in seen:
+                        seen.add(key)
+                        rows.append({
+                            "file": str(p.relative_to(root)), "line": i,
+                            "auc": auc, "reflected_auc": round(1.0 - auc, 6),
+                            "inversion_gain": round((1.0 - auc) - 0.5, 6),
+                            "near_perfect_inversion": 0.04 <= auc <= 0.053 and (1.0 - auc) >= 0.947,
+                            "source_mode": "explicit_label", "context": context[:500],
+                        })
+            if "|" in line:
+                idx = table_auc_index(line)
+                if idx is not None:
+                    auc_col = idx
                     continue
-                key = (str(p), i, raw, context)
-                if key in seen:
+                if auc_col is not None:
+                    cells = [c.strip() for c in line.strip().strip("|").split("|")]
+                    if auc_col < len(cells):
+                        auc = numeric(cells[auc_col])
+                        if auc is not None and auc < 0.5:
+                            context = line.strip()
+                            key = (str(p), i, cells[auc_col], "table_auc")
+                            if key not in seen:
+                                seen.add(key)
+                                rows.append({
+                                    "file": str(p.relative_to(root)), "line": i,
+                                    "auc": auc, "reflected_auc": round(1.0 - auc, 6),
+                                    "inversion_gain": round((1.0 - auc) - 0.5, 6),
+                                    "near_perfect_inversion": 0.04 <= auc <= 0.053 and (1.0 - auc) >= 0.947,
+                                    "source_mode": "table_auc_column", "context": context[:500],
+                                })
+                elif re.fullmatch(r"\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)+\|?\s*", line):
                     continue
-                seen.add(key)
-                if auc < 0.5:
-                    rows.append({
-                        "file": str(p.relative_to(root)),
-                        "line": i,
-                        "auc": auc,
-                        "reflected_auc": round(1.0 - auc, 6),
-                        "inversion_gain": round((1.0 - auc) - 0.5, 6),
-                        "near_perfect_inversion": 0.04 <= auc <= 0.053 and (1.0 - auc) >= 0.947,
-                        "context": context[:500],
-                    })
-
     rows.sort(key=lambda r: (-r["reflected_auc"], r["file"], r["line"]))
     counts = {
         "sub_0_50": len(rows),
@@ -68,19 +95,13 @@ def main(root: Path, out: Path):
         "near_perfect_inversion": sum(r["near_perfect_inversion"] for r in rows),
     }
     payload = {
-        "experiment": "OMEGA_PRELIMINARY_AUC_INVERSION_SCREEN_V1",
+        "experiment": "OMEGA_PRELIMINARY_AUC_INVERSION_SCREEN_V2",
         "status": "archaeological_screen_only",
-        "definition": "For any observed AUC a, polarity reflection is 1-a; this does not establish that the underlying variable is truly inverted.",
-        "counts": counts,
-        "rows": rows,
+        "definition": "Only explicitly labeled AUC/ROC-AUC values are screened; generic numeric table cells are never treated as AUC.",
+        "counts": counts, "rows": rows,
     }
     out.write_text(json.dumps(payload, indent=2))
     print(json.dumps(payload, indent=2))
 
-
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("root", type=Path)
-    ap.add_argument("--out", type=Path, required=True)
-    args = ap.parse_args()
-    main(args.root, args.out)
+    ap = argparse.ArgumentParser(); ap.add_argument("root", type=Path); ap.add_argument("--out", type=Path, required=True); args = ap.parse_args(); main(args.root, args.out)
