@@ -1,0 +1,40 @@
+name: AUC Inversion Provenance Screen
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or ref to test; default is main'
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+          fetch-depth: 1
+      - name: Verify tested revision
+        run: |
+          set -euo pipefail
+          echo "requested_ref=${{ inputs.ref || 'main' }}"
+          echo "sha=${GITHUB_SHA}"
+          echo "checked_out=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+      - name: Run provenance-deduplicated inversion screen
+        run: |
+          mkdir -p ci-results
+          python tools/auc_inversion_provenance_screen_v1.py . --out ci-results/auc_inversion_provenance_screen_v1.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: auc-inversion-provenance-screen
+          path: ci-results/auc_inversion_provenance_screen_v1.json
+          if-no-files-found: error
