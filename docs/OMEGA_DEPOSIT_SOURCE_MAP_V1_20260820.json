@@ -1,0 +1,28 @@
+{
+  "schema": "OMEGA_DEPOSIT_SOURCE_MAP_V1",
+  "date": "2026-08-20",
+  "purpose": "Map the complete system to canonical, research, archive, and unresolved source locations without erasing lineage.",
+  "subsystems": {
+    "Omega": {"status": "present", "primary": ["README.md", "CONSTITUTION.md", "omega/", "runtime/"]},
+    "BentAxis": {"status": "present_partially_verified", "primary": ["bentaxis/", "docs/bentaxis/"]},
+    "TIAMAT": {"status": "present_research_heavy", "primary": ["docs/TIAMAT_*", "experiments/", "experiments/results/"]},
+    "Tesseract": {"status": "present_research_lineage", "primary": ["docs/", "experiments/", "schemas/"]},
+    "Senate": {"status": "reconciliation_required", "primary": ["docs/governance/SENATE_BLACKADDER_SEAM_HINGE_CONTRACT_V1_20260820.md"]},
+    "Blackadder": {"status": "reconciliation_required", "primary": ["docs/governance/SENATE_BLACKADDER_SEAM_HINGE_CONTRACT_V1_20260820.md"]},
+    "Seam": {"status": "reconciliation_required", "primary": ["docs/governance/SENATE_BLACKADDER_SEAM_HINGE_CONTRACT_V1_20260820.md"]},
+    "Hinge": {"status": "reconciliation_required", "primary": ["docs/governance/SENATE_BLACKADDER_SEAM_HINGE_CONTRACT_V1_20260820.md"]},
+    "COMPASS": {"status": "historical_research", "primary": ["docs/", "experiments/"]},
+    "Domino_UTV": {"status": "historical_research", "primary": ["docs/"]},
+    "PatternShift_PatternSift_Necronomicon": {"status": "historical_research_reconciliation_required", "primary": ["docs/"]}
+  },
+  "source_queue": [
+    "BENTAXIS_CIRCUIT_PROOF_CORE_V1_20260628.tar.zst",
+    "BENTAXIS_WHOLE_SYSTEM_HANDOFF_V1_20260614.tar.zst",
+    "TIAMAT_CIRCUIT_ZIP_A_SOURCE_VERDICT_V0_20260703.tar.gz",
+    "TIAMAT_SOURCE_PACKAGE_20260403_2211.zip",
+    "decision_friction_seat_v0_patched.py",
+    "senate_spine_v1.csv",
+    "IMPLEMENTATION_AUDIT_AND_PATCH_NOTE.md"
+  ],
+  "rule": "A status of reconciliation_required is not a claim of absence. It means exact source parity has not yet been proven in the current repository audit."
+}
