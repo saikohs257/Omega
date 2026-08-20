@@ -1,0 +1,11 @@
+seat_name,included_flag,classification,authority_status,provenance_note
+B1_entry,1,core_senate,active,Reconstructed from implementation audit note in conversation archaeology
+flip_risk_24h,1,core_senate,active,Reconstructed from implementation audit note in conversation archaeology
+flip_alarm_6h,1,core_senate,active,Reconstructed from implementation audit note in conversation archaeology
+in_episode_owner_v3,1,core_senate,active,Reconstructed from implementation audit note in conversation archaeology
+post_exit_owner_v3,1,core_senate,active,Reconstructed from implementation audit note in conversation archaeology
+family_gate,1,core_senate,active,Reconstructed from implementation audit note in conversation archaeology
+seam_confidence,0,annotation_sidecar,annotation_only,Reconstructed from implementation audit note in conversation archaeology
+seam_watch_pressure,0,annotation_sidecar,annotation_only,Reconstructed from implementation audit note in conversation archaeology
+seam_watch_pressure_bear_probe,0,annotation_sidecar,annotation_only,Reconstructed from implementation audit note in conversation archaeology
+novelty_guard,0,quality_guard,reserve,Reconstructed from implementation audit note in conversation archaeology
