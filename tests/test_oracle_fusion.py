@@ -1,3 +1,4 @@
+from oracle import Oracle
 from oracle.fusion import EvidenceClaim, fuse_claims
 
 
@@ -18,8 +19,9 @@ def test_fusion_preserves_disagreement_and_missing_channels() -> None:
     assert result.confidence > 0.0
 
 
-def test_fusion_does_not_authorize_a_transition() -> None:
-    result = fuse_claims(
+def test_oracle_exposes_fusion_without_authority() -> None:
+    oracle = Oracle()
+    result = oracle.fuse(
         [EvidenceClaim("chug", "ENTER", True, 1.0)]
     )
 
