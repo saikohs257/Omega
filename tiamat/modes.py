@@ -3,10 +3,16 @@ from enum import Enum
 
 
 class TiamatMode(str, Enum):
-    QUIESCENT = "Q"
-    PRECURSOR = "P"
-    EXCITATION = "E"
-    COUPLED_TRANSFER = "C"
-    HAZARD = "H"
-    RELAXATION = "R"
-    REFRACTORY = "Rf"
+    """Canonical TIAMAT mode names.
+
+    Values are the stable serialized names.  Historical compact wire tokens
+    remain accepted by TiamatState._coerce_mode() for backward compatibility.
+    """
+
+    QUIESCENT = "QUIESCENT"
+    PRECURSOR = "PRECURSOR"
+    EXCITATION = "EXCITATION"
+    COUPLED_TRANSFER = "COUPLED_TRANSFER"
+    HAZARD = "HAZARD"
+    RELAXATION = "RELAXATION"
+    REFRACTORY = "REFRACTORY"
