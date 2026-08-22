@@ -11,6 +11,29 @@ def test_canonical_modes_include_refractory():
     }
 
 
+def test_canonical_mode_values_are_full_names():
+    assert {mode.value for mode in TiamatMode} == {
+        "QUIESCENT", "PRECURSOR", "EXCITATION", "COUPLED_TRANSFER",
+        "HAZARD", "RELAXATION", "REFRACTORY",
+    }
+
+
+def test_legacy_compact_mode_values_still_round_trip_to_canonical_names():
+    legacy = {
+        "Q": "QUIESCENT",
+        "P": "PRECURSOR",
+        "E": "EXCITATION",
+        "C": "COUPLED_TRANSFER",
+        "H": "HAZARD",
+        "R": "RELAXATION",
+        "Rf": "REFRACTORY",
+    }
+    for compact, canonical in legacy.items():
+        state = TiamatState.from_mapping({"mode": compact})
+        assert state.mode.value == canonical
+        assert state.to_dict()["mode"] == canonical
+
+
 def test_m3_state_round_trip():
     state = TiamatState(B=.4, V=.1, D=.3, tau_D=5, tau_mode=2, mode=TiamatMode.EXCITATION)
     assert TiamatState.from_mapping(state.to_dict()) == state
