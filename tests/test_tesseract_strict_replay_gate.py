@@ -2,8 +2,10 @@ from bentaxis.identity import Identity
 from bentaxis.store import BentAxisStore
 from runtime.constitutional_record import ConstitutionalRecord
 from runtime.replay import ReplayEngine
+from runtime.replay_registry import ReplayRegistry
 from runtime.state_vector import StateVector
 from tesseract.circuit_capsule import CircuitTraceCapsule
+from tesseract.circuit_replay import register_circuit_trace
 from tesseract.strict_circuit import StrictCircuitRow, build_strict_row, assert_reference_authority
 
 
@@ -117,3 +119,34 @@ def test_capsule_rejects_runtime_authority() -> None:
         assert "runtime authority" in str(exc)
     else:
         raise AssertionError("runtime authority must remain forbidden")
+
+
+def test_circuit_trace_uses_specific_replay_operator() -> None:
+    capsule = CircuitTraceCapsule.from_row(_row())
+    record = capsule.to_constitutional_record()
+    registry = ReplayRegistry()
+    register_circuit_trace(registry)
+    replay = ReplayEngine(registry=registry).replay((record,), StateVector())
+    assert replay.state_vector.get("tesseract_circuit_identity") == capsule.identity.digest
+    assert replay.state_vector.get("tesseract_circuit_row") == capsule.row.canonical_payload
+
+
+def test_circuit_trace_replay_rejects_authority_escalation() -> None:
+    capsule = CircuitTraceCapsule.from_row(_row())
+    payload = dict(capsule.to_constitutional_record().payload)
+    row = dict(payload["row"])
+    row["runtime_allowed"] = True
+    payload["row"] = row
+    record = ConstitutionalRecord(
+        record_type="TESSERACT_CIRCUIT_TRACE",
+        payload=payload,
+        identity_refs=(capsule.identity.digest,),
+    )
+    registry = ReplayRegistry()
+    register_circuit_trace(registry)
+    try:
+        ReplayEngine(registry=registry).replay((record,), StateVector())
+    except ValueError as exc:
+        assert "runtime-authorized" in str(exc)
+    else:
+        raise AssertionError("replay must reject authority escalation")
