@@ -7,8 +7,8 @@ from typing import Mapping, Any
 from .modes import TiamatMode
 
 
-# Historical compact wire tokens are accepted on input, but canonical output
-# is always the full TIAMAT mode name exposed by TiamatMode.value.
+# Historical compact wire tokens are accepted on input. Serialization remains
+# on the established compact wire contract via TiamatMode.value.
 _LEGACY_MODE_VALUES = {
     "Q": TiamatMode.QUIESCENT,
     "P": TiamatMode.PRECURSOR,
@@ -21,7 +21,7 @@ _LEGACY_MODE_VALUES = {
 
 
 def _coerce_mode(value: Any) -> TiamatMode:
-    """Accept canonical enum values, names, and legacy compact wire tokens."""
+    """Accept enum values, semantic names, and legacy compact wire tokens."""
     if isinstance(value, TiamatMode):
         return value
     text = str(value)
