@@ -53,7 +53,8 @@ The files above are known from historical handoffs/file-library archaeology. The
 
 ## Tier 5 — data / proof artifacts
 
-- [ ] canonical Layer1 spine and generator provenance
+- [x] canonical Layer1 2020–2024 spine — exact output recovered and SHA-256 verified
+- [ ] native Layer1 generator provenance — unresolved; do not claim generator recovery
 - [ ] 2025+ forward/proxy panel source and builder provenance
 - [ ] arm timeseries provenance
 - [ ] replay/court result artifacts referenced by canonical handoffs
@@ -64,3 +65,5 @@ The files above are known from historical handoffs/file-library archaeology. The
 No item is considered permanently missing until the File Library / historical package search has been exhausted.
 
 No historical artifact is overwritten to make it match a newer interpretation.
+
+The Layer1 distinction is explicit: **historical output recovered; native generator unresolved.**
