@@ -17,6 +17,15 @@ def test_canonical_mode_values_are_stable_wire_tokens():
     }
 
 
+def test_semantic_names_are_distinct_from_wire_tokens():
+    assert {mode.semantic_name for mode in TiamatMode} == {
+        "QUIESCENT", "PRECURSOR", "EXCITATION", "COUPLED_TRANSFER",
+        "HAZARD", "RELAXATION", "REFRACTORY",
+    }
+    assert TiamatMode.PRECURSOR.semantic_name == "PRECURSOR"
+    assert TiamatMode.PRECURSOR.value == "P"
+
+
 def test_long_form_mode_names_and_compact_tokens_both_coerce_to_same_state():
     aliases = {
         "Q": "QUIESCENT",
@@ -32,6 +41,7 @@ def test_long_form_mode_names_and_compact_tokens_both_coerce_to_same_state():
         named_state = TiamatState.from_mapping({"mode": canonical_name})
         assert compact_state.mode is named_state.mode
         assert compact_state.mode.name == canonical_name
+        assert compact_state.mode.semantic_name == canonical_name
         assert compact_state.to_dict()["mode"] == compact
         assert named_state.to_dict()["mode"] == compact
 
@@ -68,7 +78,8 @@ def test_hazard_and_refractory_paths_are_explicit():
     state = TiamatState(B=.4, V=.1, D=.9, mode=TiamatMode.RELAXATION)
     state = transition(state, {"damage_threshold": .8})
     assert state.mode is TiamatMode.HAZARD
-    state = transition(TiamatState(B=.1, V=0.0, D=.2, mode=TiamatMode.RELAXATION), {"enter_refractory": True})
+    state = TiamatState(B=.1, V=0.0, D=.2, mode=TiamatMode.RELAXATION)
+    state = transition(state, {"enter_refractory": True})
     assert state.mode is TiamatMode.REFRACTORY
 
 
