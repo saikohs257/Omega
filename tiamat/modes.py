@@ -3,13 +3,7 @@ from enum import Enum
 
 
 class TiamatMode(str, Enum):
-    """Canonical TIAMAT mode names with stable compact wire values.
-
-    The enum member names are the semantic identifiers. The values are the
-    established serialized/wire tokens used by existing telemetry, tests,
-    and transition ledgers. Historical long-form names are accepted by
-    TiamatState._coerce_mode().
-    """
+    """TIAMAT semantic mode names with stable compact wire values."""
 
     QUIESCENT = "Q"
     PRECURSOR = "P"
@@ -18,3 +12,8 @@ class TiamatMode(str, Enum):
     HAZARD = "H"
     RELAXATION = "R"
     REFRACTORY = "Rf"
+
+    @property
+    def semantic_name(self) -> str:
+        """Human-readable semantic identifier; does not alter wire encoding."""
+        return self.name
