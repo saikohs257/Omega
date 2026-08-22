@@ -7,6 +7,20 @@ from typing import Mapping, Any
 from .modes import TiamatMode
 
 
+def _coerce_mode(value: Any) -> TiamatMode:
+    """Accept canonical enum values and human-readable enum member names."""
+    if isinstance(value, TiamatMode):
+        return value
+    text = str(value)
+    try:
+        return TiamatMode(text)
+    except ValueError:
+        try:
+            return TiamatMode[text]
+        except KeyError:
+            raise ValueError(f"{text!r} is not a valid TiamatMode") from None
+
+
 @dataclass(frozen=True, slots=True)
 class TiamatState:
     """M3 primary candidate state with optional temporal memory.
@@ -35,7 +49,7 @@ class TiamatState:
         if not math.isfinite(float(self.V)):
             raise ValueError("V must be finite")
         if not isinstance(self.mode, TiamatMode):
-            object.__setattr__(self, "mode", TiamatMode(str(self.mode)))
+            object.__setattr__(self, "mode", _coerce_mode(self.mode))
         if not isinstance(self.model_id, str) or not self.model_id:
             raise ValueError("model_id must be non-empty")
 
@@ -78,6 +92,6 @@ class TiamatState:
             D=float(value.get("D", 0.0)),
             tau_D=float(value.get("tau_D", 0.0)),
             tau_mode=float(value.get("tau_mode", 0.0)),
-            mode=TiamatMode(value.get("mode", TiamatMode.QUIESCENT)),
+            mode=_coerce_mode(value.get("mode", TiamatMode.QUIESCENT)),
             model_id=str(value.get("model_id", "M3")),
         )
