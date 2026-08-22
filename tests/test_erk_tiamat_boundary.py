@@ -30,4 +30,6 @@ def test_tiamat_transition_remains_explicit_state_operation() -> None:
     next_state = TiamatEngine().step(state, {"V": 1.0})
     assert next_state.mode is TiamatMode.PRECURSOR
     assert next_state.mode.name == "PRECURSOR"
+    assert next_state.mode.semantic_name == "PRECURSOR"
+    # PRECURSOR's compact value is the stable wire representation.
     assert next_state.mode.value == "P"
