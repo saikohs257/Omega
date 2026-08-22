@@ -3,16 +3,18 @@ from enum import Enum
 
 
 class TiamatMode(str, Enum):
-    """Canonical TIAMAT mode names.
+    """Canonical TIAMAT mode names with stable compact wire values.
 
-    Values are the stable serialized names.  Historical compact wire tokens
-    remain accepted by TiamatState._coerce_mode() for backward compatibility.
+    The enum member names are the semantic identifiers. The values are the
+    established serialized/wire tokens used by existing telemetry, tests,
+    and transition ledgers. Historical long-form names are accepted by
+    TiamatState._coerce_mode().
     """
 
-    QUIESCENT = "QUIESCENT"
-    PRECURSOR = "PRECURSOR"
-    EXCITATION = "EXCITATION"
-    COUPLED_TRANSFER = "COUPLED_TRANSFER"
-    HAZARD = "HAZARD"
-    RELAXATION = "RELAXATION"
-    REFRACTORY = "REFRACTORY"
+    QUIESCENT = "Q"
+    PRECURSOR = "P"
+    EXCITATION = "E"
+    COUPLED_TRANSFER = "C"
+    HAZARD = "H"
+    RELAXATION = "R"
+    REFRACTORY = "Rf"
