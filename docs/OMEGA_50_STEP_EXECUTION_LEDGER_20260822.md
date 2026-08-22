@@ -58,6 +58,14 @@ Convert the current repository from a collection of working subsystems plus arch
 49. Define the smallest high-value integration test.
 50. Run/record the next integration change only after provenance and authority boundaries are explicit.
 
+## Post-50 closure sequence
+
+51. Add an evidence-only TopologyWitness → Q4 circuit boundary.
+52. Add falsification tests for explicit-edge coverage and multi-axis rejection.
+53. Record the topology/circuit boundary as a non-authorizing specification.
+54. Keep the canonical manifest's TIAMAT ownership and TESSERACT non-authority invariant unchanged.
+55. Manually dispatch CI against the resulting head and inspect the integrated verdict before further promotion.
+
 ## Hard boundary
 
 No item in this ledger promotes historical semantics. Promotion requires source provenance, deterministic implementation, replay/conformance evidence, and appropriate holdout/test isolation.
