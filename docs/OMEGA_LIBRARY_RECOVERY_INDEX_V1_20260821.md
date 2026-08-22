@@ -1,13 +1,24 @@
 # OMEGA — FILE LIBRARY RECOVERY INDEX V1
 
-Date: 2026-08-21
+Date: 2026-08-22
 Status: ACTIVE ARCHAEOLOGY
 
 ## Purpose
 
-This document records source material positively located in the File Library during the repository-completion sweep. It does not claim that the corresponding bytes are already in GitHub.
+This document records source material positively located in the File Library during the repository-completion sweep. It distinguishes exact source bytes from historical references, reconstructions, and unresolved native generators.
 
-## Confirmed recovery anchors
+## Layer1 correction
+
+The exact historical Layer1 2020–2024 **output is recovered and byte-verified**. The exact native generator remains unresolved. Do not describe the timeseries itself as missing.
+
+Verified output identity:
+
+```text
+rows: 43848
+columns: 15
+range: 2020-01-01 00:00 → 2024-12-31 23:00
+sha256: 6f0dc516fdf3313ab27a38d942504d073faccba4067877531b44c219c5e4b31a
+```
 
 ### Oracle / historical stack
 - `ORACLE_SUPER_HANDOFF_260331_v02.md`
@@ -18,13 +29,11 @@ This document records source material positively located in the File Library dur
 - `ORACLE_FINISH_CLOSEOUT_V19_BUNDLE_2026_04_16.zip`
 - `ORACLE_ANALYSIS_FINAL_2026_04_12.zip`
 - `STEP570_573_KEY_FILES_ONLY_REDO.zip`
-- `oracle_branch_a_label_lineage_bridge_audit_v0_2026_05_12.zip`
-- `oracle_branch_a_old_lineage_compat_matrix_v0_2026_05_12.zip`
 
 ### TIAMAT / Layer1
 - `HF9_TIAMAT_FULL_DETAIL_HANDOFF_20260611.md`
-- `layer1_structured_hazard_arm_timeseries.csv`
-- `layer1_structured_hazard_arm_schema.md`
+- `layer1_structured_hazard_arm_timeseries.csv` — **RECOVERED_EXACT**
+- `layer1_structured_hazard_arm_schema.md` — **RECOVERED_EXACT**
 - `hf9_tiamat_v1_handoff_20260611.tar.gz`
 - `hf9_active_burden_v4_three_tests_20260611.tar.gz`
 - `hf9_active_burden_v2_endpoint_10step_20260611.tar.gz`
@@ -37,9 +46,11 @@ This document records source material positively located in the File Library dur
 - `hf9_prior_exit_scar_refined_v0_5_20260610.tar.gz`
 - `hf9_minimal_oracle_v11_actual_hardened_v2_20260610.tar.gz`
 
+**Generator status:** `MISSING_SOURCE`. Reproduction/proxy builders remain `RECONSTRUCTION_ONLY`.
+
 ### Senate / Blackadder
 - `decision_friction_seat_v0.py`
-- `decision_friction_seat_v0_patched.py` (known from prior reconstruction/deposit work)
+- `decision_friction_seat_v0_patched.py`
 - `senate_spine_v1.csv`
 - `senate_log_v2.py`
 - `senate_bundles_pack_2026_03_26.zip`
@@ -57,9 +68,9 @@ This document records source material positively located in the File Library dur
 
 ### BentAxis / Tesseract
 - `BENTAXIS_TIAMAT_TESSERACT_AMBITIOUS_PLAN_20260614.md`
-- `BENTAXIS_CIRCUIT_PROOF_CORE_V1_20260628.tar.zst` (known target; exact library hit still requires direct artifact-location confirmation)
-- `BENTAXIS_WHOLE_SYSTEM_HANDOFF_V1_20260614.tar.zst` (known target; exact library hit still requires direct artifact-location confirmation)
-- `TIAMAT_CIRCUIT_ZIP_A_SOURCE_VERDICT_V0_20260703.tar.gz` (known target; exact library hit still requires direct artifact-location confirmation)
+- `BENTAXIS_CIRCUIT_PROOF_CORE_V1_20260628.tar.zst`
+- `BENTAXIS_WHOLE_SYSTEM_HANDOFF_V1_20260614.tar.zst`
+- `TIAMAT_CIRCUIT_ZIP_A_SOURCE_VERDICT_V0_20260703.tar.gz`
 - `GRAVITY_NET_AMPLITUDE_VECTOR_HANDOFF_20260624.tar.zst`
 - `TESSERACT_ROUTE_AMPLITUDE_9STEP_20260624.zip`
 - `AMP10_UNIVERSAL_AMPLITUDE_FIELD_BATTERY_20260624.zip`
@@ -67,7 +78,7 @@ This document records source material positively located in the File Library dur
 ### COMPASS / diagnostic architecture
 - `COMPASS_ASSESSMENT_20260615.md`
 - `COMPASS_ASSESSMENT_20260615-1.md`
-- PatternShift / PatternSift / Necronomicon architecture is referenced in the COMPASS assessment and should be reconciled against GitHub.
+- PatternShift / PatternSift / Necronomicon architecture is referenced in the COMPASS assessment.
 
 ### Domino / UTV
 - `DOMINO_ORACLE_INTEGRATION.md`
@@ -79,26 +90,17 @@ This document records source material positively located in the File Library dur
 - `domino_research_bundle_v10.zip`
 - `domino_research_bundle_v24.zip`
 
-## Important evidence boundary
+## Evidence boundary
 
-The File Library contains many **references to source packages**, but a handoff listing a filename is not equivalent to having the exact bytes. The deposit process must distinguish:
+The File Library contains both exact source packages and references. A filename mention is not equivalent to exact bytes.
 
-1. exact source bytes recovered;
-2. exact archive referenced but bytes not yet located;
-3. reconstructed implementation;
-4. research-only artifact;
-5. superseded implementation;
-6. archive-only lineage.
+The authoritative Layer1 distinction is:
 
-## Critical source gap
-
-The historical audit explicitly says the exact native Layer1 generator was not recovered. The available reproduction harness and proxy builders must therefore remain marked as reconstruction/proxy rather than silently promoted to native source.
-
-The archive audit also states that the exact Layer1 timeseries is the key ground-truth anchor for validating episode state, age, hazard bucket, and hazard score. 
+`EXACT OUTPUT RECOVERED → NATIVE GENERATOR UNRESOLVED → PROXY BUILDERS RECONSTRUCTION-ONLY`
 
 ## Next deposit order
 
-1. Exact Layer1 timeseries + schema.
+1. Layer1 exact output + schema — **RECOVERED**.
 2. Senate/Blackadder exact files and bundles.
 3. Oracle deployment/reference runtime bundles.
 4. TIAMAT HF9 packages.
@@ -107,8 +109,4 @@ The archive audit also states that the exact Layer1 timeseries is the key ground
 7. COMPASS/PatternShift/PatternSift/Necronomicon.
 8. Domino/UTV.
 9. Remaining historical handoffs and duplicate archives.
-10. Run repository-wide completeness audit and classify every queue item.
-
-## Rule
-
-Do not reconstruct an artifact when an exact source artifact is recoverable. Preserve exact source first; reconstruction remains explicitly labeled until byte-level provenance is established.
+10. Repository-wide completeness audit.
