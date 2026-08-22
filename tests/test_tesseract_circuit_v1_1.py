@@ -22,7 +22,7 @@ def test_release_permission_state_machine_values_are_frozen() -> None:
     assert release_permission_for("future_unknown_state") == 0.0
 
 
-def test_train_residual_never_uses_apply_rows_for_expectation() -> None:
+def test_train_residual_uses_train_only_group_median_and_global_fallback() -> None:
     train = [
         {"group": "a", "x": 10},
         {"group": "a", "x": 14},
@@ -33,8 +33,24 @@ def test_train_residual_never_uses_apply_rows_for_expectation() -> None:
         {"group": "new", "x": 30},
     ]
     train_res, apply_res = train_residual(train, apply, value_key="x", group_keys=("group",))
+    # V1.1 source: known groups use train-only group medians; unseen groups
+    # use the train-global median. The apply rows never determine expectation.
     assert train_res == [-2.0, 2.0, 0.0]
-    assert apply_res == [88.0, 18.0]
+    assert apply_res == [88.0, 16.0]
+
+
+def test_train_residual_ignores_apply_distribution_for_global_fallback() -> None:
+    train = [
+        {"group": "a", "x": 10},
+        {"group": "a", "x": 14},
+        {"group": "b", "x": 20},
+    ]
+    apply_a = [{"group": "new", "x": 30}]
+    apply_b = [{"group": "new", "x": 3000}]
+    _, residual_a = train_residual(train, apply_a, value_key="x", group_keys=("group",))
+    _, residual_b = train_residual(train, apply_b, value_key="x", group_keys=("group",))
+    assert residual_a == [16.0]
+    assert residual_b == [2986.0]
 
 
 def test_leakage_guard_rejects_future_labels() -> None:
