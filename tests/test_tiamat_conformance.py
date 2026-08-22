@@ -11,15 +11,14 @@ def test_canonical_modes_include_refractory():
     }
 
 
-def test_canonical_mode_values_are_full_names():
+def test_canonical_mode_values_are_stable_wire_tokens():
     assert {mode.value for mode in TiamatMode} == {
-        "QUIESCENT", "PRECURSOR", "EXCITATION", "COUPLED_TRANSFER",
-        "HAZARD", "RELAXATION", "REFRACTORY",
+        "Q", "P", "E", "C", "H", "R", "Rf",
     }
 
 
-def test_legacy_compact_mode_values_still_round_trip_to_canonical_names():
-    legacy = {
+def test_long_form_mode_names_and_compact_tokens_both_coerce_to_same_state():
+    aliases = {
         "Q": "QUIESCENT",
         "P": "PRECURSOR",
         "E": "EXCITATION",
@@ -28,10 +27,13 @@ def test_legacy_compact_mode_values_still_round_trip_to_canonical_names():
         "R": "RELAXATION",
         "Rf": "REFRACTORY",
     }
-    for compact, canonical in legacy.items():
-        state = TiamatState.from_mapping({"mode": compact})
-        assert state.mode.value == canonical
-        assert state.to_dict()["mode"] == canonical
+    for compact, canonical_name in aliases.items():
+        compact_state = TiamatState.from_mapping({"mode": compact})
+        named_state = TiamatState.from_mapping({"mode": canonical_name})
+        assert compact_state.mode is named_state.mode
+        assert compact_state.mode.name == canonical_name
+        assert compact_state.to_dict()["mode"] == compact
+        assert named_state.to_dict()["mode"] == compact
 
 
 def test_m3_state_round_trip():
